@@ -27,13 +27,36 @@ else:
 # Set page title and icon
 st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
 
-# Function to validate query parameters
+import re
+import streamlit as st
+
+# Assume you set an environment variable in st.secrets, e.g. "ENV": "test" or "production"
+ENV = st.secrets.get("ENV", "production")  # default to production if not set
+
+# Default values taken from the provided URL
+default_values = {
+    "student_number": "zohrehvanda",
+    "name": "Miros",
+    "company": "LIACS",
+    "recipient_email": "a.h.zohrehvand@liacs.leidenuniv.nl"
+}
+
 def validate_query_params(params, required_keys):
-    # TODO: if doesn't exist, add on a default item. 
-    # in config, let's session type. if production, then these keys are not needed. 
-    # #If in test, let's check if the email address makes sense. 
-    #  TODO: option, disable email sending. 
-    missing_keys = [key for key in required_keys if key not in params or not params[key]]
+    missing_keys = []
+    # If in test mode, fill in missing keys with default values; in production, mark them as missing.
+    for key in required_keys:
+        if key not in params or not params[key]:
+            if ENV == "test":
+                params[key] = default_values.get(key)
+            else:
+                missing_keys.append(key)
+    
+    # In test mode, additionally validate the email format
+    if ENV == "test":
+        email = params.get("recipient_email", "")
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            missing_keys.append("recipient_email (invalid format)")
+    
     if missing_keys:
         return False, missing_keys
     return True, []
@@ -47,10 +70,15 @@ required_params = ["student_number", "name", "company", "recipient_email"]
 # Validate parameters
 is_valid, missing_params = validate_query_params(query_params, required_params)
 
-# Display error and stop if parameters are missing
+# In production, display an error if required parameters are missing
 if not is_valid:
-    st.error(f"Missing required parameter(s): {', '.join(missing_params)}")
+    st.error(f"Missing or invalid required parameter(s): {', '.join(missing_params)}")
     st.stop()
+
+# Optionally, you might disable email sending if a certain setting is toggled in your config
+if st.secrets.get("DISABLE_EMAIL", False):
+    st.write("Email sending is disabled.")
+
 
 # Extract respondent's name
 respondent_name = html.unescape(query_params["name"])
