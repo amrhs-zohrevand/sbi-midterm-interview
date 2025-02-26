@@ -54,7 +54,7 @@ When the respondent confirms that this area is thoroughly discussed, proceed to 
 Summary and Evaluation
 To conclude, provide a detailed summary of the answers the respondent has given during the interview. Then, ask:
 "To conclude, how well does the summary of our discussion describe your thoughts on your professional growth: 1 (it poorly describes my reasons), 2 (it partially describes my reasons), 3 (it describes my reasons well), 4 (it describes my reasons very well). Please only reply with the associated number."
-After receiving their final evaluation, please end the interview.
+After receiving their final evaluation, END the interview based on what has been instructed in <codes> section.
 """
 
 
@@ -74,14 +74,14 @@ Further details are discussed, for example, in "Qualitative Literacy: A Guide to
 
 
 # Codes
-CODES = """Codes:
+CODES = """<Codes>
 
 
 Lastly, there are specific codes that must be used exclusively in designated situations. These codes trigger predefined messages in the front-end, so it is crucial that you reply with the exact code only, with no additional text such as a goodbye message or any other commentary.
 
 Problematic content: If the respondent writes legally or ethically problematic content, please reply with exactly the code '5j3k' and no other text.
 
-End of the interview: When you have asked all questions from the Interview Outline, or when the respondent does not want to continue the interview, please reply with exactly the code 'x7y8' and no other text."""
+End of the interview: When you have gone through the Interview Outline and the interviewee has submitted thier final evluation, or when the respondent does not want to continue the interview, please reply with exactly the code 'x7y8' and no other text. </Codes>"""
 
 
 # Pre-written closing messages for codes
