@@ -32,6 +32,7 @@ import streamlit as st
 
 # Assume you set an environment variable in st.secrets, e.g. "ENV": "test" or "production"
 ENV = st.secrets.get("ENV", "production")  # default to production if not set
+safe_mode = st.secrets.get("SAFE_MODE", "production")
 
 # Default values taken from the provided URL
 default_values = {
