@@ -103,7 +103,7 @@ SYSTEM_PROMPT = f"""{INTERVIEW_OUTLINE}
 
 
 # API parameters
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o-mini" # gpt-4.5-preview
 TEMPERATURE = None  # (None for default value)
 MAX_OUTPUT_TOKENS = 1024
 
