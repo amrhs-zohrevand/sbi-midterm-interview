@@ -12,21 +12,21 @@ import html  # For sanitizing query parameters
 import uuid
 
 # Load API library
-provider = config.API_PROVIDER.lower()
+provider = st.secrets.get("API_PROVIDER", "openai").lower()  # defaults to "openai" if not provided
+model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
-if provider == "openai":
+if provider == "openai" or "gpt" in model.lower():
     api = "openai"
     from openai import OpenAI
-elif provider == "anthropic":
+elif provider == "anthropic" or "claude" in model.lower():
     api = "anthropic"
     import anthropic
 elif provider == "deepinfra":
     api = "deepinfra"
-    # Import the deepinfra library (adjust the import if needed)
-    import deepinfra
+    import deepinfra  # Adjust the import as needed for your deepinfra client
 else:
     raise ValueError(
-        "API provider not recognized. Please choose from 'openai', 'anthropic', or 'deepinfra'."
+        "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
     )
 
 # Set page title and icon
@@ -230,16 +230,16 @@ if api == "openai":
     api_kwargs = {"stream": True}
 elif api == "anthropic":
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    api_kwargs = {"system": config.SYSTEM_PROMPT}
+    api_kwargs = {"system": st.secrets.get("SYSTEM_PROMPT", "Your default system prompt")}
 elif api == "deepinfra":
     client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
-    # Configure API kwargs for deepinfra (adjust as needed)
+    # Adjust these kwargs based on deepinfra's API requirements:
     api_kwargs = {"stream": True}
     
 
 # API kwargs
 api_kwargs["messages"] = st.session_state.messages
-api_kwargs["model"] = config.MODEL
+api_kwargs["model"] = model
 api_kwargs["max_tokens"] = config.MAX_OUTPUT_TOKENS
 if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE

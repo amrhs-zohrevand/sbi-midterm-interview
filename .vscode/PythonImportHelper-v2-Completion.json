@@ -202,7 +202,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "CLOSING_MESSAGES[\"5j3k\"] = \"Thank you for participating, the interview concludes here.\"\nCLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nAPI_PROVIDER = \"openai\"",
+        "peekOfCode": "CLOSING_MESSAGES[\"5j3k\"] = \"Thank you for participating, the interview concludes here.\"\nCLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\n# API_PROVIDER = \"openai\"",
         "detail": "code.config",
         "documentation": {}
     },
@@ -211,7 +211,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "CLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nAPI_PROVIDER = \"openai\"\nMODEL = \"gpt-4o\" # gpt-4.5-preview # -mini",
+        "peekOfCode": "CLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\n# API_PROVIDER = \"openai\"\n# MODEL = \"gpt-4o\" # gpt-4.5-preview # -mini",
         "detail": "code.config",
         "documentation": {}
     },
@@ -220,25 +220,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "SYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nAPI_PROVIDER = \"openai\"\nMODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False",
-        "detail": "code.config",
-        "documentation": {}
-    },
-    {
-        "label": "API_PROVIDER",
-        "kind": 5,
-        "importPath": "code.config",
-        "description": "code.config",
-        "peekOfCode": "API_PROVIDER = \"openai\"\nMODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"",
-        "detail": "code.config",
-        "documentation": {}
-    },
-    {
-        "label": "MODEL",
-        "kind": 5,
-        "importPath": "code.config",
-        "description": "code.config",
-        "peekOfCode": "MODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface",
+        "peekOfCode": "SYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\n# API_PROVIDER = \"openai\"\n# MODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False",
         "detail": "code.config",
         "documentation": {}
     },
@@ -328,7 +310,16 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = config.API_PROVIDER.lower()\nif provider == \"openai\":\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\":\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    # Import the deepinfra library (adjust the import if needed)",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()  # defaults to \"openai\" if not provided\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "model",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    import deepinfra  # Adjust the import as needed for your deepinfra client",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -427,7 +418,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = config.MODEL\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\nif not st.session_state.messages:\n    if api == \"openai\":\n        st.session_state.messages.append(",
+        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\nif not st.session_state.messages:\n    if api == \"openai\":\n        st.session_state.messages.append(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -436,7 +427,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"model\"] = config.MODEL\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\nif not st.session_state.messages:\n    if api == \"openai\":\n        st.session_state.messages.append(\n            {\"role\": \"system\", \"content\": config.INTERVIEW_OUTLINE}",
+        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\nif not st.session_state.messages:\n    if api == \"openai\":\n        st.session_state.messages.append(\n            {\"role\": \"system\", \"content\": config.INTERVIEW_OUTLINE}",
         "detail": "code.interview",
         "documentation": {}
     },
