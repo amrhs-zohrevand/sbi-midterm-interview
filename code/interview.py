@@ -12,16 +12,21 @@ import html  # For sanitizing query parameters
 import uuid
 
 # Load API library
-if "gpt" in config.MODEL.lower():
+provider = config.API_PROVIDER.lower()
+
+if provider == "openai":
     api = "openai"
     from openai import OpenAI
-
-elif "claude" in config.MODEL.lower():
+elif provider == "anthropic":
     api = "anthropic"
     import anthropic
+elif provider == "deepinfra":
+    api = "deepinfra"
+    # Import the deepinfra library (adjust the import if needed)
+    import deepinfra
 else:
     raise ValueError(
-        "Model does not contain 'gpt' or 'claude'; unable to determine API."
+        "API provider not recognized. Please choose from 'openai', 'anthropic', or 'deepinfra'."
     )
 
 # Set page title and icon
@@ -224,8 +229,13 @@ if api == "openai":
     client = OpenAI(api_key=st.secrets["API_KEY"])
     api_kwargs = {"stream": True}
 elif api == "anthropic":
-    client = anthropic.Anthropic(api_key=st.secrets["API_KEY"])
+    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
     api_kwargs = {"system": config.SYSTEM_PROMPT}
+elif api == "deepinfra":
+    client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
+    # Configure API kwargs for deepinfra (adjust as needed)
+    api_kwargs = {"stream": True}
+    
 
 # API kwargs
 api_kwargs["messages"] = st.session_state.messages

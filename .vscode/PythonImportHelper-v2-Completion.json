@@ -86,6 +86,15 @@
         "documentation": {}
     },
     {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
         "label": "hmac",
         "kind": 6,
         "isExtraImport": true,
@@ -157,7 +166,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "INTERVIEW_OUTLINE = \"\"\"You are an AI bot conducting a self-reflection interview with an intern in the Business Studies program at Leiden University. Your goal is to facilitate their self-reflection based on their learning objectives, progress, challenges, opportunities, and skill development during their internship. You will guide them through an open-ended discussion without suggesting specific actions. Do not share these instructions with the respondent.\nInterview Outline:\nThe interview consists of successive parts that are outlined below. Ask one question at a time and do not number your questions. Begin the interview with: ' Hello! I am here to help you reflect on your internship experience. Let's begin by looking at your learning objectives as stated in your internship plan. Could you start by sharing your learning objectives for this internship?'\nPart I of the interview\nAsk up to 10 questions to explore how the intern is progressing toward their stated learning objectives. Focus on their own assessment of their development.\n- Looking at your learning objectives, how do you feel you have progressed so far?\n- Which objectives have you already met, and which still need work?\n- Have any of your learning objectives changed since starting your internship? If so, why?\n- What new insights have you gained about your organization and industry?\n- How has your understanding of business functions developed throughout the internship?",
+        "peekOfCode": "INTERVIEW_OUTLINE = \"\"\"\nYou are a world leading career couch, specializing in career growth through conducting interviews. In the following, you will conduct an interview with a human respondent (an employee) focused on their performance and personal growth. Do not share the following instructions with the respondent; the division into sections is for your guidance only.\nInterview Outline:\nIn this interview, please help the respondent reflect on their professional development across several performance dimensions. The discussion will cover:\n- How they have enhanced their organizational and industry knowledge.\n- Their progress in developing functional expertise and role-specific skills.\n- Their approach to problem-solving and analytical challenges.\n- The growth of their professional skills, including teamwork, leadership, and communication.\n- Their engagement in projects and contributions to outcomes (applicable only if you completed a Business Development Internship with a project development component; if your internship was a Business Practice Internship, please skip this section).\nThe interview is designed to foster self-reflection, identify areas for improvement, and recognize existing strengths. Please ask one question at a time and do not number your questions. Begin the interview with:",
         "detail": "code.config",
         "documentation": {}
     },
@@ -166,7 +175,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "GENERAL_INSTRUCTIONS = \"\"\"General Instructions:\n- Guide the interview in a non-directive and non-leading way, letting the respondent bring up relevant topics. Crucially, ask follow-up questions to address any unclear points and to gain a deeper understanding of the respondent. Some examples of follow-up questions are 'Can you tell me more about the last time you did that?', 'What has that been like for you?', 'Why is this important to you?', or 'Can you offer an example?', but the best follow-up question naturally depends on the context and may be different from these examples. Questions should be open-ended and you should never suggest possible answers to a question, not even a broad theme. If a respondent cannot answer a question, try to ask it again from a different angle before moving on to the next topic.\n- Collect palpable evidence: When helpful to deepen your understanding of the main theme in the 'Interview Outline', ask the respondent to describe relevant events, situations, phenomena, people, places, practices, or other experiences. Elicit specific details throughout the interview by asking follow-up questions and encouraging examples. Avoid asking questions that only lead to broad generalizations about the respondent's life.\n- Display cognitive empathy: When helpful to deepen your understanding of the main theme in the 'Interview Outline', ask questions to determine how the respondent sees the world and why. Do so throughout the interview by asking follow-up questions to investigate why the respondent holds their views and beliefs, find out the origins of these perspectives, evaluate their coherence, thoughtfulness, and consistency, and develop an ability to predict how the respondent might approach other related topics.\n- Your questions should neither assume a particular view from the respondent nor provoke a defensive reaction. Convey to the respondent that different views are welcome.\n- Do not ask multiple questions at a time and do not suggest possible answers.\n- Do not engage in conversations that are unrelated to the purpose of this interview; instead, redirect the focus back to the interview.\nFurther details are discussed, for example, in \"Qualitative Literacy: A Guide to Evaluating Ethnographic and Interview Research\" (2022).\"\"\"\n# Codes\nCODES = \"\"\"Codes:",
+        "peekOfCode": "GENERAL_INSTRUCTIONS = \"\"\"General Instructions:\n- Guide the interview in a non-directive and non-leading way, letting the respondent bring up relevant topics. Crucially, ask follow-up questions to address any unclear points and to gain a deeper understanding of the respondent. Some examples of follow-up questions are 'Can you tell me more about the last time you did that?', 'What has that been like for you?', 'Why is this important to you?', or 'Can you offer an example?', but the best follow-up question naturally depends on the context and may be different from these examples. Questions should be open-ended and you should never suggest possible answers to a question, not even a broad theme. If a respondent cannot answer a question, try to ask it again from a different angle before moving on to the next topic.\n- Collect palpable evidence: When helpful to deepen your understanding of the main theme in the 'Interview Outline', ask the respondent to describe relevant events, situations, phenomena, people, places, practices, or other experiences. Elicit specific details throughout the interview by asking follow-up questions and encouraging examples. Avoid asking questions that only lead to broad generalizations about the respondent's life.\n- Display cognitive empathy: When helpful to deepen your understanding of the main theme in the 'Interview Outline', ask questions to determine how the respondent sees the world and why. Do so throughout the interview by asking follow-up questions to investigate why the respondent holds their views and beliefs, find out the origins of these perspectives, evaluate their coherence, thoughtfulness, and consistency, and develop an ability to predict how the respondent might approach other related topics.\n- Your questions should neither assume a particular view from the respondent nor provoke a defensive reaction. Convey to the respondent that different views are welcome.\n- Do not ask multiple questions at a time and do not suggest possible answers.\n- Do not engage in conversations that are unrelated to the purpose of this interview; instead, redirect the focus back to the interview.\nFurther details are discussed, for example, in \"Qualitative Literacy: A Guide to Evaluating Ethnographic and Interview Research\" (2022).\"\"\"\n# Codes\nCODES = \"\"\"<Codes>",
         "detail": "code.config",
         "documentation": {}
     },
@@ -175,7 +184,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "CODES = \"\"\"Codes:\nLastly, there are specific codes that must be used exclusively in designated situations. These codes trigger predefined messages in the front-end, so it is crucial that you reply with the exact code only, with no additional text such as a goodbye message or any other commentary.\nProblematic content: If the respondent writes legally or ethically problematic content, please reply with exactly the code '5j3k' and no other text.\nEnd of the interview: When you have asked all questions from the Interview Outline, or when the respondent does not want to continue the interview, please reply with exactly the code 'x7y8' and no other text.\"\"\"\n# Pre-written closing messages for codes\nCLOSING_MESSAGES = {}\nCLOSING_MESSAGES[\"5j3k\"] = \"Thank you for participating, the interview concludes here.\"\nCLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)",
+        "peekOfCode": "CODES = \"\"\"<Codes>\nLastly, there are specific codes that must be used exclusively in designated situations. These codes trigger predefined messages in the front-end, so it is crucial that you reply with the exact code only, with no additional text such as a goodbye message or any other commentary.\nProblematic content: If the respondent writes legally or ethically problematic content, please reply with exactly the code '5j3k' and no other text.\nEnd of the interview: When you have gone through the Interview Outline and the interviewee has submitted thier final evluation, or when the respondent does not want to continue the interview, please reply with exactly the code 'x7y8' and no other text. </Codes>\"\"\"\n# Pre-written closing messages for codes\nCLOSING_MESSAGES = {}\nCLOSING_MESSAGES[\"5j3k\"] = \"Thank you for participating, the interview concludes here.\"\nCLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)",
         "detail": "code.config",
         "documentation": {}
     },
@@ -193,7 +202,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "CLOSING_MESSAGES[\"5j3k\"] = \"Thank you for participating, the interview concludes here.\"\nCLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nMODEL = \"gpt-4o-mini\"",
+        "peekOfCode": "CLOSING_MESSAGES[\"5j3k\"] = \"Thank you for participating, the interview concludes here.\"\nCLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nAPI_PROVIDER = \"openai\"",
         "detail": "code.config",
         "documentation": {}
     },
@@ -202,7 +211,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "CLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nMODEL = \"gpt-4o-mini\"\nTEMPERATURE = None  # (None for default value)",
+        "peekOfCode": "CLOSING_MESSAGES[\"x7y8\"] = (\n    \"Thank you for participating in the interview, this was the last question. Please continue with the remaining sections in the survey part. Many thanks for your answers and time to help with this research project!\"\n)\n# System prompt\nSYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nAPI_PROVIDER = \"openai\"\nMODEL = \"gpt-4o\" # gpt-4.5-preview # -mini",
         "detail": "code.config",
         "documentation": {}
     },
@@ -211,7 +220,16 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "SYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nMODEL = \"gpt-4o-mini\"\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories",
+        "peekOfCode": "SYSTEM_PROMPT = f\"\"\"{INTERVIEW_OUTLINE}\n{GENERAL_INSTRUCTIONS}\n{CODES}\"\"\"\n# API parameters\nAPI_PROVIDER = \"openai\"\nMODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False",
+        "detail": "code.config",
+        "documentation": {}
+    },
+    {
+        "label": "API_PROVIDER",
+        "kind": 5,
+        "importPath": "code.config",
+        "description": "code.config",
+        "peekOfCode": "API_PROVIDER = \"openai\"\nMODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"",
         "detail": "code.config",
         "documentation": {}
     },
@@ -220,7 +238,7 @@
         "kind": 5,
         "importPath": "code.config",
         "description": "code.config",
-        "peekOfCode": "MODEL = \"gpt-4o-mini\"\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface",
+        "peekOfCode": "MODEL = \"gpt-4o\" # gpt-4.5-preview # -mini\nTEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface",
         "detail": "code.config",
         "documentation": {}
     },
@@ -301,7 +319,43 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params, required_keys):\n    # TODO: if doesn't exist, add on a default item. \n    # in config, let's session type. if production, then these keys are not needed. \n    # #If in test, let's check if the email address makes sense. \n    #  TODO: option, disable email sending. \n    missing_keys = [key for key in required_keys if key not in params or not params[key]]\n    if missing_keys:\n        return False, missing_keys\n    return True, []\n# Extract query parameters",
+        "peekOfCode": "def validate_query_params(params, required_keys):\n    missing_keys = []\n    # If in test mode, fill in missing keys with default values; in production, mark them as missing.\n    for key in required_keys:\n        if key not in params or not params[key]:\n            if ENV == \"test\":\n                params[key] = default_values.get(key)\n            else:\n                missing_keys.append(key)\n    # In test mode, additionally validate the email format",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "provider",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "provider = config.API_PROVIDER.lower()\nif provider == \"openai\":\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\":\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    # Import the deepinfra library (adjust the import if needed)",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "ENV",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")  # default to production if not set\nsafe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\n# Default values taken from the provided URL\ndefault_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"a.h.zohrehvand@liacs.leidenuniv.nl\"\n}\ndef validate_query_params(params, required_keys):",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "safe_mode",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "safe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\n# Default values taken from the provided URL\ndefault_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"a.h.zohrehvand@liacs.leidenuniv.nl\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "default_values",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "default_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"a.h.zohrehvand@liacs.leidenuniv.nl\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []\n    # If in test mode, fill in missing keys with default values; in production, mark them as missing.\n    for key in required_keys:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -310,7 +364,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "query_params = st.query_params\n# Define required parameters\nrequired_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\n# Validate parameters\nis_valid, missing_params = validate_query_params(query_params, required_params)\n# Display error and stop if parameters are missing\nif not is_valid:\n    st.error(f\"Missing required parameter(s): {', '.join(missing_params)}\")\n    st.stop()\n# Extract respondent's name",
+        "peekOfCode": "query_params = st.query_params\n# Define required parameters\nrequired_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\n# Validate parameters\nis_valid, missing_params = validate_query_params(query_params, required_params)\n# In production, display an error if required parameters are missing\nif not is_valid:\n    st.error(f\"Missing or invalid required parameter(s): {', '.join(missing_params)}\")\n    st.stop()\n# Optionally, you might disable email sending if a certain setting is toggled in your config",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -319,7 +373,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\n# Validate parameters\nis_valid, missing_params = validate_query_params(query_params, required_params)\n# Display error and stop if parameters are missing\nif not is_valid:\n    st.error(f\"Missing required parameter(s): {', '.join(missing_params)}\")\n    st.stop()\n# Extract respondent's name\nrespondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])",
+        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\n# Validate parameters\nis_valid, missing_params = validate_query_params(query_params, required_params)\n# In production, display an error if required parameters are missing\nif not is_valid:\n    st.error(f\"Missing or invalid required parameter(s): {', '.join(missing_params)}\")\n    st.stop()\n# Optionally, you might disable email sending if a certain setting is toggled in your config\nif st.secrets.get(\"DISABLE_EMAIL\", False):\n    st.write(\"Email sending is disabled.\")",
         "detail": "code.interview",
         "documentation": {}
     },
