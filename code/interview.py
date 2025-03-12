@@ -40,7 +40,7 @@ safe_mode = st.secrets.get("SAFE_MODE", "production")
 query_params = st.query_params
 
 # Load the appropriate configuration module dynamically:
-if ENV == "test" or "interview_config" not in query_params:
+if "interview_config" not in query_params:
     # In test mode or if no interview_config is provided, use the default config.py
     import config
 else:
