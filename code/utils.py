@@ -66,7 +66,7 @@ def check_if_interview_completed(directory, username):
         return False
 
 
-def save_interview_data(username, folder_id, student_number, company_name, transcripts_directory=None, times_directory=None):
+def save_interview_data(folder_id, student_number, company_name, transcripts_directory=None, times_directory=None):
     # Use default directories from config if not provided
     if transcripts_directory is None or times_directory is None:
         import config
