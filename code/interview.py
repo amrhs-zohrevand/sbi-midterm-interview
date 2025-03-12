@@ -45,7 +45,7 @@ if "interview_config" not in query_params:
     import config
 else:
     # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)
-    config_name = query_params["interview_config"]
+    config_name = st.query_params.get("interview_config", ["Default"])[0]
     # Build the path to the config file inside the "Interview_Configs" folder
     config_path = os.path.join(os.path.dirname(__file__), "interview_configs", f"{config_name}.py")
     if not os.path.exists(config_path):
@@ -122,7 +122,7 @@ st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 if config_name == None:
     st.sidebar.write("Interview Type: Default")
 else:
-    st.sidebar.write(f"Interview Type: {config_name[0:]}")
+    st.sidebar.write(f"Interview Type: {config_name}")
 
 # Initialise session state
 if "interview_active" not in st.session_state:
