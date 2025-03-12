@@ -10,6 +10,9 @@ import os
 import config
 import html  # For sanitizing query parameters
 import uuid
+import re
+
+folder_id = "123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7"  # Set the folder ID for the Google Drive folder where the interview data will be saved
 
 # Load API library
 provider = st.secrets.get("API_PROVIDER", "openai").lower()  # defaults to "openai" if not provided
@@ -32,9 +35,6 @@ else:
 # Set page title and icon
 st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
 
-import re
-import streamlit as st
-
 # Assume you set an environment variable in st.secrets, e.g. "ENV": "test" or "production"
 ENV = st.secrets.get("ENV", "production")  # default to production if not set
 safe_mode = st.secrets.get("SAFE_MODE", "production")
@@ -44,7 +44,7 @@ default_values = {
     "student_number": "zohrehvanda",
     "name": "Miros",
     "company": "LIACS",
-    "recipient_email": "a.h.zohrehvand@liacs.leidenuniv.nl"
+    "recipient_email": "j.s.deweert@gmail.com"
 }
 
 def validate_query_params(params, required_keys):
@@ -103,25 +103,6 @@ for param in required_params:
 
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 
-# Check if usernames and logins are enabled
-if config.LOGINS:
-    # Check password (displays login screen)
-    pwd_correct, username = check_password()
-    if not pwd_correct:
-        st.stop()
-    else:
-        st.session_state.username = username
-else:
-    st.session_state.username = "testaccount"
-
-# Create directories if they do not already exist
-if not os.path.exists(config.TRANSCRIPTS_DIRECTORY):
-    os.makedirs(config.TRANSCRIPTS_DIRECTORY)
-if not os.path.exists(config.TIMES_DIRECTORY):
-    os.makedirs(config.TIMES_DIRECTORY)
-if not os.path.exists(config.BACKUPS_DIRECTORY):
-    os.makedirs(config.BACKUPS_DIRECTORY)
-
 # Initialise session state
 if "interview_active" not in st.session_state:
     st.session_state.interview_active = True
@@ -137,18 +118,6 @@ if "start_time" not in st.session_state:
         "%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time)
     )
 
-# Check if interview previously completed
-interview_previously_completed = check_if_interview_completed(
-    config.TIMES_DIRECTORY, st.session_state.username
-)
-
-# If app started but interview was previously completed
-if interview_previously_completed and not st.session_state.messages:
-
-    st.session_state.interview_active = False
-    completed_message = "Interview already completed."
-    st.markdown(completed_message)
-    
 # URL to Qualtrics evaluation
 evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
 
@@ -169,9 +138,7 @@ with col2:
         # Save and upload interview data
         transcript_link = save_interview_data(
             username=st.session_state.username,
-            transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
-            times_directory=config.TIMES_DIRECTORY,
-            folder_id="123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7",
+            folder_id= folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"])
         
@@ -187,9 +154,7 @@ if not st.session_state.interview_active:
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
         st.session_state.transcript_link = save_interview_data(
             username=st.session_state.username,
-            transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
-            times_directory=config.TIMES_DIRECTORY,
-            folder_id="123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7",
+            folder_id=folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"]
         )
@@ -279,9 +244,7 @@ if not st.session_state.messages:
     # Store first backup files to record who started the interview
     save_interview_data(
             username=st.session_state.username,
-            transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
-            times_directory=config.TIMES_DIRECTORY,
-            folder_id="123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7",
+            folder_id=folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"] )
 
@@ -355,26 +318,18 @@ if st.session_state.interview_active:
                     {"role": "assistant", "content": message_interviewer}
                 )
 
-                
-                
-                # Commented out as it does not overwrite old file and create duplicates
-                
-                # # Regularly store interview progress as backup, but prevent script from
-                # # stopping in case of a write error
                 try:
 
                     transcript_link = save_interview_data(
                     username=st.session_state.username,
-                    transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
-                    times_directory=config.TIMES_DIRECTORY,
-                    folder_id="123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7",
+                    folder_id=folder_id,
                     student_number=query_params["student_number"],
                     company_name=query_params["company"] )
 
                 except:
 
                     pass
-                # It saves the interview data every 5 seconds, that is redundant
+
 
             # If code in the message, display the associated closing message instead
             # Loop over all codes
@@ -396,24 +351,3 @@ if st.session_state.interview_active:
                     # Delay for 5 seconds before rerunning
                     time.sleep(5)
                     st.rerun()
-
-
-                    # # Store final transcript and time
-                    # final_transcript_stored = False
-                    # transcript_link = None  # Initialize the variable
-
-                    # transcript_link = save_interview_data(
-                    #         username=st.session_state.username,
-                    #         transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
-                    #         times_directory=config.TIMES_DIRECTORY,
-                    #         folder_id="123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7",  # Ensure correct folder ID
-                    #         student_number=query_params["student_number"],
-                    #         company_name=query_params["company"]
-                    #     )
-
-                    # final_transcript_stored = check_if_interview_completed(
-                    #         config.TRANSCRIPTS_DIRECTORY, st.session_state.username
-                    #     )
-                    # time.sleep(0.1)
-                    #
-                    
