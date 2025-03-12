@@ -4,7 +4,7 @@ from utils import (
     save_interview_data,
     send_transcript_email,
 )
-from database import save_interview_to_sheet
+from database import ( save_interview_to_sheet, update_progress_sheet)
 import os
 import html  # For sanitizing query parameters
 import uuid
@@ -227,7 +227,16 @@ if not st.session_state.interview_active:
         timestamp,
         transcript,
         f"{duration_minutes:.2f}"
-    )       
+    ) 
+    
+    pdate_progress_sheet(
+    student_id,
+    name,
+    interview_type,
+    timestamp  # current completion date
+)      
+    
+    
 
 
 # Upon rerun, display the previous conversation (except system prompt or first message)
