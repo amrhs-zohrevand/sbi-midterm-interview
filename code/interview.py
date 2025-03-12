@@ -44,7 +44,7 @@ if "interview_config" not in query_params:
     import config
 else:
     # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)
-    config_name = query_params["interview_config"][0]
+    config_name = query_params["interview_config"]
     # Build the path to the config file inside the "Interview_Configs" folder
     config_path = os.path.join("interview_configs", f"{config_name}.py")
     if not os.path.exists(config_path):
