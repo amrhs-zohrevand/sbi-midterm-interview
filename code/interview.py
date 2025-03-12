@@ -137,7 +137,6 @@ with col2:
 
         # Save and upload interview data
         transcript_link = save_interview_data(
-            username=st.session_state.username,
             folder_id= folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"])
@@ -153,7 +152,6 @@ if not st.session_state.interview_active:
     # Ensure transcript is saved before showing the link (When the interview ended natuarlly)
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
         st.session_state.transcript_link = save_interview_data(
-            username=st.session_state.username,
             folder_id=folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"]
@@ -243,7 +241,6 @@ if not st.session_state.messages:
 
     # Store first backup files to record who started the interview
     save_interview_data(
-            username=st.session_state.username,
             folder_id=folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"] )
@@ -321,7 +318,7 @@ if st.session_state.interview_active:
                 try:
 
                     transcript_link = save_interview_data(
-                    username=st.session_state.username,
+
                     folder_id=folder_id,
                     student_number=query_params["student_number"],
                     company_name=query_params["company"] )
