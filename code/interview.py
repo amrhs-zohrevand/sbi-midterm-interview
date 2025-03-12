@@ -229,7 +229,7 @@ if not st.session_state.interview_active:
         f"{duration_minutes:.2f}"
     ) 
     
-    pdate_progress_sheet(
+    update_progress_sheet(
     student_id,
     name,
     interview_type,
