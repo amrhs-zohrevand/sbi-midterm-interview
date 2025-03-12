@@ -159,3 +159,42 @@ def update_progress_sheet(student_id, name, interview_type, completion_date):
             body=body
         ).execute()
         st.write(f"Appended new progress row for student {student_id}.")
+        
+def get_transcript_by_student_and_type(student_id, target_interview_type):
+    """
+    Retrieves the transcript from the 'Interviews' sheet for a given student_id and interview type.
+    Returns the transcript string if found, otherwise returns an empty string.
+    Assumes the "Interviews" sheet has the following columns:
+      A: Interview ID, B: Student ID, C: Name, D: Company, E: Interview Type,
+      F: Timestamp, G: Transcript, H: Duration.
+    """
+    service_account_info = json.loads(st.secrets["SERVICE_ACCOUNT_JSON"])
+    if "\\n" in service_account_info["private_key"]:
+        service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+    
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
+    sheets_service = build("sheets", "v4", credentials=credentials)
+    
+    spreadsheet_id = st.secrets.get("SPREADSHEET_ID", "1C-ZiMt48h7Wv4y1gDkFbBM4rzwgBFOCDVqpa8vtqWfI")
+    # Read all rows from the "Interviews" sheet
+    range_name = "Interviews!A:H"
+    result = sheets_service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=range_name
+    ).execute()
+    values = result.get("values", [])
+    
+    transcript = ""
+    # Assume first row is a header; iterate over the remaining rows
+    for row in values[1:]:
+        # Check if the row has the expected number of columns (at least 7)
+        if len(row) >= 7:
+            # row[1] is Student ID, row[4] is Interview Type, row[6] is Transcript
+            if row[1] == student_id and row[4].lower() == target_interview_type.lower():
+                transcript = row[6]
+                break
+    return transcript

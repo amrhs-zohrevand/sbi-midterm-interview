@@ -269,12 +269,39 @@ if config.TEMPERATURE is not None:
 
 # In case the interview history is still empty, pass system prompt to model, and
 # generate and display its first message
+
+# Check if the current interview is an end reflection interview and if a midterm transcript exists
+if config_name.lower() == "end_reflection_interview":
+    from database import get_transcript_by_student_and_type
+    midterm_transcript = get_transcript_by_student_and_type(query_params["student_number"], "midterm_interview")
+    try:
+        if midterm_transcript:
+            # Insert a system message at the beginning with the midterm transcript as context.
+            context_message = (
+                "Midterm Interview Transcript (provided as context for the End Reflection Interview):\n\n"
+                f"{midterm_transcript}"
+            )
+    except:
+        midterm_transcript = None
+
+
+
 if not st.session_state.messages:
     
     if api == "openai":
+        
+    # Prepare the system prompt by including the midterm transcript if available.
+        if config_name.lower() == "end_reflection_interview" and midterm_transcript:
+            system_prompt = (
+                "Midterm Interview Transcript (provided as context for the End Reflection Interview):\n\n"
+                f"{midterm_transcript}\n\n"
+                f"{config.INTERVIEW_OUTLINE}"
+            )
+        else:
+            system_prompt = config.INTERVIEW_OUTLINE
 
         st.session_state.messages.append(
-            {"role": "system", "content": config.INTERVIEW_OUTLINE}
+            {"role": "system", "content": system_prompt}
         )
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             stream = client.chat.completions.create(**api_kwargs)
