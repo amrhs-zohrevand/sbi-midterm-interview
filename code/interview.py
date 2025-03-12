@@ -39,10 +39,10 @@ safe_mode = st.secrets.get("SAFE_MODE", "production")
 query_params = st.query_params
 
 # Load the appropriate configuration module dynamically:
-config_name = None
 if "interview_config" not in query_params:
     # In test mode or if no interview_config is provided, use the default config.py
     import config
+    config_name = "Default"
 else:
     # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)
     config_name = st.query_params.get("interview_config", ["Default"])[0]
@@ -118,11 +118,7 @@ for param in required_params:
     st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
 
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-
-if config_name == None:
-    st.sidebar.write("Interview Type: Default")
-else:
-    st.sidebar.write(f"Interview Type: {config_name}")
+st.sidebar.write(f"Interview Type: {config_name}")
 
 # Initialise session state
 if "interview_active" not in st.session_state:
