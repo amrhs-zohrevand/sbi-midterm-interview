@@ -66,8 +66,14 @@ def check_if_interview_completed(directory, username):
         return False
 
 
-def save_interview_data(folder_id, student_number, company_name):
-    """Save interview data locally and upload to Google Drive with correct file naming."""
+def save_interview_data(username, folder_id, student_number, company_name, transcripts_directory=None, times_directory=None):
+    # Use default directories from config if not provided
+    if transcripts_directory is None or times_directory is None:
+        import config
+        if transcripts_directory is None:
+            transcripts_directory = config.TRANSCRIPTS_DIRECTORY
+        if times_directory is None:
+            times_directory = config.TIMES_DIRECTORY
 
     # Get current date in YYMMDD format
     current_date = time.strftime("%y%m%d")
@@ -78,8 +84,8 @@ def save_interview_data(folder_id, student_number, company_name):
     # Construct the file names
     transcript_filename = f"{current_date}_{student_number}_{sanitized_company}_transcript.txt"
     time_filename = f"{current_date}_{student_number}_{sanitized_company}_time.txt"
-    
-    # Ensure directories exist
+
+    # Ensure directories exist (if you want temporary local storage for uploading)
     os.makedirs(transcripts_directory, exist_ok=True)
     os.makedirs(times_directory, exist_ok=True)
 
