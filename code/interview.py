@@ -46,9 +46,9 @@ else:
     # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)
     config_name = query_params["interview_config"]
     # Build the path to the config file inside the "Interview_Configs" folder
-    config_path = os.path.join("interview_configs", f"{config_name}.py")
+    config_path = os.path.join(os.path.dirname(__file__), "interview_configs", f"{config_name}.py")
     if not os.path.exists(config_path):
-        st.error(f"Configuration file {config_name}.py not found in Interview_Configs folder.")
+        st.error(f"Configuration file {config_name}.py not found in interview_configs folder.")
         st.stop()
     spec = importlib.util.spec_from_file_location("config", config_path)
     config = importlib.util.module_from_spec(spec)
