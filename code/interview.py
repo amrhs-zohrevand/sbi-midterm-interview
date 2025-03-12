@@ -1,8 +1,6 @@
 import streamlit as st
 import time
 from utils import (
-    check_password,
-    check_if_interview_completed,
     save_interview_data,
     send_transcript_email,
 )
