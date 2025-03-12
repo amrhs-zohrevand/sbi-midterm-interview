@@ -29,8 +29,7 @@ else:
         "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
     )
 
-# Set page title and icon
-st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
+
 
 # Assume you set an environment variable in st.secrets, e.g. "ENV": "test" or "production"
 ENV = st.secrets.get("ENV", "production")  # default to production if not set
@@ -54,6 +53,9 @@ else:
     spec = importlib.util.spec_from_file_location("config", config_path)
     config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config)
+
+# Set page title and icon
+st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
 
 # Define required parameters
 required_params = ["student_number", "name", "company", "recipient_email"]
