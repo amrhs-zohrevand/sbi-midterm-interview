@@ -10,6 +10,62 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+
+# Password screen for dashboard (note: only very basic authentication!)
+# Based on https://docs.streamlit.io/knowledge-base/deploy/authentication-without-sso
+def check_password():
+    """Returns 'True' if the user has entered a correct password."""
+
+    def login_form():
+        """Form with widgets to collect user information"""
+        with st.form("Credentials"):
+            st.text_input("Username", key="username")
+            st.text_input("Password", type="password", key="password")
+            st.form_submit_button("Log in", on_click=password_entered)
+
+    def password_entered():
+        """Checks whether username and password entered by the user are correct."""
+        if st.session_state.username in st.secrets.passwords and hmac.compare_digest(
+            st.session_state.password,
+            st.secrets.passwords[st.session_state.username],
+        ):
+            st.session_state.password_correct = True
+
+        else:
+            st.session_state.password_correct = False
+
+        del st.session_state.password  # don't store password in session state
+
+    # Return True, username if password was already entered correctly before
+    if st.session_state.get("password_correct", False):
+        return True, st.session_state.username
+
+    # Otherwise show login screen
+    login_form()
+    if "password_correct" in st.session_state:
+        st.error("User or password incorrect")
+    return False, st.session_state.username
+
+
+def check_if_interview_completed(directory, username):
+    """Check if interview transcript/time file exists which signals that interview was completed."""
+
+    # Test account has multiple interview attempts
+    if username != "testaccount":
+
+        # Check if file exists
+        try:
+            with open(os.path.join(directory, f"{username}.txt"), "r") as _:
+                return True
+
+        except FileNotFoundError:
+            return False
+
+    else:
+
+        return False
+
+
 def save_interview_data(folder_id, student_number, company_name):
     """Save interview data locally and upload to Google Drive with correct file naming."""
 
@@ -22,6 +78,14 @@ def save_interview_data(folder_id, student_number, company_name):
     # Construct the file names
     transcript_filename = f"{current_date}_{student_number}_{sanitized_company}_transcript.txt"
     time_filename = f"{current_date}_{student_number}_{sanitized_company}_time.txt"
+    
+    # Ensure directories exist
+    os.makedirs(transcripts_directory, exist_ok=True)
+    os.makedirs(times_directory, exist_ok=True)
+
+    # Define file paths
+    transcript_file = os.path.join(transcripts_directory, transcript_filename)
+    time_file = os.path.join(times_directory, time_filename)
 
     # Save transcript
     with open(transcript_file, "w") as t:
