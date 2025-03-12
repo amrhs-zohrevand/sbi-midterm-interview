@@ -318,7 +318,6 @@ if st.session_state.interview_active:
                 try:
 
                     transcript_link = save_interview_data(
-
                     folder_id=folder_id,
                     student_number=query_params["student_number"],
                     company_name=query_params["company"] )
