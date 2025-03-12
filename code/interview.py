@@ -116,7 +116,11 @@ for param in required_params:
     st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
 
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-st.sidebar.write(f"Interview Type: {config_name[0:]}")
+
+if config_name == None:
+    st.sidebar.write("Interview Type: Default")
+else:
+    st.sidebar.write(f"Interview Type: {config_name[0:]}")
 
 # Initialise session state
 if "interview_active" not in st.session_state:
