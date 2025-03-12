@@ -5,7 +5,6 @@ from utils import (
     send_transcript_email,
 )
 import os
-import config
 import html  # For sanitizing query parameters
 import uuid
 import re
@@ -37,6 +36,28 @@ st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
 ENV = st.secrets.get("ENV", "production")  # default to production if not set
 safe_mode = st.secrets.get("SAFE_MODE", "production")
 
+# Extract query parameters early
+query_params = st.query_params
+
+# Load the appropriate configuration module dynamically:
+if ENV == "test" or "interview_config" not in query_params:
+    # In test mode or if no interview_config is provided, use the default config.py
+    import config
+else:
+    # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)
+    config_name = query_params["interview_config"][0]
+    # Build the path to the config file inside the "Interview_Configs" folder
+    config_path = os.path.join("interview_configs", f"{config_name}.py")
+    if not os.path.exists(config_path):
+        st.error(f"Configuration file {config_name}.py not found in Interview_Configs folder.")
+        st.stop()
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+
+# Define required parameters
+required_params = ["student_number", "name", "company", "recipient_email"]
+
 # Default values taken from the provided URL
 default_values = {
     "student_number": "zohrehvanda",
@@ -64,12 +85,6 @@ def validate_query_params(params, required_keys):
     if missing_keys:
         return False, missing_keys
     return True, []
-
-# Extract query parameters
-query_params = st.query_params
-
-# Define required parameters
-required_params = ["student_number", "name", "company", "recipient_email"]
 
 # Validate parameters
 is_valid, missing_params = validate_query_params(query_params, required_params)
