@@ -30,8 +30,6 @@ else:
         "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
     )
 
-
-
 # Assume you set an environment variable in st.secrets, e.g. "ENV": "test" or "production"
 ENV = st.secrets.get("ENV", "production")  # default to production if not set
 safe_mode = st.secrets.get("SAFE_MODE", "production")
@@ -118,7 +116,7 @@ for param in required_params:
     st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
 
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-st.sidebar.write(f"Interview Type: {config_name[0]}")
+st.sidebar.write(f"Interview Type: {config_name[0:]}")
 
 # Initialise session state
 if "interview_active" not in st.session_state:
