@@ -4,6 +4,7 @@ from utils import (
     save_interview_data,
     send_transcript_email,
 )
+from database import save_interview_to_sheet
 import os
 import html  # For sanitizing query parameters
 import uuid
@@ -192,7 +193,41 @@ if not st.session_state.interview_active:
         </div>
         """,
         unsafe_allow_html=True,
-    )        
+    ) 
+    
+    # Saving the interview to Google Sheets
+    # Calculate the interview duration (in minutes)
+    duration_minutes = (time.time() - st.session_state.start_time) / 60
+
+    # Set values for the record
+    interview_id = st.session_state.session_id  # Use the session ID as Interview ID
+    student_id = query_params["student_number"]
+    name = query_params["name"]
+    company = query_params["company"]
+    
+    # Set the interview type (modify as needed)
+    interview_type = config_name
+    
+    # Get the current timestamp
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    
+    # Build the transcript from the conversation
+    transcript = ""
+    for msg in st.session_state.messages:
+        if msg["role"] in ["user", "assistant"]:
+            transcript += f"{msg['role']}: {msg['content']}\n"
+    
+    # Call the function to save the record to the Google Sheets database
+    save_interview_to_sheet(
+        interview_id,
+        student_id,
+        name,
+        company,
+        interview_type,
+        timestamp,
+        transcript,
+        f"{duration_minutes:.2f}"
+    )       
 
 
 # Upon rerun, display the previous conversation (except system prompt or first message)
