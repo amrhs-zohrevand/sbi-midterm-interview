@@ -209,6 +209,7 @@ print("✅ Remote email sent.")
 
         except Exception as e:
             st.error("❌ Failed to send email via LIACS SMTP: {e}")
+            st.exception(e)
 
     else:
         import smtplib
