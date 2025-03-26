@@ -156,7 +156,7 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     cc_addr = recipient_email
 
     subject = "Your Interview Transcript from Leiden University"
-    body = f"""\
+    body = f"""\ 
 Dear Student,
 
 Thank you for participating in the interview. Your transcript has been saved.
@@ -169,7 +169,7 @@ Leiden University Interview System
 """
 
     if use_liacs:
-        python_code = f"""\
+        python_code = f"""\ 
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -194,28 +194,22 @@ print("✅ Remote email sent.")
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
 
-            # Get the key from secrets.
-            key_data = st.secrets["LIACS_SSH_KEY"]
+            # Get the key string from secrets.
+            key_str = st.secrets["LIACS_SSH_KEY"]
+            # If the key is all in one line, reformat it.
+            if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
+                header = "-----BEGIN OPENSSH PRIVATE KEY-----"
+                footer = "-----END OPENSSH PRIVATE KEY-----"
+                # Remove header and footer
+                key_body = key_str[len(header):-len(footer)]
+                key_body = key_body.strip()
+                # Split the base64 data into lines of 70 characters (PEM standard)
+                lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
+                key_str = header + "\n" + "\n".join(lines) + "\n" + footer
 
-            # If the key is in the new OpenSSH format, convert it to PEM using cryptography.
-            if key_data.startswith("openssh-key-v1"):
-                from cryptography.hazmat.primitives import serialization
-                from cryptography.hazmat.backends import default_backend
-                private_key = serialization.load_ssh_private_key(
-                    key_data.encode(), password=None, backend=default_backend()
-                )
-                pem_key = private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption()
-                )
-                key_to_use = pem_key.decode()
-            else:
-                key_to_use = key_data
-
-            # Write the (possibly converted) key to a temporary file.
-            with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as tmp_key_file:
-                tmp_key_file.write(key_to_use)
+            # Write the key to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
+                tmp_key_file.write(key_str)
                 tmp_key_path = tmp_key_file.name
 
             key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
@@ -273,6 +267,7 @@ print("✅ Remote email sent.")
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
 
 
 
