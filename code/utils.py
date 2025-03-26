@@ -194,16 +194,15 @@ print("✅ Remote email sent.")
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
 
-            # Get the key string from secrets.
+            # Process the private key from secrets.
             key_str = st.secrets["LIACS_SSH_KEY"]
-            # If the key is all in one line, reformat it.
+            if "\\n" in key_str:
+                key_str = key_str.replace("\\n", "\n")
+            # Optional: reformat the key if it's in one line (PEM formatting)
             if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
                 header = "-----BEGIN OPENSSH PRIVATE KEY-----"
                 footer = "-----END OPENSSH PRIVATE KEY-----"
-                # Remove header and footer
-                key_body = key_str[len(header):-len(footer)]
-                key_body = key_body.strip()
-                # Split the base64 data into lines of 70 characters (PEM standard)
+                key_body = key_str[len(header):-len(footer)].strip()
                 lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
                 key_str = header + "\n" + "\n".join(lines) + "\n" + footer
 
@@ -212,7 +211,14 @@ print("✅ Remote email sent.")
                 tmp_key_file.write(key_str)
                 tmp_key_path = tmp_key_file.name
 
-            key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
+            # Attempt to load as Ed25519 key first
+            try:
+                from paramiko import Ed25519Key
+                key = Ed25519Key.from_private_key_file(tmp_key_path)
+            except paramiko.SSHException:
+                # Fallback to RSA key if needed
+                from paramiko import RSAKey
+                key = RSAKey.from_private_key_file(tmp_key_path)
 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -267,6 +273,7 @@ print("✅ Remote email sent.")
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
 
 
 
