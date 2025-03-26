@@ -9,6 +9,9 @@ import json
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import base64
+import paramiko
+import io
 
 
 def check_if_interview_completed(directory, username):
@@ -139,8 +142,7 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
     """
-    import base64
-    import paramiko
+
 
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
@@ -149,20 +151,20 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     cc_addr = recipient_email
 
     subject = "Your Interview Transcript from Leiden University"
-    body = f"""
-    Dear Student,
+    body = f"""\
+Dear Student,
 
-    Thank you for participating in the interview. Your transcript has been saved.
+Thank you for participating in the interview. Your transcript has been saved.
 
-    You can download your transcript here:
-    {transcript_link}
+You can download your transcript here:
+{transcript_link}
 
-    Best regards,  
-    Leiden University Interview System
-    """
+Best regards,  
+Leiden University Interview System
+"""
 
     if use_liacs:
-        python_code = f'''
+        python_code = f"""\
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -180,16 +182,18 @@ with smtplib.SMTP('smtp.leidenuniv.nl') as server:
     server.send_message(msg)
 
 print("✅ Remote email sent.")
-'''
+"""
 
         encoded_code = base64.b64encode(python_code.encode()).decode()
 
         try:
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
-            ssh_key_path = st.secrets["LIACS_SSH_KEY"]
 
-            key = paramiko.RSAKey.from_private_key_file(ssh_key_path)
+            key_data = st.secrets["LIACS_SSH_KEY"]
+            key_stream = io.StringIO(key_data)
+            key = paramiko.RSAKey.from_private_key(key_stream)
+
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ssh_host, username=ssh_username, pkey=key)
@@ -201,14 +205,14 @@ print("✅ Remote email sent.")
             error = stderr.read().decode()
 
             if error:
-                st.error("⚠️ Remote error:\\n", error)
+                st.error(f"⚠️ Remote error:\n{error}")
             else:
-                st.error(output.strip())
+                st.success(output.strip())
 
             ssh.close()
 
         except Exception as e:
-            st.error("❌ Failed to send email via LIACS SMTP: {e}")
+            st.error("❌ Failed to send email via LIACS SMTP.")
             st.exception(e)
 
     else:
@@ -238,7 +242,8 @@ print("✅ Remote email sent.")
             server.sendmail(sender_email, recipients, msg.as_string())
 
             server.quit()
-            print(f"Email sent to {recipients}")
+            st.success(f"📬 Email sent to {recipients}")
         except Exception as e:
-            print(f"Error sending email via Gmail SMTP: {e}")
+            st.error("Error sending email via Gmail SMTP.")
+            st.exception(e)
 
