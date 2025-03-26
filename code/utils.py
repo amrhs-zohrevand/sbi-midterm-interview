@@ -188,16 +188,34 @@ with smtplib.SMTP('smtp.leidenuniv.nl') as server:
 
 print("✅ Remote email sent.")
 """
-
         encoded_code = base64.b64encode(python_code.encode()).decode()
 
         try:
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
 
-            # Write SSH key to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
-                tmp_key_file.write(st.secrets["LIACS_SSH_KEY"])
+            # Get the key from secrets.
+            key_data = st.secrets["LIACS_SSH_KEY"]
+
+            # If the key is in the new OpenSSH format, convert it to PEM using cryptography.
+            if key_data.startswith("openssh-key-v1"):
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.hazmat.backends import default_backend
+                private_key = serialization.load_ssh_private_key(
+                    key_data.encode(), password=None, backend=default_backend()
+                )
+                pem_key = private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption()
+                )
+                key_to_use = pem_key.decode()
+            else:
+                key_to_use = key_data
+
+            # Write the (possibly converted) key to a temporary file.
+            with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as tmp_key_file:
+                tmp_key_file.write(key_to_use)
                 tmp_key_path = tmp_key_file.name
 
             key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
@@ -255,4 +273,6 @@ print("✅ Remote email sent.")
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
+
 
