@@ -142,8 +142,6 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
     """
-
-
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
     from_addr = "bs-internships@liacs.leidenuniv.nl"
@@ -192,7 +190,7 @@ print("✅ Remote email sent.")
 
             key_data = st.secrets["LIACS_SSH_KEY"]
             key_stream = io.StringIO(key_data)
-            key = paramiko.RSAKey.from_private_key(key_stream)
+            key = paramiko.RSAKey.from_private_key(io.StringIO(key_data))
 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
