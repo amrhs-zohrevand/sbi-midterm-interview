@@ -134,23 +134,21 @@ def upload_to_google_drive(file_path, file_name, folder_id):
 
         return new_file.get("webViewLink") # Return the file sharing link
 
+
 def send_transcript_email(student_number, recipient_email, transcript_link):
     """
-    Sends the interview transcript to the student and additional recipient.
+    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
     """
-    smtp_server = "smtp.gmail.com"  # Replace with your SMTP server
-    smtp_port = 587  # Port for TLS
-    sender_email = "businessinternship.liacs@gmail.com"  # Your email
-    sender_password = st.secrets["EMAIL_PASSWORD"]  # Store password securely
-    student_email = f"{student_number}@vuw.leidenuniv.nl"
+    import base64
+    import paramiko
 
-    # Create email message
-    msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = student_email  # Primary recipient
-    msg["Cc"] = recipient_email  # Additional recipient
-    msg["Subject"] = "Your Interview Transcript from Leiden University"
+    use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
+    from_addr = "h.bijl@cvb.leidenuniv.nl"
+    to_addr = f"{student_number}@vuw.leidenuniv.nl"
+    cc_addr = recipient_email
+
+    subject = "Your Interview Transcript from Leiden University"
     body = f"""
     Dear Student,
 
@@ -163,19 +161,83 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     Leiden University Interview System
     """
 
-    msg.attach(MIMEText(body, "plain"))
+    if use_liacs:
+        python_code = f'''
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-    try:
-        # Connect to SMTP server
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()  # Secure connection
-        server.login(sender_email, sender_password)
+msg = MIMEMultipart()
+msg['Subject'] = {repr(subject)}
+msg['From'] = {repr(from_addr)}
+msg['To'] = {repr(to_addr)}
+msg['Cc'] = {repr(cc_addr)}
 
-        # Send email to both recipients
-        recipients = [student_email, recipient_email]
-        server.sendmail(sender_email, recipients, msg.as_string())
+body = {repr(body)}
+msg.attach(MIMEText(body, 'plain'))
 
-        server.quit()
-        print(f"Email sent to {recipients}")
-    except Exception as e:
-        print(f"Error sending email: {e}")
+with smtplib.SMTP('smtp.leidenuniv.nl') as server:
+    server.send_message(msg)
+
+print("✅ Remote email sent.")
+'''
+
+        encoded_code = base64.b64encode(python_code.encode()).decode()
+
+        try:
+            ssh_host = "ssh.liacs.nl"
+            ssh_username = st.secrets["LIACS_SSH_USERNAME"]
+            ssh_key_path = st.secrets["LIACS_SSH_KEY"]
+
+            key = paramiko.RSAKey.from_private_key_file(ssh_key_path)
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ssh_host, username=ssh_username, pkey=key)
+
+            remote_cmd = f"echo {encoded_code} | base64 -d | python3"
+            stdin, stdout, stderr = ssh.exec_command(remote_cmd)
+
+            output = stdout.read().decode()
+            error = stderr.read().decode()
+
+            if error:
+                print("⚠️ Remote error:\\n", error)
+            else:
+                print(output.strip())
+
+            ssh.close()
+
+        except Exception as e:
+            print(f"❌ Failed to send email via LIACS SMTP: {e}")
+
+    else:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        smtp_server = "smtp.gmail.com"
+        smtp_port = 587
+        sender_email = "businessinternship.liacs@gmail.com"
+        sender_password = st.secrets["EMAIL_PASSWORD"]
+
+        msg = MIMEMultipart()
+        msg["From"] = sender_email
+        msg["To"] = to_addr
+        msg["Cc"] = cc_addr
+        msg["Subject"] = subject
+
+        msg.attach(MIMEText(body, "plain"))
+
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+
+            recipients = [to_addr, cc_addr]
+            server.sendmail(sender_email, recipients, msg.as_string())
+
+            server.quit()
+            print(f"Email sent to {recipients}")
+        except Exception as e:
+            print(f"Error sending email via Gmail SMTP: {e}")
+
