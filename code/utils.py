@@ -156,7 +156,7 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     cc_addr = recipient_email
 
     subject = "Your Interview Transcript from Leiden University"
-    body = f"""\ 
+    body = f"""\
 Dear Student,
 
 Thank you for participating in the interview. Your transcript has been saved.
@@ -169,7 +169,7 @@ Leiden University Interview System
 """
 
     if use_liacs:
-        python_code = f"""\ 
+        python_code = f"""\
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -188,6 +188,8 @@ with smtplib.SMTP('smtp.leidenuniv.nl') as server:
 
 print("✅ Remote email sent.")
 """
+        # Remove any extra leading/trailing whitespace/newlines
+        python_code = python_code.strip()
         encoded_code = base64.b64encode(python_code.encode()).decode()
 
         try:
@@ -198,7 +200,6 @@ print("✅ Remote email sent.")
             key_str = st.secrets["LIACS_SSH_KEY"]
             if "\\n" in key_str:
                 key_str = key_str.replace("\\n", "\n")
-            # Optional: reformat the key if it's in one line (PEM formatting)
             if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
                 header = "-----BEGIN OPENSSH PRIVATE KEY-----"
                 footer = "-----END OPENSSH PRIVATE KEY-----"
@@ -206,17 +207,15 @@ print("✅ Remote email sent.")
                 lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
                 key_str = header + "\n" + "\n".join(lines) + "\n" + footer
 
-            # Write the key to a temporary file
             with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
                 tmp_key_file.write(key_str)
                 tmp_key_path = tmp_key_file.name
 
-            # Attempt to load as Ed25519 key first
+            # Attempt to load as Ed25519 first; if that fails, fall back to RSA.
             try:
                 from paramiko import Ed25519Key
                 key = Ed25519Key.from_private_key_file(tmp_key_path)
             except paramiko.SSHException:
-                # Fallback to RSA key if needed
                 from paramiko import RSAKey
                 key = RSAKey.from_private_key_file(tmp_key_path)
 
@@ -224,7 +223,8 @@ print("✅ Remote email sent.")
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ssh_host, username=ssh_username, pkey=key)
 
-            remote_cmd = f"echo {encoded_code} | base64 -d | python3"
+            # Use printf to avoid issues with echo and escape sequences
+            remote_cmd = f'printf "%s" "{encoded_code}" | base64 -d | python3'
             stdin, stdout, stderr = ssh.exec_command(remote_cmd)
 
             output = stdout.read().decode()
@@ -273,6 +273,7 @@ print("✅ Remote email sent.")
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
 
 
 

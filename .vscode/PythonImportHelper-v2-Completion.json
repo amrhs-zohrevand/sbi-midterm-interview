@@ -864,7 +864,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        encoded_code = base64.b64encode(python_code.encode()).decode()",
+        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        # Remove any extra leading/trailing whitespace/newlines",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -873,7 +873,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        encoded_code = base64.b64encode(python_code.encode()).decode()\n        try:",
+        "peekOfCode": "msg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        # Remove any extra leading/trailing whitespace/newlines\n        python_code = python_code.strip()",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -882,7 +882,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        encoded_code = base64.b64encode(python_code.encode()).decode()\n        try:\n            ssh_host = \"ssh.liacs.nl\"",
+        "peekOfCode": "msg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        # Remove any extra leading/trailing whitespace/newlines\n        python_code = python_code.strip()\n        encoded_code = base64.b64encode(python_code.encode()).decode()",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -891,7 +891,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        encoded_code = base64.b64encode(python_code.encode()).decode()\n        try:\n            ssh_host = \"ssh.liacs.nl\"\n            ssh_username = st.secrets[\"LIACS_SSH_USERNAME\"]",
+        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        # Remove any extra leading/trailing whitespace/newlines\n        python_code = python_code.strip()\n        encoded_code = base64.b64encode(python_code.encode()).decode()\n        try:",
         "detail": "code.utils",
         "documentation": {}
     }
