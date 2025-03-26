@@ -801,7 +801,7 @@
         "kind": 2,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "def send_transcript_email(student_number, recipient_email, transcript_link):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    \"\"\"\n    import base64\n    import paramiko\n    use_liacs = st.secrets.get(\"USE_LIACS_EMAIL\", False)\n    from_addr = \"h.bijl@cvb.leidenuniv.nl\"\n    to_addr = f\"{student_number}@vuw.leidenuniv.nl\"\n    cc_addr = recipient_email",
+        "peekOfCode": "def send_transcript_email(student_number, recipient_email, transcript_link):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    \"\"\"\n    import base64\n    import paramiko\n    use_liacs = st.secrets.get(\"USE_LIACS_EMAIL\", False)\n    from_addr = \"bs-internships@liacs.leidenuniv.nl\"\n    to_addr = f\"{student_number}@vuw.leidenuniv.nl\"\n    cc_addr = recipient_email",
         "detail": "code.utils",
         "documentation": {}
     },

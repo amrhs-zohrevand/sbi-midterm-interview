@@ -144,7 +144,7 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
 
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
-    from_addr = "h.bijl@cvb.leidenuniv.nl"
+    from_addr = "bs-internships@liacs.leidenuniv.nl"
     to_addr = f"{student_number}@vuw.leidenuniv.nl"
     cc_addr = recipient_email
 
