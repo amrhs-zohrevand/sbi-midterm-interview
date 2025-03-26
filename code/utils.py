@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 import base64
 import paramiko
 import io
+import tempfile
 
 
 def check_if_interview_completed(directory, username):
@@ -142,6 +143,12 @@ def send_transcript_email(student_number, recipient_email, transcript_link):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
     """
+    import base64
+    import paramiko
+    import streamlit as st
+    import tempfile
+    import os
+
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
     from_addr = "bs-internships@liacs.leidenuniv.nl"
@@ -188,9 +195,12 @@ print("✅ Remote email sent.")
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
 
-            key_data = st.secrets["LIACS_SSH_KEY"]
-            key_stream = io.StringIO(key_data)
-            key = paramiko.RSAKey.from_private_key(io.StringIO(key_data))
+            # Write SSH key to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
+                tmp_key_file.write(st.secrets["LIACS_SSH_KEY"])
+                tmp_key_path = tmp_key_file.name
+
+            key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -208,6 +218,7 @@ print("✅ Remote email sent.")
                 st.success(output.strip())
 
             ssh.close()
+            os.remove(tmp_key_path)
 
         except Exception as e:
             st.error("❌ Failed to send email via LIACS SMTP.")
