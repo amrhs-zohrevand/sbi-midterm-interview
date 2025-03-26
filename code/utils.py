@@ -201,14 +201,14 @@ print("✅ Remote email sent.")
             error = stderr.read().decode()
 
             if error:
-                print("⚠️ Remote error:\\n", error)
+                st.error("⚠️ Remote error:\\n", error)
             else:
-                print(output.strip())
+                st.error(output.strip())
 
             ssh.close()
 
         except Exception as e:
-            print(f"❌ Failed to send email via LIACS SMTP: {e}")
+            st.error("❌ Failed to send email via LIACS SMTP: {e}")
 
     else:
         import smtplib
