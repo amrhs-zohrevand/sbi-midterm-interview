@@ -143,7 +143,6 @@ def upload_to_google_drive(file_path, file_name, folder_id):
 def send_transcript_email(student_number, recipient_email, transcript_link, transcript_file):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
-    Now the email body still includes the download link and the transcript file is attached.
     """
     import base64
     import paramiko
@@ -152,6 +151,8 @@ def send_transcript_email(student_number, recipient_email, transcript_link, tran
     import os
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
+    from email.mime.base import MIMEBase
+    from email import encoders
 
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
@@ -168,15 +169,20 @@ Thank you for participating in the interview. Your transcript has been saved.
 You can download your transcript here:
 {transcript_link}
 
-Best regards,  
+Best regards,
 Leiden University Interview System
 """
 
+    # Force a fallback name if os.path.basename returns an empty string
+    fallback_name = "transcript.txt"
+    file_name = os.path.basename(transcript_file) or fallback_name
+
     if use_liacs:
-        # First, read and encode the transcript file for attachment
+        # LIACS branch
         with open(transcript_file, "rb") as f:
             attachment_data = base64.b64encode(f.read()).decode()
 
+        # Build the Python code to run remotely
         python_code = f"""\
 import base64
 import smtplib
@@ -184,6 +190,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+import os
 
 msg = MIMEMultipart()
 msg['Subject'] = {repr(subject)}
@@ -195,10 +202,17 @@ body = {repr(body)}
 msg.attach(MIMEText(body, 'plain'))
 
 attachment_data = base64.b64decode({repr(attachment_data)})
-part = MIMEBase("application", "octet-stream")
+part = MIMEBase("text", "plain")
 part.set_payload(attachment_data)
 encoders.encode_base64(part)
-part.add_header("Content-Disposition", 'attachment; filename="{0}"'.format({repr(os.path.basename(transcript_file))}))
+
+# Force a fallback name if needed
+filename = {repr(file_name)}
+if not filename:
+    filename = "transcript.txt"
+
+part.add_header("Content-Type", f'text/plain; name="{filename}"')
+part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
 msg.attach(part)
 
 with smtplib.SMTP('smtp.leidenuniv.nl') as server:
@@ -257,10 +271,7 @@ print("✅ Remote email sent.")
             st.exception(e)
 
     else:
-        import smtplib
-        from email.mime.base import MIMEBase
-        from email import encoders
-
+        # Gmail branch
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
         sender_email = "businessinternship.liacs@gmail.com"
@@ -274,12 +285,20 @@ print("✅ Remote email sent.")
 
         msg.attach(MIMEText(body, "plain"))
 
-        # Attach the transcript file
-        with open(transcript_file, "rb") as attachment:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment.read())
+        # Read file and attach as text/plain
+        with open(transcript_file, "rb") as f:
+            content = f.read()
+
+        part = MIMEBase("text", "plain")
+        part.set_payload(content)
         encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f'attachment; filename="{os.path.basename(transcript_file)}"')
+
+        # Force a fallback name if needed
+        if not file_name:
+            file_name = "transcript.txt"
+
+        part.add_header("Content-Type", f'text/plain; name="{file_name}"')
+        part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
         msg.attach(part)
 
         try:
@@ -289,12 +308,13 @@ print("✅ Remote email sent.")
 
             recipients = [to_addr, cc_addr]
             server.sendmail(sender_email, recipients, msg.as_string())
-
             server.quit()
+
             st.success(f"📬 Email sent to {recipients}")
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
 
 #
 

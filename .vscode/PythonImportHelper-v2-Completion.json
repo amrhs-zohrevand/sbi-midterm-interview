@@ -853,7 +853,7 @@
         "kind": 2,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "def send_transcript_email(student_number, recipient_email, transcript_link, transcript_file):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    Now the email body still includes the download link and the transcript file is attached.\n    \"\"\"\n    import base64\n    import paramiko\n    import streamlit as st\n    import tempfile\n    import os",
+        "peekOfCode": "def send_transcript_email(student_number, recipient_email, transcript_link, transcript_file):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    \"\"\"\n    import base64\n    import paramiko\n    import streamlit as st\n    import tempfile\n    import os\n    from email.mime.multipart import MIMEMultipart",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -862,7 +862,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg = MIMEMultipart()\nmsg['Subject'] = {repr(subject)}\nmsg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)",
+        "peekOfCode": "msg = MIMEMultipart()\nmsg['Subject'] = {repr(subject)}\nmsg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -871,7 +871,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['Subject'] = {repr(subject)}\nmsg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)",
+        "peekOfCode": "msg['Subject'] = {repr(subject)}\nmsg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -880,7 +880,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Disposition\", 'attachment; filename=\"{0}\"'.format({repr(os.path.basename(transcript_file))}))",
+        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -889,7 +889,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Disposition\", 'attachment; filename=\"{0}\"'.format({repr(os.path.basename(transcript_file))}))\nmsg.attach(part)",
+        "peekOfCode": "msg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -898,7 +898,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Disposition\", 'attachment; filename=\"{0}\"'.format({repr(os.path.basename(transcript_file))}))\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:",
+        "peekOfCode": "msg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -907,7 +907,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Disposition\", 'attachment; filename=\"{0}\"'.format({repr(os.path.basename(transcript_file))}))\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)",
+        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -916,7 +916,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "attachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Disposition\", 'attachment; filename=\"{0}\"'.format({repr(os.path.basename(transcript_file))}))\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"",
+        "peekOfCode": "attachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"\npart.add_header(\"Content-Type\", f'text/plain; name=\"{filename}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{filename}\"')",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -925,7 +925,16 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "part = MIMEBase(\"application\", \"octet-stream\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Disposition\", 'attachment; filename=\"{0}\"'.format({repr(os.path.basename(transcript_file))}))\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"\n        python_code = python_code.strip()",
+        "peekOfCode": "part = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"\npart.add_header(\"Content-Type\", f'text/plain; name=\"{filename}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{filename}\"')\nmsg.attach(part)",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "filename",
+        "kind": 5,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "filename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"\npart.add_header(\"Content-Type\", f'text/plain; name=\"{filename}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{filename}\"')\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"",
         "detail": "code.utils",
         "documentation": {}
     }
