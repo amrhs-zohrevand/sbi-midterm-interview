@@ -8,7 +8,7 @@ def save_interview_to_sheet(interview_id, student_id, name, company, interview_t
     data into an SQL file located in the SSH database directory.
     """
     # Read the SSH username from secrets
-    ssh_username = st.secrets.get("SSH_USERNAME")
+    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     # Build the directory path on the SSH server
     ssh_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     os.makedirs(ssh_directory, exist_ok=True)
@@ -33,7 +33,7 @@ def update_progress_sheet(student_id, name, interview_type, timestamp):
     Instead of updating a Google Sheet, this function writes an SQL INSERT statement for the progress update
     into an SQL file located in the SSH database directory.
     """
-    ssh_username = st.secrets.get("SSH_USERNAME")
+    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     ssh_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     os.makedirs(ssh_directory, exist_ok=True)
     
