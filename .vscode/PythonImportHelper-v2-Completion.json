@@ -682,7 +682,7 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params, required_keys):\n    missing_keys = []\n    # If in test mode, fill in missing keys with default values; in production, mark them as missing.\n    for key in required_keys:\n        if key not in params or not params[key]:\n            if ENV == \"test\":\n                params[key] = default_values.get(key)\n            else:\n                missing_keys.append(key)\n    # In test mode, additionally validate the email format",
+        "peekOfCode": "def validate_query_params(params, required_keys):\n    missing_keys = []\n    for key in required_keys:\n        if key not in params or not params[key]:\n            if ENV == \"test\":\n                params[key] = default_values.get(key)\n            else:\n                missing_keys.append(key)\n    if ENV == \"test\":\n        email = params.get(\"recipient_email\", \"\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -691,7 +691,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "folder_id = \"123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7\"  # Set the folder ID for the Google Drive folder where the interview data will be saved\n# Load API library\nprovider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()  # defaults to \"openai\" if not provided\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic",
+        "peekOfCode": "folder_id = \"123xBZ2YDy8BZrbErQb0U9TpGY-j3NdK7\"  # Google Drive folder ID\n# Load API library\nprovider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -700,7 +700,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()  # defaults to \"openai\" if not provided\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -709,7 +709,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    import deepinfra  # Adjust the import as needed for your deepinfra client",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    import deepinfra",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -718,7 +718,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")  # default to production if not set\nsafe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\n# Extract query parameters early\nquery_params = st.query_params\n# Load the appropriate configuration module dynamically:\nif \"interview_config\" not in query_params:\n    # In test mode or if no interview_config is provided, use the default config.py\n    import config\n    config_name = \"Default\"\nelse:",
+        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nsafe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\n# Extract query parameters early\nquery_params = st.query_params\n# Load configuration module dynamically\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -727,7 +727,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "safe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\n# Extract query parameters early\nquery_params = st.query_params\n# Load the appropriate configuration module dynamically:\nif \"interview_config\" not in query_params:\n    # In test mode or if no interview_config is provided, use the default config.py\n    import config\n    config_name = \"Default\"\nelse:\n    # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)",
+        "peekOfCode": "safe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\n# Extract query parameters early\nquery_params = st.query_params\n# Load configuration module dynamically\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -736,7 +736,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "query_params = st.query_params\n# Load the appropriate configuration module dynamically:\nif \"interview_config\" not in query_params:\n    # In test mode or if no interview_config is provided, use the default config.py\n    import config\n    config_name = \"Default\"\nelse:\n    # Get the interview config name from the query parameters (e.g., ?interview_config=techInterview)\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    # Build the path to the config file inside the \"Interview_Configs\" folder",
+        "peekOfCode": "query_params = st.query_params\n# Load configuration module dynamically\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found in interview_configs folder.\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -745,7 +745,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\n# Default values taken from the provided URL\ndefault_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"j.s.deweert@gmail.com\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []",
+        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\ndefault_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"j.s.deweert@gmail.com\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []\n    for key in required_keys:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -754,7 +754,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "default_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"j.s.deweert@gmail.com\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []\n    # If in test mode, fill in missing keys with default values; in production, mark them as missing.\n    for key in required_keys:",
+        "peekOfCode": "default_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"j.s.deweert@gmail.com\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []\n    for key in required_keys:\n        if key not in params or not params[key]:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -763,7 +763,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "respondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\n# Check if session ID exists in session state, if not, create one\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\n# Display parameters in sidebar\nst.sidebar.title(\"Interview Details\")\nfor param in required_params:\n    # Fetch the first value of the list returned for each parameter and sanitize it\n    sanitized_value = html.unescape(query_params[param])",
+        "peekOfCode": "respondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nst.sidebar.title(\"Interview Details\")\nfor param in required_params:\n    sanitized_value = html.unescape(query_params[param])\n    st.sidebar.write(f\"{param.replace('_', ' ').capitalize()}: {sanitized_value}\")\nst.sidebar.write(f\"Session ID: {st.session_state.session_id}\")\nst.sidebar.write(f\"Interview Type: {config_name}\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -772,7 +772,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "recipient_email = html.unescape(query_params[\"recipient_email\"])\n# Check if session ID exists in session state, if not, create one\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\n# Display parameters in sidebar\nst.sidebar.title(\"Interview Details\")\nfor param in required_params:\n    # Fetch the first value of the list returned for each parameter and sanitize it\n    sanitized_value = html.unescape(query_params[param])\n    st.sidebar.write(f\"{param.replace('_', ' ').capitalize()}: {sanitized_value}\")",
+        "peekOfCode": "recipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nst.sidebar.title(\"Interview Details\")\nfor param in required_params:\n    sanitized_value = html.unescape(query_params[param])\n    st.sidebar.write(f\"{param.replace('_', ' ').capitalize()}: {sanitized_value}\")\nst.sidebar.write(f\"Session ID: {st.session_state.session_id}\")\nst.sidebar.write(f\"Interview Type: {config_name}\")\nif \"interview_active\" not in st.session_state:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -781,7 +781,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Add 'Quit' button to dashboard\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        # Save and upload interview data and get both link and file path",
+        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Quit button branch\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        transcript_link, transcript_file = save_interview_data(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -790,7 +790,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Add 'Quit' button to dashboard\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        # Save and upload interview data and get both link and file path\n        transcript_link, transcript_file = save_interview_data(",
+        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Quit button branch\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        transcript_link, transcript_file = save_interview_data(\n            folder_id=folder_id,",
         "detail": "code.interview",
         "documentation": {}
     },
