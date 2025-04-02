@@ -8,3 +8,4 @@ google-auth-oauthlib
 secure-smtplib
 paramiko
 cryptography
+deepinfra
