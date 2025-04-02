@@ -153,13 +153,13 @@ with col2:
         st.session_state.messages.append({"role": "assistant", "content": quit_message})
 
         # Save and upload interview data
-        transcript_link = save_interview_data(
-            folder_id= folder_id,
-            student_number=query_params["student_number"],
-            company_name=query_params["company"])
-        
-        # Send email transscript
-        send_transcript_email(query_params["student_number"], query_params["recipient_email"], transcript_link)
+        transcript_link, transcript_file = save_interview_data(
+        folder_id=folder_id,
+        student_number=query_params["student_number"],
+        company_name=query_params["company"]
+    )
+    send_transcript_email(query_params["student_number"], query_params["recipient_email"], transcript_link, transcript_file)
+
         
 # After the interview ends
 if not st.session_state.interview_active:

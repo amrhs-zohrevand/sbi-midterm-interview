@@ -80,7 +80,8 @@ def save_interview_data(folder_id, student_number, company_name, transcripts_dir
     transcript_link = upload_to_google_drive(transcript_file, transcript_filename, folder_id)
     time_link = upload_to_google_drive(time_file, time_filename, folder_id)
 
-    return transcript_link  # Return Google Drive link for sharing
+    # Return both the transcript sharing link and the local file path for attachment
+    return transcript_link, transcript_file
         
 def upload_to_google_drive(file_path, file_name, folder_id):
     """Uploads a file to Google Drive, overwriting an existing one if found."""
@@ -139,15 +140,18 @@ def upload_to_google_drive(file_path, file_name, folder_id):
         return new_file.get("webViewLink") # Return the file sharing link
 
 
-def send_transcript_email(student_number, recipient_email, transcript_link):
+def send_transcript_email(student_number, recipient_email, transcript_link, transcript_file):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
+    Now the email body still includes the download link and the transcript file is attached.
     """
     import base64
     import paramiko
     import streamlit as st
     import tempfile
     import os
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
 
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
@@ -169,10 +173,17 @@ Leiden University Interview System
 """
 
     if use_liacs:
+        # First, read and encode the transcript file for attachment
+        with open(transcript_file, "rb") as f:
+            attachment_data = base64.b64encode(f.read()).decode()
+
         python_code = f"""\
+import base64
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 msg = MIMEMultipart()
 msg['Subject'] = {repr(subject)}
@@ -183,12 +194,18 @@ msg['Cc'] = {repr(cc_addr)}
 body = {repr(body)}
 msg.attach(MIMEText(body, 'plain'))
 
+attachment_data = base64.b64decode({repr(attachment_data)})
+part = MIMEBase("application", "octet-stream")
+part.set_payload(attachment_data)
+encoders.encode_base64(part)
+part.add_header("Content-Disposition", 'attachment; filename="{0}"'.format({repr(os.path.basename(transcript_file))}))
+msg.attach(part)
+
 with smtplib.SMTP('smtp.leidenuniv.nl') as server:
     server.send_message(msg)
 
 print("✅ Remote email sent.")
 """
-        # Remove any extra leading/trailing whitespace/newlines
         python_code = python_code.strip()
         encoded_code = base64.b64encode(python_code.encode()).decode()
 
@@ -196,7 +213,6 @@ print("✅ Remote email sent.")
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
 
-            # Process the private key from secrets.
             key_str = st.secrets["LIACS_SSH_KEY"]
             if "\\n" in key_str:
                 key_str = key_str.replace("\\n", "\n")
@@ -211,7 +227,6 @@ print("✅ Remote email sent.")
                 tmp_key_file.write(key_str)
                 tmp_key_path = tmp_key_file.name
 
-            # Attempt to load as Ed25519 first; if that fails, fall back to RSA.
             try:
                 from paramiko import Ed25519Key
                 key = Ed25519Key.from_private_key_file(tmp_key_path)
@@ -223,7 +238,6 @@ print("✅ Remote email sent.")
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ssh_host, username=ssh_username, pkey=key)
 
-            # Use printf to avoid issues with echo and escape sequences
             remote_cmd = f'printf "%s" "{encoded_code}" | base64 -d | python3'
             stdin, stdout, stderr = ssh.exec_command(remote_cmd)
 
@@ -244,8 +258,8 @@ print("✅ Remote email sent.")
 
     else:
         import smtplib
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
+        from email.mime.base import MIMEBase
+        from email import encoders
 
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
@@ -260,6 +274,14 @@ print("✅ Remote email sent.")
 
         msg.attach(MIMEText(body, "plain"))
 
+        # Attach the transcript file
+        with open(transcript_file, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f'attachment; filename="{os.path.basename(transcript_file)}"')
+        msg.attach(part)
+
         try:
             server = smtplib.SMTP(smtp_server, smtp_port)
             server.starttls()
@@ -273,6 +295,7 @@ print("✅ Remote email sent.")
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
 #
 
 
