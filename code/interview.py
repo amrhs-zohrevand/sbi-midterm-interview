@@ -168,12 +168,13 @@ if not st.session_state.interview_active:
     
     # Ensure transcript is saved before showing the link (When the interview ended natuarlly)
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
-        st.session_state.transcript_link, st.session_state.transcript_file = save_interview_data(
-        folder_id=folder_id,
-        student_number=query_params["student_number"],
-        company_name=query_params["company"]
-    )
-    send_transcript_email(query_params["student_number"], query_params["recipient_email"], transcript_link, transcript_file)
+        st.session_state.transcript_link = save_interview_data(
+            folder_id=folder_id,
+            student_number=query_params["student_number"],
+            company_name=query_params["company"]
+        )
+        # Send email transscript
+        send_transcript_email(query_params["student_number"], query_params["recipient_email"], st.session_state.transcript_link)
     
     # Center the button on the page
     st.markdown(f"""
