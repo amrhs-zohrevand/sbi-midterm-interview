@@ -611,11 +611,20 @@
         "documentation": {}
     },
     {
+        "label": "format_private_key",
+        "kind": 2,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "def format_private_key(key_str):\n    \"\"\"\n    Normalize the private key string as done in the email sending code.\n    \"\"\"\n    if \"\\\\n\" in key_str:\n        key_str = key_str.replace(\"\\\\n\", \"\\n\")\n    if key_str.startswith(\"-----BEGIN OPENSSH PRIVATE KEY-----\") and \"-----END OPENSSH PRIVATE KEY-----\" in key_str:\n        header = \"-----BEGIN OPENSSH PRIVATE KEY-----\"\n        footer = \"-----END OPENSSH PRIVATE KEY-----\"\n        key_body = key_str[len(header):-len(footer)].strip()",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
         "label": "get_ssh_connection",
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def get_ssh_connection():\n    \"\"\"\n    Establish an SSH connection and return both the SSH and SFTP clients.\n    The SSH credentials are read from st.secrets.\n    \"\"\"\n    ssh_host = \"ssh.liacs.nl\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.\")\n    key_str = st.secrets.get(\"LIACS_SSH_KEY\")",
+        "peekOfCode": "def get_ssh_connection():\n    \"\"\"\n    Establish an SSH connection using the LIACS SSH credentials.\n    Returns the SSH client, SFTP client, and the temporary key file path.\n    \"\"\"\n    ssh_host = \"ssh.liacs.nl\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.\")\n    key_str = st.secrets.get(\"LIACS_SSH_KEY\")",
         "detail": "code.database",
         "documentation": {}
     },

@@ -4,25 +4,39 @@ import streamlit as st
 import paramiko
 import tempfile
 
+def format_private_key(key_str):
+    """
+    Normalize the private key string as done in the email sending code.
+    """
+    if "\\n" in key_str:
+        key_str = key_str.replace("\\n", "\n")
+    if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
+        header = "-----BEGIN OPENSSH PRIVATE KEY-----"
+        footer = "-----END OPENSSH PRIVATE KEY-----"
+        key_body = key_str[len(header):-len(footer)].strip()
+        lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
+        key_str = header + "\n" + "\n".join(lines) + "\n" + footer
+    return key_str
+
 def get_ssh_connection():
     """
-    Establish an SSH connection and return both the SSH and SFTP clients.
-    The SSH credentials are read from st.secrets.
+    Establish an SSH connection using the LIACS SSH credentials.
+    Returns the SSH client, SFTP client, and the temporary key file path.
     """
     ssh_host = "ssh.liacs.nl"
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
         raise ValueError("LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.")
+    
     key_str = st.secrets.get("LIACS_SSH_KEY")
     if not key_str:
         raise ValueError("LIACS_SSH_KEY is not defined in secrets. Please set it in your secrets file.")
-    # Normalize private key line breaks
-    if "\\n" in key_str:
-        key_str = key_str.replace("\\n", "\n")
-    # Write key to a temporary file for Paramiko
+    key_str = format_private_key(key_str)
+    
     with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
         tmp_key_file.write(key_str)
         tmp_key_path = tmp_key_file.name
+    
     try:
         try:
             key = paramiko.Ed25519Key.from_private_key_file(tmp_key_path)
@@ -65,14 +79,12 @@ def save_interview_to_sheet(interview_id, student_id, name, company, interview_t
     try:
         remote_mkdir(sftp, remote_directory)
         sql_file_path = remote_directory + "/interviews.sql"
-        # Escape single quotes in transcript to prevent SQL syntax errors
         transcript_escaped = transcript.replace("'", "''")
         sql_statement = (
             "INSERT INTO interviews (interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes) "
             f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');\n"
         )
         try:
-            # Try opening the file in append mode; if it doesn't exist, open in write mode
             remote_file = sftp.open(sql_file_path, "a")
         except IOError:
             remote_file = sftp.open(sql_file_path, "w")
