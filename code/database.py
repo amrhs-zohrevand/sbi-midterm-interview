@@ -2,40 +2,51 @@ import os
 import time
 import streamlit as st
 
-def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):
-    """
-    Instead of using Google Sheets, this function writes an SQL INSERT statement for the interview
-    data into an SQL file located in the SSH database directory.
-    """
-    # Read the SSH username from secrets
+def get_ssh_directory():
+    # Read the SSH username from st.secrets; adjust the key if needed.
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
+    if not ssh_username:
+        raise ValueError("SSH_USERNAME is not defined in secrets. Please set it in your secrets file.")
     # Build the directory path on the SSH server
     ssh_directory = f"/home/{ssh_username}/BS-Interviews/Database"
-    os.makedirs(ssh_directory, exist_ok=True)
+    return ssh_directory
+
+def ensure_ssh_directory(ssh_directory):
+    try:
+        os.makedirs(ssh_directory, exist_ok=True)
+    except PermissionError as e:
+        raise PermissionError(
+            f"Permission denied while creating directory {ssh_directory}. "
+            "Ensure the current process has write access to this directory. "
+            f"Original error: {e}"
+        )
+
+def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):
+    """
+    Writes an SQL INSERT statement for the interview data into an SQL file located in the SSH directory.
+    """
+    ssh_directory = get_ssh_directory()
+    ensure_ssh_directory(ssh_directory)
     
     sql_file_path = os.path.join(ssh_directory, "interviews.sql")
     
-    # Escape single quotes in the transcript to avoid SQL errors
+    # Escape single quotes in the transcript to avoid SQL syntax errors
     transcript_escaped = transcript.replace("'", "''")
     
-    # Construct the INSERT statement
     sql_statement = (
         "INSERT INTO interviews (interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes) "
         f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');\n"
     )
     
-    # Append the SQL statement to the file
     with open(sql_file_path, "a") as f:
         f.write(sql_statement)
 
 def update_progress_sheet(student_id, name, interview_type, timestamp):
     """
-    Instead of updating a Google Sheet, this function writes an SQL INSERT statement for the progress update
-    into an SQL file located in the SSH database directory.
+    Writes an SQL INSERT statement for the progress update into an SQL file located in the SSH directory.
     """
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    ssh_directory = f"/home/{ssh_username}/BS-Interviews/Database"
-    os.makedirs(ssh_directory, exist_ok=True)
+    ssh_directory = get_ssh_directory()
+    ensure_ssh_directory(ssh_directory)
     
     sql_file_path = os.path.join(ssh_directory, "progress.sql")
     
