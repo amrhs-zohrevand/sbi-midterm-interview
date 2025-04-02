@@ -144,37 +144,56 @@ evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.se
 # Add 'Quit' button to dashboard
 col1, col2 = st.columns([0.85, 0.15])
 # Place where the second column is
-with col2:
 
+with col2:
     # If interview is active and 'Quit' button is clicked
     if st.session_state.interview_active and st.button("Quit", help="End the interview."):
         st.session_state.interview_active = False
         quit_message = "You have cancelled the interview."
         st.session_state.messages.append({"role": "assistant", "content": quit_message})
 
-        # Save and upload interview data
-        transcript_link = save_interview_data(
-            folder_id= folder_id,
-            student_number=query_params["student_number"],
-            company_name=query_params["company"])
-        
-        # Send email transscript
-        send_transcript_email(query_params["student_number"], query_params["recipient_email"], transcript_link)
-        
-# After the interview ends
-if not st.session_state.interview_active:
-    # Clear the screen
-    st.empty()
-    
-    # Ensure transcript is saved before showing the link (When the interview ended natuarlly)
-    if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
-        st.session_state.transcript_link = save_interview_data(
+        # Save and upload interview data and get both link and file path
+        transcript_link, transcript_file = save_interview_data(
             folder_id=folder_id,
             student_number=query_params["student_number"],
             company_name=query_params["company"]
         )
-        # Send email transscript
-        send_transcript_email(query_params["student_number"], query_params["recipient_email"], st.session_state.transcript_link)
+        # Save these in session_state so they can be reused
+        st.session_state.transcript_link = transcript_link
+        st.session_state.transcript_file = transcript_file
+
+        # Send email with attachment
+        send_transcript_email(
+            query_params["student_number"],
+            query_params["recipient_email"],
+            transcript_link,
+            transcript_file
+        )
+        st.session_state.email_sent = True
+        
+# After the interview ends
+if not st.session_state.interview_active:
+    st.empty()
+    
+    # Ensure transcript is saved and stored in session_state if not already done
+    if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
+        transcript_link, transcript_file = save_interview_data(
+            folder_id=folder_id,
+            student_number=query_params["student_number"],
+            company_name=query_params["company"]
+        )
+        st.session_state.transcript_link = transcript_link
+        st.session_state.transcript_file = transcript_file
+    
+    # Send the email only if it hasn't been sent yet
+    if not st.session_state.get("email_sent", False):
+        send_transcript_email(
+            query_params["student_number"],
+            query_params["recipient_email"],
+            st.session_state.transcript_link,
+            st.session_state.transcript_file
+        )
+        st.session_state.email_sent = True
     
     # Center the button on the page
     st.markdown(f"""
