@@ -27,71 +27,21 @@
         "documentation": {}
     },
     {
-        "label": "save_interview_data",
-        "importPath": "utils",
-        "description": "utils",
-        "isExtraImport": true,
-        "detail": "utils",
-        "documentation": {}
-    },
-    {
-        "label": "send_transcript_email",
-        "importPath": "utils",
-        "description": "utils",
-        "isExtraImport": true,
-        "detail": "utils",
-        "documentation": {}
-    },
-    {
-        "label": "save_interview_to_sheet",
-        "importPath": "database",
-        "description": "database",
-        "isExtraImport": true,
-        "detail": "database",
-        "documentation": {}
-    },
-    {
-        "label": "update_progress_sheet",
-        "importPath": "database",
-        "description": "database",
-        "isExtraImport": true,
-        "detail": "database",
-        "documentation": {}
-    },
-    {
-        "label": "html",
+        "label": "paramiko",
         "kind": 6,
         "isExtraImport": true,
-        "importPath": "html",
-        "description": "html",
-        "detail": "html",
+        "importPath": "paramiko",
+        "description": "paramiko",
+        "detail": "paramiko",
         "documentation": {}
     },
     {
-        "label": "uuid",
+        "label": "tempfile",
         "kind": 6,
         "isExtraImport": true,
-        "importPath": "uuid",
-        "description": "uuid",
-        "detail": "uuid",
-        "documentation": {}
-    },
-    {
-        "label": "re",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "re",
-        "description": "re",
-        "detail": "re",
-        "documentation": {}
-    },
-    {
-        "label": "importlib.util",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "importlib.util",
-        "description": "importlib.util",
-        "detail": "importlib.util",
+        "importPath": "tempfile",
+        "description": "tempfile",
+        "detail": "tempfile",
         "documentation": {}
     },
     {
@@ -163,30 +113,12 @@
         "documentation": {}
     },
     {
-        "label": "paramiko",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "paramiko",
-        "description": "paramiko",
-        "detail": "paramiko",
-        "documentation": {}
-    },
-    {
         "label": "io",
         "kind": 6,
         "isExtraImport": true,
         "importPath": "io",
         "description": "io",
         "detail": "io",
-        "documentation": {}
-    },
-    {
-        "label": "tempfile",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "tempfile",
-        "description": "tempfile",
-        "detail": "tempfile",
         "documentation": {}
     },
     {
@@ -647,137 +579,47 @@
         "documentation": {}
     },
     {
-        "label": "validate_query_params",
+        "label": "get_sftp_client",
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params, required_keys):\n    missing_keys = []\n    for key in required_keys:\n        if key not in params or not params[key]:\n            if ENV == \"test\":\n                params[key] = default_values.get(key)\n            else:\n                missing_keys.append(key)\n    if ENV == \"test\":\n        email = params.get(\"recipient_email\", \"\")",
+        "peekOfCode": "def get_sftp_client():\n    \"\"\"\n    Connects to the SSH server using credentials from st.secrets and returns the SSH client,\n    SFTP client, and temporary key file path.\n    \"\"\"\n    ssh_host = \"ssh.liacs.nl\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.\")\n    key_str = st.secrets.get(\"LIACS_SSH_KEY\")",
         "detail": "code.interview",
         "documentation": {}
     },
     {
-        "label": "provider",
-        "kind": 5,
+        "label": "ensure_remote_directory",
+        "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()  # defaults to \"openai\" if not provided\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"",
+        "peekOfCode": "def ensure_remote_directory(sftp, remote_directory):\n    \"\"\"\n    Checks if the remote directory exists and creates it if it does not.\n    \"\"\"\n    try:\n        sftp.stat(remote_directory)\n    except IOError:\n        # Directory does not exist so create it\n        sftp.mkdir(remote_directory)\ndef write_remote_file(sftp, remote_path, data):",
         "detail": "code.interview",
         "documentation": {}
     },
     {
-        "label": "model",
-        "kind": 5,
+        "label": "write_remote_file",
+        "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    import deepinfra  # Adjust the import as needed for your deepinfra client",
+        "peekOfCode": "def write_remote_file(sftp, remote_path, data):\n    \"\"\"\n    Opens the remote file in append mode (or creates it if it doesn't exist) and writes data.\n    \"\"\"\n    try:\n        remote_file = sftp.file(remote_path, mode='a')\n    except IOError:\n        remote_file = sftp.file(remote_path, mode='w')\n    remote_file.write(data)\n    remote_file.flush()",
         "detail": "code.interview",
         "documentation": {}
     },
     {
-        "label": "ENV",
-        "kind": 5,
+        "label": "save_interview_to_sheet",
+        "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nsafe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):",
+        "peekOfCode": "def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):\n    \"\"\"\n    Writes an SQL INSERT statement for the interview data into a remote SQL file located in the SSH directory.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    ssh, sftp, tmp_key_path = get_sftp_client()\n    try:",
         "detail": "code.interview",
         "documentation": {}
     },
     {
-        "label": "safe_mode",
-        "kind": 5,
+        "label": "update_progress_sheet",
+        "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "safe_mode = st.secrets.get(\"SAFE_MODE\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found in interview_configs folder.\")",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "query_params",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found in interview_configs folder.\")\n        st.stop()",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "required_params",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\ndefault_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"j.s.deweert@gmail.com\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []\n    for key in required_keys:",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "default_values",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "default_values = {\n    \"student_number\": \"zohrehvanda\",\n    \"name\": \"Miros\",\n    \"company\": \"LIACS\",\n    \"recipient_email\": \"j.s.deweert@gmail.com\"\n}\ndef validate_query_params(params, required_keys):\n    missing_keys = []\n    for key in required_keys:\n        if key not in params or not params[key]:",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "respondent_name",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "respondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nst.sidebar.title(\"Interview Details\")\nfor param in required_params:\n    sanitized_value = html.unescape(query_params[param])\n    st.sidebar.write(f\"{param.replace('_', ' ').capitalize()}: {sanitized_value}\")\nst.sidebar.write(f\"Session ID: {st.session_state.session_id}\")\nst.sidebar.write(f\"Interview Type: {config_name}\")",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "recipient_email",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "recipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nst.sidebar.title(\"Interview Details\")\nfor param in required_params:\n    sanitized_value = html.unescape(query_params[param])\n    st.sidebar.write(f\"{param.replace('_', ' ').capitalize()}: {sanitized_value}\")\nst.sidebar.write(f\"Session ID: {st.session_state.session_id}\")\nst.sidebar.write(f\"Interview Type: {config_name}\")\nif \"interview_active\" not in st.session_state:",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "evaluation_url",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        transcript_link, transcript_file = save_interview_data(\n            student_number=query_params[\"student_number\"],",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "evaluation_url_with_session",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        transcript_link, transcript_file = save_interview_data(\n            student_number=query_params[\"student_number\"],\n            company_name=query_params[\"company\"]",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "api_kwargs[\"messages\"]",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "api_kwargs[\"model\"]",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "api_kwargs[\"max_tokens\"]",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (\n                \"Midterm Interview Transcript (provided as context for the End Reflection Interview):\\n\\n\"",
+        "peekOfCode": "def update_progress_sheet(student_id, name, interview_type, timestamp):\n    \"\"\"\n    Writes an SQL INSERT statement for the progress update into a remote SQL file located in the SSH directory.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    ssh, sftp, tmp_key_path = get_sftp_client()\n    try:",
         "detail": "code.interview",
         "documentation": {}
     },
