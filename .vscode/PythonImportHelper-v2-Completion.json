@@ -781,7 +781,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n# Append session ID as query parameter\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Add 'Quit' button to dashboard\ncol1, col2 = st.columns([0.85, 0.15])\n# Place where the second column is\nwith col2:\n    # If interview is active and 'Quit' button is clicked\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False",
+        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Add 'Quit' button to dashboard\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        # Save and upload interview data and get both link and file path",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -790,7 +790,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Add 'Quit' button to dashboard\ncol1, col2 = st.columns([0.85, 0.15])\n# Place where the second column is\nwith col2:\n    # If interview is active and 'Quit' button is clicked\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})",
+        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# Add 'Quit' button to dashboard\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        # Save and upload interview data and get both link and file path\n        transcript_link, transcript_file = save_interview_data(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -799,7 +799,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\n# Check if the current interview is an end reflection interview and if a midterm transcript exists\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type",
+        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -808,7 +808,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\n# Check if the current interview is an end reflection interview and if a midterm transcript exists\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")",
+        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -817,7 +817,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# In case the interview history is still empty, pass system prompt to model, and\n# generate and display its first message\n# Check if the current interview is an end reflection interview and if a midterm transcript exists\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:",
+        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (\n                \"Midterm Interview Transcript (provided as context for the End Reflection Interview):\\n\\n\"",
         "detail": "code.interview",
         "documentation": {}
     },

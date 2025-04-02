@@ -101,7 +101,6 @@ if not is_valid:
 if st.secrets.get("DISABLE_EMAIL", False):
     st.write("Email sending is disabled.")
 
-
 # Extract respondent's name
 respondent_name = html.unescape(query_params["name"])
 recipient_email = html.unescape(query_params["recipient_email"])
@@ -124,9 +123,11 @@ st.sidebar.write(f"Interview Type: {config_name}")
 if "interview_active" not in st.session_state:
     st.session_state.interview_active = True
 
-# Initialise messages list in session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+if "email_sent" not in st.session_state:
+    st.session_state.email_sent = False
 
 # Store start time in session state
 if "start_time" not in st.session_state:
@@ -137,16 +138,11 @@ if "start_time" not in st.session_state:
 
 # URL to Qualtrics evaluation
 evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
-
-# Append session ID as query parameter
 evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
 
 # Add 'Quit' button to dashboard
 col1, col2 = st.columns([0.85, 0.15])
-# Place where the second column is
-
 with col2:
-    # If interview is active and 'Quit' button is clicked
     if st.session_state.interview_active and st.button("Quit", help="End the interview."):
         st.session_state.interview_active = False
         quit_message = "You have cancelled the interview."
@@ -158,11 +154,10 @@ with col2:
             student_number=query_params["student_number"],
             company_name=query_params["company"]
         )
-        # Save these in session_state so they can be reused
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
-        # Send email with attachment
+        # Send email with attachment (only once)
         send_transcript_email(
             query_params["student_number"],
             query_params["recipient_email"],
@@ -170,7 +165,7 @@ with col2:
             transcript_file
         )
         st.session_state.email_sent = True
-        
+
 # After the interview ends
 if not st.session_state.interview_active:
     st.empty()
@@ -186,7 +181,7 @@ if not st.session_state.interview_active:
         st.session_state.transcript_file = transcript_file
     
     # Send the email only if it hasn't been sent yet
-    if not st.session_state.get("email_sent", False):
+    if not st.session_state.email_sent:
         send_transcript_email(
             query_params["student_number"],
             query_params["recipient_email"],
@@ -195,7 +190,6 @@ if not st.session_state.interview_active:
         )
         st.session_state.email_sent = True
     
-    # Center the button on the page
     st.markdown(f"""
     ### Your interview transcript has been saved and shared:
     [Click here to access the transcript]({st.session_state.transcript_link})
@@ -208,31 +202,22 @@ if not st.session_state.interview_active:
         </div>
         """,
         unsafe_allow_html=True,
-    ) 
+    )
     
     # Saving the interview to Google Sheets
-    # Calculate the interview duration (in minutes)
     duration_minutes = (time.time() - st.session_state.start_time) / 60
-
-    # Set values for the record
-    interview_id = st.session_state.session_id  # Use the session ID as Interview ID
+    interview_id = st.session_state.session_id
     student_id = query_params["student_number"]
     name = query_params["name"]
     company = query_params["company"]
-    
-    # Set the interview type (modify as needed)
     interview_type = config_name
-    
-    # Get the current timestamp
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     
-    # Build the transcript from the conversation
     transcript = ""
     for msg in st.session_state.messages:
         if msg["role"] in ["user", "assistant"]:
             transcript += f"{msg['role']}: {msg['content']}\n"
     
-    # Call the function to save the record to the Google Sheets database
     save_interview_to_sheet(
         interview_id,
         student_id,
@@ -242,26 +227,21 @@ if not st.session_state.interview_active:
         timestamp,
         transcript,
         f"{duration_minutes:.2f}"
-    ) 
+    )
     
     update_progress_sheet(
-    student_id,
-    name,
-    interview_type,
-    timestamp  # current completion date
-)      
-    
-    
-
+        student_id,
+        name,
+        interview_type,
+        timestamp  # current completion date
+    )
 
 # Upon rerun, display the previous conversation (except system prompt or first message)
 for message in st.session_state.messages[1:]:
-
     if message["role"] == "assistant":
         avatar = config.AVATAR_INTERVIEWER
     else:
         avatar = config.AVATAR_RESPONDENT
-    # Only display messages without codes
     if not any(code in message["content"] for code in config.CLOSING_MESSAGES.keys()):
         with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
@@ -275,27 +255,19 @@ elif api == "anthropic":
     api_kwargs = {"system": st.secrets.get("SYSTEM_PROMPT", "Your default system prompt")}
 elif api == "deepinfra":
     client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
-    # Adjust these kwargs based on deepinfra's API requirements:
     api_kwargs = {"stream": True}
     
-
-# API kwargs
 api_kwargs["messages"] = st.session_state.messages
 api_kwargs["model"] = model
 api_kwargs["max_tokens"] = config.MAX_OUTPUT_TOKENS
 if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE
 
-# In case the interview history is still empty, pass system prompt to model, and
-# generate and display its first message
-
-# Check if the current interview is an end reflection interview and if a midterm transcript exists
 if config_name.lower() == "end_reflection_interview":
     from database import get_transcript_by_student_and_type
     midterm_transcript = get_transcript_by_student_and_type(query_params["student_number"], "midterm_interview")
     try:
         if midterm_transcript:
-            # Insert a system message at the beginning with the midterm transcript as context.
             context_message = (
                 "Midterm Interview Transcript (provided as context for the End Reflection Interview):\n\n"
                 f"{midterm_transcript}"
@@ -303,13 +275,8 @@ if config_name.lower() == "end_reflection_interview":
     except:
         midterm_transcript = None
 
-
-
 if not st.session_state.messages:
-    
     if api == "openai":
-        
-    # Prepare the system prompt by including the midterm transcript if available.
         if config_name.lower() == "end_reflection_interview" and midterm_transcript:
             system_prompt = (
                 "Midterm Interview Transcript (provided as context for the End Reflection Interview):\n\n"
@@ -325,131 +292,80 @@ if not st.session_state.messages:
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             stream = client.chat.completions.create(**api_kwargs)
             message_interviewer = st.write_stream(stream)
-
     elif api == "anthropic":
-
         st.session_state.messages.append({"role": "user", "content": "Hi"})
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             message_placeholder = st.empty()
             message_interviewer = ""
             with client.messages.stream(**api_kwargs) as stream:
                 for text_delta in stream.text_stream:
-                    if text_delta != None:
+                    if text_delta is not None:
                         message_interviewer += text_delta
                     message_placeholder.markdown(message_interviewer + "▌")
             message_placeholder.markdown(message_interviewer)
-
     st.session_state.messages.append(
         {"role": "assistant", "content": message_interviewer}
     )
-    
-    # Commented out as it does not overwrite old file and create duplicates
-
-    # Store first backup files to record who started the interview
     save_interview_data(
-            folder_id=folder_id,
-            student_number=query_params["student_number"],
-            company_name=query_params["company"] )
+        folder_id=folder_id,
+        student_number=query_params["student_number"],
+        company_name=query_params["company"]
+    )
 
-# Main chat if interview is active
 if st.session_state.interview_active:
-
-    # Chat input and message for respondent
     if message_respondent := st.chat_input("Your message here"):
         st.session_state.messages.append(
             {"role": "user", "content": message_respondent}
         )
-
-        # Display respondent message
         with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
             st.markdown(message_respondent)
-
-        # Generate and display interviewer message
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
-
-            # Create placeholder for message in chat interface
             message_placeholder = st.empty()
-
-            # Initialise message of interviewer
             message_interviewer = ""
-
             if api == "openai":
-
-                # Stream responses
                 stream = client.chat.completions.create(**api_kwargs)
-
                 for message in stream:
                     text_delta = message.choices[0].delta.content
-                    if text_delta != None:
+                    if text_delta is not None:
                         message_interviewer += text_delta
-                    # Start displaying message only after 5 characters to first check for codes
                     if len(message_interviewer) > 5:
                         message_placeholder.markdown(message_interviewer + "▌")
-                    if any(
-                        code in message_interviewer
-                        for code in config.CLOSING_MESSAGES.keys()
-                    ):
-                        # Stop displaying the progress of the message in case of a code
+                    if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                         message_placeholder.empty()
                         break
-
             elif api == "anthropic":
-
-                # Stream responses
                 with client.messages.stream(**api_kwargs) as stream:
                     for text_delta in stream.text_stream:
-                        if text_delta != None:
+                        if text_delta is not None:
                             message_interviewer += text_delta
-                        # Start displaying message only after 5 characters to first check for codes
                         if len(message_interviewer) > 5:
                             message_placeholder.markdown(message_interviewer + "▌")
-                        if any(
-                            code in message_interviewer
-                            for code in config.CLOSING_MESSAGES.keys()
-                        ):
-                            # Stop displaying the progress of the message in case of a code
+                        if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                             message_placeholder.empty()
                             break
-
-            # If no code is in the message, display and store the message
-            if not any(
-                code in message_interviewer for code in config.CLOSING_MESSAGES.keys()
-            ):
-
+            if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                 message_placeholder.markdown(message_interviewer)
                 st.session_state.messages.append(
                     {"role": "assistant", "content": message_interviewer}
                 )
-
                 try:
-
-                    transcript_link = save_interview_data(
-                    folder_id=folder_id,
-                    student_number=query_params["student_number"],
-                    company_name=query_params["company"] )
-
+                    transcript_link, transcript_file = save_interview_data(
+                        folder_id=folder_id,
+                        student_number=query_params["student_number"],
+                        company_name=query_params["company"]
+                    )
                 except:
-
                     pass
-
-
-            # If code in the message, display the associated closing message instead
-            # Loop over all codes
             for code in config.CLOSING_MESSAGES.keys():
                 if code in message_interviewer:
-                    # Store message in list of messages
                     st.session_state.messages.append(
                         {"role": "assistant", "content": message_interviewer}
                     )
-
-                    # Set chat to inactive and display closing message
                     st.session_state.interview_active = False
                     closing_message = config.CLOSING_MESSAGES[code]
                     st.markdown(closing_message)
                     st.session_state.messages.append(
                         {"role": "assistant", "content": closing_message}
                     )
-                    
-                    # Delay for 5 seconds before rerunning
                     time.sleep(5)
                     st.rerun()
