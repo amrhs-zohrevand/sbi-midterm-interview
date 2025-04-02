@@ -148,9 +148,10 @@ def update_progress_sheet(student_id, name, interview_type, timestamp):
         ssh.close()
         os.remove(tmp_key_path)
         
-def get_transcript_by_student_and_type(student_id, interview_type):
+def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None):
     """
     Retrieves the most recent transcript for a given student and interview type from the remote SQLite database.
+    Accepts an optional ssh_conn parameter. If not provided, a new connection is established.
     Returns the transcript text, or an empty string if not found.
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
@@ -159,9 +160,15 @@ def get_transcript_by_student_and_type(student_id, interview_type):
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
     
-    ssh, tmp_key_path = get_ssh_connection()
+    # Use the provided SSH connection if available, otherwise establish a new one.
+    remove_after = False
+    if ssh_conn is None:
+        ssh, tmp_key_path = get_ssh_connection()
+        remove_after = True
+    else:
+        ssh = ssh_conn
+        
     try:
-        # This query selects the transcript of the latest interview record matching the criteria.
         query = (
             f"SELECT transcript FROM interviews "
             f"WHERE student_id='{student_id}' AND interview_type='{interview_type}' "
@@ -176,5 +183,5 @@ def get_transcript_by_student_and_type(student_id, interview_type):
             raise Exception(f"SQLite error: {error}")
         return result
     finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+        if remove_after:
+            ssh.close()
