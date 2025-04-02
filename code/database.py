@@ -147,3 +147,34 @@ def update_progress_sheet(student_id, name, interview_type, timestamp):
     finally:
         ssh.close()
         os.remove(tmp_key_path)
+        
+def get_transcript_by_student_and_type(student_id, interview_type):
+    """
+    Retrieves the most recent transcript for a given student and interview type from the remote SQLite database.
+    Returns the transcript text, or an empty string if not found.
+    """
+    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
+    if not ssh_username:
+        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
+    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
+    db_path = f"{remote_directory}/interviews.db"
+    
+    ssh, tmp_key_path = get_ssh_connection()
+    try:
+        # This query selects the transcript of the latest interview record matching the criteria.
+        query = (
+            f"SELECT transcript FROM interviews "
+            f"WHERE student_id='{student_id}' AND interview_type='{interview_type}' "
+            f"ORDER BY timestamp DESC LIMIT 1;"
+        )
+        safe_query = query.replace('"', '\\"')
+        cmd = f'sqlite3 {db_path} "{safe_query}"'
+        stdin, stdout, stderr = ssh.exec_command(cmd)
+        result = stdout.read().decode().strip()
+        error = stderr.read().decode().strip()
+        if error:
+            raise Exception(f"SQLite error: {error}")
+        return result
+    finally:
+        ssh.close()
+        os.remove(tmp_key_path)

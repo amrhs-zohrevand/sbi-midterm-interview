@@ -665,6 +665,15 @@
         "documentation": {}
     },
     {
+        "label": "get_transcript_by_student_and_type",
+        "kind": 2,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "def get_transcript_by_student_and_type(student_id, interview_type):\n    \"\"\"\n    Retrieves the most recent transcript for a given student and interview type from the remote SQLite database.\n    Returns the transcript text, or an empty string if not found.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    db_path = f\"{remote_directory}/interviews.db\"",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
         "label": "validate_query_params",
         "kind": 2,
         "importPath": "code.interview",
