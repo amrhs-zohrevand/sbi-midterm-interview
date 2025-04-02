@@ -172,8 +172,8 @@ if not st.session_state.interview_active:
         folder_id=folder_id,
         student_number=query_params["student_number"],
         company_name=query_params["company"]
-        )
-        send_transcript_email(query_params["student_number"], query_params["recipient_email"], transcript_link, transcript_file)
+    )
+    send_transcript_email(query_params["student_number"], query_params["recipient_email"], transcript_link, transcript_file)
     
     # Center the button on the page
     st.markdown(f"""
