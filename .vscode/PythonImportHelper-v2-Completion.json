@@ -27,6 +27,24 @@
         "documentation": {}
     },
     {
+        "label": "paramiko",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "paramiko",
+        "description": "paramiko",
+        "detail": "paramiko",
+        "documentation": {}
+    },
+    {
+        "label": "tempfile",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "tempfile",
+        "description": "tempfile",
+        "detail": "tempfile",
+        "documentation": {}
+    },
+    {
         "label": "save_interview_data",
         "importPath": "utils",
         "description": "utils",
@@ -163,30 +181,12 @@
         "documentation": {}
     },
     {
-        "label": "paramiko",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "paramiko",
-        "description": "paramiko",
-        "detail": "paramiko",
-        "documentation": {}
-    },
-    {
         "label": "io",
         "kind": 6,
         "isExtraImport": true,
         "importPath": "io",
         "description": "io",
         "detail": "io",
-        "documentation": {}
-    },
-    {
-        "label": "tempfile",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "tempfile",
-        "description": "tempfile",
-        "detail": "tempfile",
         "documentation": {}
     },
     {
@@ -611,20 +611,20 @@
         "documentation": {}
     },
     {
-        "label": "get_ssh_directory",
+        "label": "get_ssh_connection",
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def get_ssh_directory():\n    # Read the SSH username from st.secrets; adjust the key if needed.\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"SSH_USERNAME is not defined in secrets. Please set it in your secrets file.\")\n    # Build the directory path on the SSH server\n    ssh_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    return ssh_directory\ndef ensure_ssh_directory(ssh_directory):\n    try:",
+        "peekOfCode": "def get_ssh_connection():\n    \"\"\"\n    Establish an SSH connection and return both the SSH and SFTP clients.\n    The SSH credentials are read from st.secrets.\n    \"\"\"\n    ssh_host = \"ssh.liacs.nl\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.\")\n    key_str = st.secrets.get(\"LIACS_SSH_KEY\")",
         "detail": "code.database",
         "documentation": {}
     },
     {
-        "label": "ensure_ssh_directory",
+        "label": "remote_mkdir",
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def ensure_ssh_directory(ssh_directory):\n    try:\n        os.makedirs(ssh_directory, exist_ok=True)\n    except PermissionError as e:\n        raise PermissionError(\n            f\"Permission denied while creating directory {ssh_directory}. \"\n            \"Ensure the current process has write access to this directory. \"\n            f\"Original error: {e}\"\n        )\ndef save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):",
+        "peekOfCode": "def remote_mkdir(sftp, remote_directory):\n    \"\"\"\n    Recursively create remote directories if they do not exist.\n    \"\"\"\n    dirs = remote_directory.split('/')\n    path = \"\"\n    for dir in dirs:\n        if dir:\n            path = path + \"/\" + dir\n            try:",
         "detail": "code.database",
         "documentation": {}
     },
@@ -633,7 +633,7 @@
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):\n    \"\"\"\n    Writes an SQL INSERT statement for the interview data into an SQL file located in the SSH directory.\n    \"\"\"\n    ssh_directory = get_ssh_directory()\n    ensure_ssh_directory(ssh_directory)\n    sql_file_path = os.path.join(ssh_directory, \"interviews.sql\")\n    # Escape single quotes in the transcript to avoid SQL syntax errors\n    transcript_escaped = transcript.replace(\"'\", \"''\")\n    sql_statement = (",
+        "peekOfCode": "def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):\n    \"\"\"\n    Writes an SQL INSERT statement for the interview data into the remote file\n    'interviews.sql' located in the SSH directory (/home/{LIACS_SSH_USERNAME}/BS-Interviews/Database).\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    ssh, sftp, tmp_key_path = get_ssh_connection()",
         "detail": "code.database",
         "documentation": {}
     },
@@ -642,7 +642,7 @@
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def update_progress_sheet(student_id, name, interview_type, timestamp):\n    \"\"\"\n    Writes an SQL INSERT statement for the progress update into an SQL file located in the SSH directory.\n    \"\"\"\n    ssh_directory = get_ssh_directory()\n    ensure_ssh_directory(ssh_directory)\n    sql_file_path = os.path.join(ssh_directory, \"progress.sql\")\n    sql_statement = (\n        \"INSERT INTO progress (student_id, name, interview_type, completion_timestamp) \"\n        f\"VALUES ('{student_id}', '{name}', '{interview_type}', '{timestamp}');\\n\"",
+        "peekOfCode": "def update_progress_sheet(student_id, name, interview_type, timestamp):\n    \"\"\"\n    Writes an SQL INSERT statement for the progress update into the remote file\n    'progress.sql' located in the SSH directory (/home/{LIACS_SSH_USERNAME}/BS-Interviews/Database).\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    ssh, sftp, tmp_key_path = get_ssh_connection()",
         "detail": "code.database",
         "documentation": {}
     },
