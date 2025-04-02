@@ -1,11 +1,11 @@
 [
     {
-        "label": "json",
+        "label": "os",
         "kind": 6,
         "isExtraImport": true,
-        "importPath": "json",
-        "description": "json",
-        "detail": "json",
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
         "documentation": {}
     },
     {
@@ -24,22 +24,6 @@
         "importPath": "streamlit",
         "description": "streamlit",
         "detail": "streamlit",
-        "documentation": {}
-    },
-    {
-        "label": "service_account",
-        "importPath": "google.oauth2",
-        "description": "google.oauth2",
-        "isExtraImport": true,
-        "detail": "google.oauth2",
-        "documentation": {}
-    },
-    {
-        "label": "build",
-        "importPath": "googleapiclient.discovery",
-        "description": "googleapiclient.discovery",
-        "isExtraImport": true,
-        "detail": "googleapiclient.discovery",
         "documentation": {}
     },
     {
@@ -72,15 +56,6 @@
         "description": "database",
         "isExtraImport": true,
         "detail": "database",
-        "documentation": {}
-    },
-    {
-        "label": "os",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "os",
-        "description": "os",
-        "detail": "os",
         "documentation": {}
     },
     {
@@ -126,6 +101,15 @@
         "importPath": "hmac",
         "description": "hmac",
         "detail": "hmac",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
         "documentation": {}
     },
     {
@@ -631,7 +615,7 @@
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration):\n    \"\"\"\n    Appends a new row to the 'Interviews' sheet in your Google Sheets database.\n    Expected columns:\n      A: Interview ID  \n      B: Student ID  \n      C: Name  \n      D: Company  \n      E: Interview Type  \n      F: Timestamp  ",
+        "peekOfCode": "def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):\n    \"\"\"\n    Instead of using Google Sheets, this function writes an SQL INSERT statement for the interview\n    data into an SQL file located in the SSH database directory.\n    \"\"\"\n    # Read the SSH username from secrets\n    ssh_username = st.secrets.get(\"SSH_USERNAME\")\n    # Build the directory path on the SSH server\n    ssh_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    os.makedirs(ssh_directory, exist_ok=True)",
         "detail": "code.database",
         "documentation": {}
     },
@@ -640,16 +624,7 @@
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def update_progress_sheet(student_id, name, interview_type, completion_date):\n    \"\"\"\n    Checks the \"Progress\" sheet and updates or appends a row based on the student ID.\n    Expected sheet structure (columns):\n      A: Student ID  \n      B: Name  \n      C: Default  \n      D: midterm_interview  \n      E: End Reflection Completed  \n      F: Last Updated",
-        "detail": "code.database",
-        "documentation": {}
-    },
-    {
-        "label": "get_transcript_by_student_and_type",
-        "kind": 2,
-        "importPath": "code.database",
-        "description": "code.database",
-        "peekOfCode": "def get_transcript_by_student_and_type(student_id, target_interview_type):\n    \"\"\"\n    Retrieves the transcript from the 'Interviews' sheet for a given student_id and interview type.\n    Returns the transcript string if found, otherwise returns an empty string.\n    Assumes the \"Interviews\" sheet has the following columns:\n      A: Interview ID, B: Student ID, C: Name, D: Company, E: Interview Type,\n      F: Timestamp, G: Transcript, H: Duration.\n    \"\"\"\n    service_account_info = json.loads(st.secrets[\"SERVICE_ACCOUNT_JSON\"])\n    if \"\\\\n\" in service_account_info[\"private_key\"]:",
+        "peekOfCode": "def update_progress_sheet(student_id, name, interview_type, timestamp):\n    \"\"\"\n    Instead of updating a Google Sheet, this function writes an SQL INSERT statement for the progress update\n    into an SQL file located in the SSH database directory.\n    \"\"\"\n    ssh_username = st.secrets.get(\"SSH_USERNAME\")\n    ssh_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    os.makedirs(ssh_directory, exist_ok=True)\n    sql_file_path = os.path.join(ssh_directory, \"progress.sql\")\n    sql_statement = (",
         "detail": "code.database",
         "documentation": {}
     },
