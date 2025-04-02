@@ -21,7 +21,7 @@ def format_private_key(key_str):
 def get_ssh_connection():
     """
     Establish an SSH connection using the LIACS SSH credentials.
-    Returns the SSH client, SFTP client, and the temporary key file path.
+    Returns the SSH client and the temporary key file path.
     """
     ssh_host = "ssh.liacs.nl"
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
@@ -45,83 +45,105 @@ def get_ssh_connection():
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(ssh_host, username=ssh_username, pkey=key)
-        sftp = ssh.open_sftp()
-        return ssh, sftp, tmp_key_path
+        return ssh, tmp_key_path
     except Exception as e:
         os.remove(tmp_key_path)
         raise e
 
-def remote_mkdir(sftp, remote_directory):
+def ensure_remote_directory(ssh, remote_directory):
     """
-    Recursively create remote directories if they do not exist.
+    Ensures the remote directory exists by executing a mkdir command.
     """
-    dirs = remote_directory.split('/')
-    path = ""
-    for dir in dirs:
-        if dir:
-            path = path + "/" + dir
-            try:
-                sftp.stat(path)
-            except IOError:
-                sftp.mkdir(path)
+    mkdir_cmd = f"mkdir -p {remote_directory}"
+    stdin, stdout, stderr = ssh.exec_command(mkdir_cmd)
+    err = stderr.read().decode().strip()
+    if err:
+        raise PermissionError(f"Failed to create remote directory {remote_directory}: {err}")
+
+def run_remote_sql(ssh, db_path, sql_query):
+    """
+    Executes the given SQL query on the remote SQLite database using the sqlite3 command.
+    Assumes that the sqlite3 command-line tool is available on the remote server.
+    """
+    # Escape double quotes in the query so it can be wrapped in double quotes.
+    safe_query = sql_query.replace('"', '\\"')
+    cmd = f'sqlite3 {db_path} "{safe_query}"'
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    err = stderr.read().decode().strip()
+    if err:
+        raise Exception(f"SQLite error: {err}")
 
 def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):
     """
-    Writes an SQL INSERT statement for the interview data into the remote file
-    'interviews.sql' located in the SSH directory (/home/{LIACS_SSH_USERNAME}/BS-Interviews/Database).
+    Inserts the interview data into the remote SQLite database.
+    The database file (interviews.db) is located in the SSH directory.
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
         raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
+    db_path = f"{remote_directory}/interviews.db"
     
-    ssh, sftp, tmp_key_path = get_ssh_connection()
+    ssh, tmp_key_path = get_ssh_connection()
     try:
-        remote_mkdir(sftp, remote_directory)
-        sql_file_path = remote_directory + "/interviews.sql"
-        transcript_escaped = transcript.replace("'", "''")
-        sql_statement = (
-            "INSERT INTO interviews (interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes) "
-            f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');\n"
+        # Ensure the remote directory exists
+        ensure_remote_directory(ssh, remote_directory)
+        
+        # Create the interviews table if it doesn't exist
+        create_table_query = (
+            "CREATE TABLE IF NOT EXISTS interviews ("
+            "interview_id TEXT, "
+            "student_id TEXT, "
+            "name TEXT, "
+            "company TEXT, "
+            "interview_type TEXT, "
+            "timestamp TEXT, "
+            "transcript TEXT, "
+            "duration_minutes TEXT);"
         )
-        try:
-            remote_file = sftp.open(sql_file_path, "a")
-        except IOError:
-            remote_file = sftp.open(sql_file_path, "w")
-        remote_file.write(sql_statement)
-        remote_file.flush()
-        remote_file.close()
+        run_remote_sql(ssh, db_path, create_table_query)
+        
+        # Escape single quotes in transcript to avoid SQL issues
+        transcript_escaped = transcript.replace("'", "''")
+        insert_query = (
+            "INSERT INTO interviews (interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes) "
+            f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');"
+        )
+        run_remote_sql(ssh, db_path, insert_query)
     finally:
-        sftp.close()
         ssh.close()
         os.remove(tmp_key_path)
 
 def update_progress_sheet(student_id, name, interview_type, timestamp):
     """
-    Writes an SQL INSERT statement for the progress update into the remote file
-    'progress.sql' located in the SSH directory (/home/{LIACS_SSH_USERNAME}/BS-Interviews/Database).
+    Inserts a progress update into the remote SQLite database.
+    The database file (interviews.db) is located in the SSH directory.
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
         raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
+    db_path = f"{remote_directory}/interviews.db"
     
-    ssh, sftp, tmp_key_path = get_ssh_connection()
+    ssh, tmp_key_path = get_ssh_connection()
     try:
-        remote_mkdir(sftp, remote_directory)
-        sql_file_path = remote_directory + "/progress.sql"
-        sql_statement = (
-            "INSERT INTO progress (student_id, name, interview_type, completion_timestamp) "
-            f"VALUES ('{student_id}', '{name}', '{interview_type}', '{timestamp}');\n"
+        ensure_remote_directory(ssh, remote_directory)
+        
+        # Create the progress table if it doesn't exist
+        create_table_query = (
+            "CREATE TABLE IF NOT EXISTS progress ("
+            "student_id TEXT, "
+            "name TEXT, "
+            "interview_type TEXT, "
+            "completion_timestamp TEXT);"
         )
-        try:
-            remote_file = sftp.open(sql_file_path, "a")
-        except IOError:
-            remote_file = sftp.open(sql_file_path, "w")
-        remote_file.write(sql_statement)
-        remote_file.flush()
-        remote_file.close()
+        run_remote_sql(ssh, db_path, create_table_query)
+        
+        insert_query = (
+            "INSERT INTO progress (student_id, name, interview_type, completion_timestamp) "
+            f"VALUES ('{student_id}', '{name}', '{interview_type}', '{timestamp}');"
+        )
+        run_remote_sql(ssh, db_path, insert_query)
     finally:
-        sftp.close()
         ssh.close()
         os.remove(tmp_key_path)
