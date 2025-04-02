@@ -880,7 +880,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed",
+        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Set headers with file_name",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -889,7 +889,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}",
+        "peekOfCode": "msg['To'] = {repr(to_addr)}\nmsg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Set headers with file_name\npart.add_header(\"Content-Type\", f'text/plain; name=\"{file_name}\"')",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -898,7 +898,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "msg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:",
+        "peekOfCode": "msg['Cc'] = {repr(cc_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Set headers with file_name\npart.add_header(\"Content-Type\", f'text/plain; name=\"{file_name}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{file_name}\"')",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -907,7 +907,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"",
+        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nattachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Set headers with file_name\npart.add_header(\"Content-Type\", f'text/plain; name=\"{file_name}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{file_name}\"')\nmsg.attach(part)",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -916,7 +916,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "attachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"\npart.add_header(\"Content-Type\", f'text/plain; name=\"{filename}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{filename}\"')",
+        "peekOfCode": "attachment_data = base64.b64decode({repr(attachment_data)})\npart = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Set headers with file_name\npart.add_header(\"Content-Type\", f'text/plain; name=\"{file_name}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{file_name}\"')\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -925,16 +925,7 @@
         "kind": 5,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "part = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Force a fallback name if needed\nfilename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"\npart.add_header(\"Content-Type\", f'text/plain; name=\"{filename}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{filename}\"')\nmsg.attach(part)",
-        "detail": "code.utils",
-        "documentation": {}
-    },
-    {
-        "label": "filename",
-        "kind": 5,
-        "importPath": "code.utils",
-        "description": "code.utils",
-        "peekOfCode": "filename = {repr(file_name)}\nif not filename:\n    filename = \"transcript.txt\"\npart.add_header(\"Content-Type\", f'text/plain; name=\"{filename}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{filename}\"')\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")\n\"\"\"",
+        "peekOfCode": "part = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\n# Set headers with file_name\npart.add_header(\"Content-Type\", f'text/plain; name=\"{file_name}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{file_name}\"')\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Remote email sent.\")",
         "detail": "code.utils",
         "documentation": {}
     }

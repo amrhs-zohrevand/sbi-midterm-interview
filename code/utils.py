@@ -173,16 +173,18 @@ Best regards,
 Leiden University Interview System
 """
 
-    # Force a fallback name if os.path.basename returns an empty string
+    # Use a fallback name if os.path.basename returns an empty string
     fallback_name = "transcript.txt"
     file_name = os.path.basename(transcript_file) or fallback_name
+
+    if not file_name:
+        file_name = fallback_name
 
     if use_liacs:
         # LIACS branch
         with open(transcript_file, "rb") as f:
             attachment_data = base64.b64encode(f.read()).decode()
 
-        # Build the Python code to run remotely
         python_code = f"""\
 import base64
 import smtplib
@@ -206,13 +208,9 @@ part = MIMEBase("text", "plain")
 part.set_payload(attachment_data)
 encoders.encode_base64(part)
 
-# Force a fallback name if needed
-filename = {repr(file_name)}
-if not filename:
-    filename = "transcript.txt"
-
-part.add_header("Content-Type", f'text/plain; name="{filename}"')
-part.add_header("Content-Disposition", f'attachment; filename="{filename}"')
+# Set headers with file_name
+part.add_header("Content-Type", f'text/plain; name="{file_name}"')
+part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
 msg.attach(part)
 
 with smtplib.SMTP('smtp.leidenuniv.nl') as server:
@@ -285,17 +283,12 @@ print("✅ Remote email sent.")
 
         msg.attach(MIMEText(body, "plain"))
 
-        # Read file and attach as text/plain
         with open(transcript_file, "rb") as f:
             content = f.read()
 
         part = MIMEBase("text", "plain")
         part.set_payload(content)
         encoders.encode_base64(part)
-
-        # Force a fallback name if needed
-        if not file_name:
-            file_name = "transcript.txt"
 
         part.add_header("Content-Type", f'text/plain; name="{file_name}"')
         part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
