@@ -173,7 +173,7 @@ if not st.session_state.interview_active:
     
     st.markdown(
         f"""
-        <div style="display: flex; justify-content: center; align-items: center; height: 10vh;">
+        <div style="display: flex; justify-content: center; align-items: center; margin-top: 2em;">
             <a href="{evaluation_url_with_session}" target="_blank" style="text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;">Click here to evaluate the interview</a>
         </div>
         """,
