@@ -77,9 +77,16 @@ if "email_sent" not in st.session_state:
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 
-# Email confirmation logic
 if "awaiting_email_confirmation" not in st.session_state:
     st.session_state.awaiting_email_confirmation = False
+
+# Sidebar with interview details
+st.sidebar.title("Interview Details")
+for param in required_params:
+    sanitized_value = html.unescape(query_params[param])
+    st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
+st.sidebar.write(f"Session ID: {st.session_state.session_id}")
+st.sidebar.write(f"Interview Type: {config_name}")
 
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
@@ -114,6 +121,7 @@ if st.session_state.awaiting_email_confirmation:
                 name_from_form=query_params["name"]
             )
             st.session_state.email_sent = True
+
 
 if not st.session_state.interview_active:
     st.empty()
