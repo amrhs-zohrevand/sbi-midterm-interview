@@ -257,7 +257,7 @@ if config_name.lower() == "end_reflection_interview":
     try:
         if midterm_transcript:
             context_message = (
-                "Midterm Interview Transcript (provided as context for the End Reflection Interview):\n\n"
+                "Midterm Interview Transcript Summary (provided as context for the End Reflection Interview):\n\n"
                 f"{midterm_transcript}"
             )
     except:
@@ -267,7 +267,7 @@ if not st.session_state.messages:
     if api == "openai":
         if config_name.lower() == "end_reflection_interview" and midterm_transcript:
             system_prompt = (
-                "Midterm Interview Transcript (provided as context for the End Reflection Interview):\n\n"
+                "Midterm Interview Transcript Summary (provided as context for the End Reflection Interview):\n\n"
                 f"{midterm_transcript}\n\n"
                 f"{config.INTERVIEW_OUTLINE}"
             )

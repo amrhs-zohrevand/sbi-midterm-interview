@@ -830,7 +830,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (\n                \"Midterm Interview Transcript (provided as context for the End Reflection Interview):\\n\\n\"",
+        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (\n                \"Midterm Interview Transcript Summary (provided as context for the End Reflection Interview):\\n\\n\"",
         "detail": "code.interview",
         "documentation": {}
     },

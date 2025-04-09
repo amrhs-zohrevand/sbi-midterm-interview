@@ -171,7 +171,7 @@ def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None
         
     try:
         query = (
-            f"SELECT transcript FROM interviews "
+            f"SELECT summary FROM interviews "
             f"WHERE student_id='{student_id}' AND interview_type='{interview_type}' "
             f"ORDER BY timestamp DESC LIMIT 1;"
         )
