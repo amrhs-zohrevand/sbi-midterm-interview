@@ -121,12 +121,6 @@ if "start_time" not in st.session_state:
     st.session_state.start_time_file_names = time.strftime(
         "%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time)
     )
-    
-if "quit_requested" not in st.session_state:
-    st.session_state.quit_requested = False
-
-if "awaiting_email_confirmation" not in st.session_state:
-    st.session_state.awaiting_email_confirmation = False
 
 evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
 evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
@@ -134,55 +128,25 @@ evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.se
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
     if st.session_state.interview_active and st.button("Quit", help="End the interview."):
-        st.session_state.quit_requested = True
-        st.session_state.awaiting_email_confirmation = True
+        st.session_state.interview_active = False
+        quit_message = "You have cancelled the interview."
+        st.session_state.messages.append({"role": "assistant", "content": quit_message})
 
-if st.session_state.quit_requested and st.session_state.awaiting_email_confirmation:
-    st.warning(f"You are about to quit the interview. A copy will be sent to: {recipient_email}")
-    st.write("Do you want to receive the transcript by email?")
-    col_a, col_b, col_c = st.columns(3)
+        transcript_link, transcript_file = save_interview_data(
+            student_number=query_params["student_number"],
+            company_name=query_params["company"]
+        )
+        st.session_state.transcript_link = transcript_link
+        st.session_state.transcript_file = transcript_file
 
-    with col_a:
-        if st.button("Yes, send email"):
-            st.session_state.interview_active = False
-            st.session_state.awaiting_email_confirmation = False
-            quit_message = "You have cancelled the interview."
-            st.session_state.messages.append({"role": "assistant", "content": quit_message})
-            transcript_link, transcript_file = save_interview_data(
-                student_number=query_params["student_number"],
-                company_name=query_params["company"]
-            )
-            st.session_state.transcript_link = transcript_link
-            st.session_state.transcript_file = transcript_file
-            send_transcript_email(
-                student_number=query_params["student_number"],
-                recipient_email=query_params["recipient_email"],
-                transcript_link=transcript_link,
-                transcript_file=transcript_file,
-                name_from_form=query_params["name"]
-            )
-            st.session_state.email_sent = True
-            st.rerun()
-
-    with col_b:
-        if st.button("No, don't send email"):
-            st.session_state.interview_active = False
-            st.session_state.awaiting_email_confirmation = False
-            quit_message = "You have cancelled the interview."
-            st.session_state.messages.append({"role": "assistant", "content": quit_message})
-            transcript_link, transcript_file = save_interview_data(
-                student_number=query_params["student_number"],
-                company_name=query_params["company"]
-            )
-            st.session_state.transcript_link = transcript_link
-            st.session_state.transcript_file = transcript_file
-            st.session_state.email_sent = True
-            st.rerun()
-
-    with col_c:
-        if st.button("Cancel"):
-            st.session_state.awaiting_email_confirmation = False
-            st.session_state.quit_requested = False
+        send_transcript_email(
+        student_number=query_params["student_number"],
+        recipient_email=query_params["recipient_email"],
+        transcript_link=transcript_link,
+        transcript_file=transcript_file,
+        name_from_form=query_params["name"]  # NEW
+    )
+        st.session_state.email_sent = True
 
 if not st.session_state.interview_active:
     st.empty()
