@@ -85,6 +85,22 @@
         "documentation": {}
     },
     {
+        "label": "get_transcript_by_student_and_type",
+        "importPath": "database",
+        "description": "database",
+        "isExtraImport": true,
+        "detail": "database",
+        "documentation": {}
+    },
+    {
+        "label": "get_context_transcript",
+        "importPath": "interview_selection",
+        "description": "interview_selection",
+        "isExtraImport": true,
+        "detail": "interview_selection",
+        "documentation": {}
+    },
+    {
         "label": "html",
         "kind": 6,
         "isExtraImport": true,
@@ -118,6 +134,23 @@
         "importPath": "importlib.util",
         "description": "importlib.util",
         "detail": "importlib.util",
+        "documentation": {}
+    },
+    {
+        "label": "csv",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "csv",
+        "description": "csv",
+        "detail": "csv",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
         "documentation": {}
     },
     {
@@ -785,7 +818,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type",
+        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -794,7 +827,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:",
+        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -803,7 +836,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (",
+        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -812,8 +845,44 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type\n    midterm_transcript = get_transcript_by_student_and_type(query_params[\"student_number\"], \"midterm_interview\")\n    try:\n        if midterm_transcript:\n            context_message = (\n                \"Midterm Interview Transcript Summary (provided as context for the End Reflection Interview):\\n\\n\"",
+        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"\n                f\"{context_transcript}\\n\\n\"",
         "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "context_transcript",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "context_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"\n                f\"{context_transcript}\\n\\n\"\n                f\"{config.INTERVIEW_OUTLINE}\"\n            )\n        else:",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "load_interview_context_map",
+        "kind": 2,
+        "importPath": "code.interview_selection",
+        "description": "code.interview_selection",
+        "peekOfCode": "def load_interview_context_map():\n    \"\"\"Reads the interview context mapping from CSV.\"\"\"\n    mapping = {}\n    if MATRIX_FILE.exists():\n        with open(MATRIX_FILE, newline=\"\", encoding=\"utf-8\") as csvfile:\n            reader = csv.DictReader(csvfile, delimiter=\";\")\n            for row in reader:\n                current = row[\"current_interview\"].strip().lower()\n                context = row[\"context_interview\"].strip().lower()\n                mapping[current] = context",
+        "detail": "code.interview_selection",
+        "documentation": {}
+    },
+    {
+        "label": "get_context_transcript",
+        "kind": 2,
+        "importPath": "code.interview_selection",
+        "description": "code.interview_selection",
+        "peekOfCode": "def get_context_transcript(student_id: str, current_interview_type: str) -> str:\n    \"\"\"\n    Given the current interview type and student ID, this returns the summary transcript\n    of the associated context interview if defined in the matrix.\n    \"\"\"\n    context_map = load_interview_context_map()\n    interview_key = current_interview_type.lower()\n    if interview_key in context_map:\n        context_type = context_map[interview_key]\n        transcript = get_transcript_by_student_and_type(student_id, context_type)",
+        "detail": "code.interview_selection",
+        "documentation": {}
+    },
+    {
+        "label": "MATRIX_FILE",
+        "kind": 5,
+        "importPath": "code.interview_selection",
+        "description": "code.interview_selection",
+        "peekOfCode": "MATRIX_FILE = Path(__file__).parent / \"interview_matrix.csv\"\ndef load_interview_context_map():\n    \"\"\"Reads the interview context mapping from CSV.\"\"\"\n    mapping = {}\n    if MATRIX_FILE.exists():\n        with open(MATRIX_FILE, newline=\"\", encoding=\"utf-8\") as csvfile:\n            reader = csv.DictReader(csvfile, delimiter=\";\")\n            for row in reader:\n                current = row[\"current_interview\"].strip().lower()\n                context = row[\"context_interview\"].strip().lower()",
+        "detail": "code.interview_selection",
         "documentation": {}
     },
     {

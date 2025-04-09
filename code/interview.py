@@ -2,6 +2,7 @@ import streamlit as st
 import time
 from utils import save_interview_data, send_transcript_email
 from database import save_interview_to_sheet, update_progress_sheet, update_interview_summary
+from interview_selection import get_context_transcript
 import os
 import html
 import uuid
@@ -141,7 +142,6 @@ if st.session_state.awaiting_email_confirmation:
         st.stop()
 
 
-
 if not st.session_state.interview_active:
     st.empty()
     
@@ -211,7 +211,7 @@ if not st.session_state.interview_active:
         summary_text = summary_response.choices[0].message.content.strip()
     else:
         summary_text = "Summary generation not implemented for this provider."
-    
+
     st.write("Generated Summary:", summary_text)  # Optional: display for debugging
     update_interview_summary(interview_id, summary_text)
     # --- End New Section ---
@@ -236,24 +236,14 @@ api_kwargs["max_tokens"] = config.MAX_OUTPUT_TOKENS
 if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE
 
-if config_name.lower() == "end_reflection_interview":
-    from database import get_transcript_by_student_and_type
-    midterm_transcript = get_transcript_by_student_and_type(query_params["student_number"], "midterm_interview")
-    try:
-        if midterm_transcript:
-            context_message = (
-                "Midterm Interview Transcript Summary (provided as context for the End Reflection Interview):\n\n"
-                f"{midterm_transcript}"
-            )
-    except:
-        midterm_transcript = None
+context_transcript = get_context_transcript(query_params["student_number"], config_name)
 
 if not st.session_state.messages:
     if api == "openai":
-        if config_name.lower() == "end_reflection_interview" and midterm_transcript:
+        if context_transcript:
             system_prompt = (
-                "Midterm Interview Transcript Summary (provided as context for the End Reflection Interview):\n\n"
-                f"{midterm_transcript}\n\n"
+                "Context Transcript Summary (provided as context for the Interview):\n\n"
+                f"{context_transcript}\n\n"
                 f"{config.INTERVIEW_OUTLINE}"
             )
         else:
