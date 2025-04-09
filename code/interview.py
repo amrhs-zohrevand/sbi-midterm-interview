@@ -7,15 +7,16 @@ from utils import (
 from database import ( 
     save_interview_to_sheet, 
     update_progress_sheet,
-    update_interview_summary
+    update_interview_summary  # NEW: import the update summary function
 )
 import os
-import html
+import html  # For sanitizing query parameters
 import uuid
 import re
 import importlib.util
 
-provider = st.secrets.get("API_PROVIDER", "openai").lower()
+# Load API library
+provider = st.secrets.get("API_PROVIDER", "openai").lower()  # defaults to "openai" if not provided
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
 if provider == "openai" or "gpt" in model.lower():
@@ -26,10 +27,13 @@ elif provider == "anthropic" or "claude" in model.lower():
     import anthropic
 elif provider == "deepinfra":
     api = "deepinfra"
-    import deepinfra
+    import deepinfra  # Adjust the import as needed for your deepinfra client
 else:
-    raise ValueError("API provider not recognized.")
+    raise ValueError(
+        "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
+    )
 
+# Initialize the LLM client early so it's available for summary generation and later streaming requests.
 if api == "openai":
     client = OpenAI(api_key=st.secrets["API_KEY"])
 elif api == "anthropic":
@@ -48,7 +52,7 @@ else:
     config_name = st.query_params.get("interview_config", ["Default"])
     config_path = os.path.join(os.path.dirname(__file__), "interview_configs", f"{config_name}.py")
     if not os.path.exists(config_path):
-        st.error(f"Configuration file {config_name}.py not found.")
+        st.error(f"Configuration file {config_name}.py not found in interview_configs folder.")
         st.stop()
     spec = importlib.util.spec_from_file_location("config", config_path)
     config = importlib.util.module_from_spec(spec)
@@ -71,10 +75,12 @@ def validate_query_params(params, required_keys):
                 params[key] = default_values.get(key)
             else:
                 missing_keys.append(key)
+    
     if ENV == "test":
         email = params.get("recipient_email", "")
-        if not re.match(r"[^@]+@[^@]+\\.[^@]+", email):
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             missing_keys.append("recipient_email (invalid format)")
+    
     if missing_keys:
         return False, missing_keys
     return True, []
@@ -84,11 +90,22 @@ if not is_valid:
     st.error(f"Missing or invalid required parameter(s): {', '.join(missing_params)}")
     st.stop()
 
+if st.secrets.get("DISABLE_EMAIL", False):
+    st.write("Email sending is disabled.")
+
 respondent_name = html.unescape(query_params["name"])
 recipient_email = html.unescape(query_params["recipient_email"])
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
+
+st.sidebar.title("Interview Details")
+for param in required_params:
+    sanitized_value = html.unescape(query_params[param])
+    st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
+
+st.sidebar.write(f"Session ID: {st.session_state.session_id}")
+st.sidebar.write(f"Interview Type: {config_name}")
 
 if "interview_active" not in st.session_state:
     st.session_state.interview_active = True
@@ -101,13 +118,18 @@ if "email_sent" not in st.session_state:
 
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
-    st.session_state.start_time_file_names = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time))
-
+    st.session_state.start_time_file_names = time.strftime(
+        "%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time)
+    )
+    
 if "quit_requested" not in st.session_state:
     st.session_state.quit_requested = False
 
 if "awaiting_email_confirmation" not in st.session_state:
     st.session_state.awaiting_email_confirmation = False
+
+evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
+evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
 
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
