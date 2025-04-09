@@ -132,7 +132,7 @@ if st.session_state.awaiting_email_confirmation:
 
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: 2em;">
                 <a href="{evaluation_url_with_session}" target="_blank" style="text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;">Click here to evaluate the interview</a>
             </div>
             """,
@@ -162,17 +162,6 @@ if not st.session_state.interview_active:
         name_from_form=query_params["name"]  # NEW
     )
         st.session_state.email_sent = True
-    
-    st.markdown("### Your interview transcript has been saved. Please check your email for the transcript attachment.")
-    
-    st.markdown(
-        f"""
-        <div style="display: flex; justify-content: center; align-items: center; margin-top: 2em;">
-            <a href="{evaluation_url_with_session}" target="_blank" style="text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;">Click here to evaluate the interview</a>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     
     duration_minutes = (time.time() - st.session_state.start_time) / 60
     interview_id = st.session_state.session_id
