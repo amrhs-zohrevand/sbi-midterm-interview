@@ -4,7 +4,11 @@ from utils import (
     save_interview_data,
     send_transcript_email,
 )
-from database import ( save_interview_to_sheet, update_progress_sheet)
+from database import ( 
+    save_interview_to_sheet, 
+    update_progress_sheet,
+    update_interview_summary  # NEW: import the update summary function
+)
 import os
 import html  # For sanitizing query parameters
 import uuid
@@ -196,6 +200,28 @@ if not st.session_state.interview_active:
         interview_type,
         timestamp
     )
+    
+    # --- NEW: Generate and store summary via the LLM ---
+    summary_prompt = (
+        "Please provide a concise but detailed summary for the following interview transcript:\n\n" 
+        + transcript
+    )
+    if api == "openai":
+        # Call the LLM without streaming to get the full summary response directly.
+        summary_response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "system", "content": summary_prompt}],
+            max_tokens=200,
+            temperature=0.7,
+            stream=False
+        )
+        summary_text = summary_response.choices[0].message.content.strip()
+    else:
+        summary_text = "Summary generation not implemented for this provider."
+    
+    st.write("Generated Summary:", summary_text)  # Optional: display for debugging
+    update_interview_summary(interview_id, summary_text)
+    # --- End New Section ---
 
 for message in st.session_state.messages[1:]:
     if message["role"] == "assistant":

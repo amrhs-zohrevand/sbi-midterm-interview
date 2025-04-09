@@ -77,6 +77,14 @@
         "documentation": {}
     },
     {
+        "label": "update_interview_summary  # NEW: import the update summary function",
+        "importPath": "database",
+        "description": "database",
+        "isExtraImport": true,
+        "detail": "database",
+        "documentation": {}
+    },
+    {
         "label": "html",
         "kind": 6,
         "isExtraImport": true,
@@ -670,6 +678,15 @@
         "importPath": "code.database",
         "description": "code.database",
         "peekOfCode": "def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None):\n    \"\"\"\n    Retrieves the most recent transcript for a given student and interview type from the remote SQLite database.\n    Accepts an optional ssh_conn parameter. If not provided, a new connection is established.\n    Returns the transcript text, or an empty string if not found.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "update_interview_summary",
+        "kind": 2,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "def update_interview_summary(interview_id, summary):\n    \"\"\"\n    Updates the interview record identified by interview_id with the given summary.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    db_path = f\"{remote_directory}/interviews.db\"\n    ssh, tmp_key_path = get_ssh_connection()",
         "detail": "code.database",
         "documentation": {}
     },

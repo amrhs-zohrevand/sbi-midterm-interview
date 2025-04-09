@@ -99,7 +99,8 @@ def save_interview_to_sheet(interview_id, student_id, name, company, interview_t
             "interview_type TEXT, "
             "timestamp TEXT, "
             "transcript TEXT, "
-            "duration_minutes TEXT);"
+            "duration_minutes TEXT, "
+            "summary TEXT);"
         )
         run_remote_sql(ssh, db_path, create_table_query)
         
@@ -185,3 +186,24 @@ def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None
     finally:
         if remove_after:
             ssh.close()
+
+def update_interview_summary(interview_id, summary):
+    """
+    Updates the interview record identified by interview_id with the given summary.
+    """
+    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
+    if not ssh_username:
+        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
+    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
+    db_path = f"{remote_directory}/interviews.db"
+
+    ssh, tmp_key_path = get_ssh_connection()
+    try:
+        summary_escaped = summary.replace("'", "''")
+        update_query = (
+            f"UPDATE interviews SET summary = '{summary_escaped}' WHERE interview_id = '{interview_id}';"
+        )
+        run_remote_sql(ssh, db_path, update_query)
+    finally:
+        ssh.close()
+        os.remove(tmp_key_path)
