@@ -857,7 +857,7 @@
         "kind": 2,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "def send_transcript_email(student_number, recipient_email, transcript_link, transcript_file):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    \"\"\"\n    import base64\n    import paramiko\n    import streamlit as st\n    import tempfile\n    import os\n    from email.mime.multipart import MIMEMultipart",
+        "peekOfCode": "def send_transcript_email(\n    student_number,\n    recipient_email,\n    transcript_link,\n    transcript_file,\n    name_from_form=None  # NEW parameter to pass the interviewee's name\n):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    \"\"\"",
         "detail": "code.utils",
         "documentation": {}
     },

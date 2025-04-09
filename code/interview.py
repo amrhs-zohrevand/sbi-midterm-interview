@@ -140,11 +140,12 @@ with col2:
         st.session_state.transcript_file = transcript_file
 
         send_transcript_email(
-            query_params["student_number"],
-            query_params["recipient_email"],
-            transcript_link,
-            transcript_file
-        )
+        student_number=query_params["student_number"],
+        recipient_email=query_params["recipient_email"],
+        transcript_link=transcript_link,
+        transcript_file=transcript_file,
+        name_from_form=query_params["name"]  # NEW
+    )
         st.session_state.email_sent = True
 
 if not st.session_state.interview_active:
@@ -160,11 +161,12 @@ if not st.session_state.interview_active:
     
     if not st.session_state.email_sent:
         send_transcript_email(
-            query_params["student_number"],
-            query_params["recipient_email"],
-            st.session_state.transcript_link,
-            st.session_state.transcript_file
-        )
+        student_number=query_params["student_number"],
+        recipient_email=query_params["recipient_email"],
+        transcript_link=transcript_link,
+        transcript_file=transcript_file,
+        name_from_form=query_params["name"]  # NEW
+    )
         st.session_state.email_sent = True
     
     st.markdown("### Your interview transcript has been saved. Please check your email for the transcript attachment.")

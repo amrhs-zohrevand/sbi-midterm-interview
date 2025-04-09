@@ -57,33 +57,43 @@ def save_interview_data(student_number, company_name, transcripts_directory=None
     transcript_link = ""
     return transcript_link, transcript_file
 
-def send_transcript_email(student_number, recipient_email, transcript_link, transcript_file):
+def send_transcript_email(
+    student_number,
+    recipient_email,
+    transcript_link,
+    transcript_file,
+    name_from_form=None  # NEW parameter to pass the interviewee's name
+):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
     """
-    import base64
-    import paramiko
-    import streamlit as st
-    import tempfile
-    import os
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-    from email.mime.base import MIMEBase
-    from email import encoders
-
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
+
     from_addr = "bs-internships@liacs.leidenuniv.nl"
+    
+    # Example: sending to both the student's institutional address & the "recipient_email"
     to_addr = f"{student_number}@vuw.leidenuniv.nl"
     cc_addr = recipient_email
+
     subject = "Your Interview Transcript from Leiden University"
-    # Updated email body to indicate that the transcript is attached.
+    
+    # Decide how to greet the recipient
+    if name_from_form and name_from_form.strip():
+        greeting_name = name_from_form.strip()
+    else:
+        greeting_name = "participant"
+
+    # Updated email body:
     body = f"""\
-Dear Student,
+This is an automated email, please do not reply.
+
+Dear {greeting_name},
 
 Thank you for participating in the interview. Your transcript has been saved and is attached to this email.
 
-Best regards,
-Leiden University Interview System
+Best wishes,
+Business Studies Internship Team
+LIACS, Leiden University
 """
 
     fallback_name = "transcript.txt"
