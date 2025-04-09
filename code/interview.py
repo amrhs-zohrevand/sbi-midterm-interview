@@ -238,6 +238,11 @@ if config.TEMPERATURE is not None:
 
 context_transcript = get_context_transcript(query_params["student_number"], config_name)
 
+if context_transcript:
+    st.info("✅ Context summary loaded from previous interview.")
+else:
+    st.warning("⚠️ No context summary available for this interview type.")
+
 if not st.session_state.messages:
     if api == "openai":
         if context_transcript:

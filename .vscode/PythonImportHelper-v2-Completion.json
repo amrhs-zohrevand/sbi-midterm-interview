@@ -818,7 +818,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:",
+        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif context_transcript:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -827,7 +827,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (",
+        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif context_transcript:\n    st.info(\"✅ Context summary loaded from previous interview.\")\nelse:\n    st.warning(\"⚠️ No context summary available for this interview type.\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -836,7 +836,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"",
+        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif context_transcript:\n    st.info(\"✅ Context summary loaded from previous interview.\")\nelse:\n    st.warning(\"⚠️ No context summary available for this interview type.\")\nif not st.session_state.messages:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -845,7 +845,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"\n                f\"{context_transcript}\\n\\n\"",
+        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\ncontext_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif context_transcript:\n    st.info(\"✅ Context summary loaded from previous interview.\")\nelse:\n    st.warning(\"⚠️ No context summary available for this interview type.\")\nif not st.session_state.messages:\n    if api == \"openai\":",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -854,7 +854,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "context_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"\n                f\"{context_transcript}\\n\\n\"\n                f\"{config.INTERVIEW_OUTLINE}\"\n            )\n        else:",
+        "peekOfCode": "context_transcript = get_context_transcript(query_params[\"student_number\"], config_name)\nif context_transcript:\n    st.info(\"✅ Context summary loaded from previous interview.\")\nelse:\n    st.warning(\"⚠️ No context summary available for this interview type.\")\nif not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"",
         "detail": "code.interview",
         "documentation": {}
     },
