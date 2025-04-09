@@ -88,6 +88,10 @@ for param in required_params:
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 st.sidebar.write(f"Interview Type: {config_name}")
 
+# Evaluation URL definition
+evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
+evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
+
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
     if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
@@ -121,6 +125,7 @@ if st.session_state.awaiting_email_confirmation:
                 name_from_form=query_params["name"]
             )
             st.session_state.email_sent = True
+
 
 
 if not st.session_state.interview_active:
