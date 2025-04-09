@@ -138,6 +138,7 @@ if st.session_state.awaiting_email_confirmation:
             """,
             unsafe_allow_html=True,
         )
+        st.stop()
 
 
 
