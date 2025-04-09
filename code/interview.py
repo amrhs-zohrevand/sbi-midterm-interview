@@ -33,6 +33,14 @@ else:
         "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
     )
 
+# Initialize the LLM client early so it's available for summary generation and later streaming requests.
+if api == "openai":
+    client = OpenAI(api_key=st.secrets["API_KEY"])
+elif api == "anthropic":
+    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+elif api == "deepinfra":
+    client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
+
 ENV = st.secrets.get("ENV", "production")
 safe_mode = st.secrets.get("SAFE_MODE", "production")
 query_params = st.query_params
@@ -232,15 +240,10 @@ for message in st.session_state.messages[1:]:
         with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
 
-if api == "openai":
-    client = OpenAI(api_key=st.secrets["API_KEY"])
-    api_kwargs = {"stream": True}
-elif api == "anthropic":
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+# Remove redundant client reinitialization below; we already created the client above.
+api_kwargs = {"stream": True}
+if api == "anthropic":
     api_kwargs = {"system": st.secrets.get("SYSTEM_PROMPT", "Your default system prompt")}
-elif api == "deepinfra":
-    client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
-    api_kwargs = {"stream": True}
     
 api_kwargs["messages"] = st.session_state.messages
 api_kwargs["model"] = model

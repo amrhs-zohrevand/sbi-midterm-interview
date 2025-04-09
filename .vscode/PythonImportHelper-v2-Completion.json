@@ -799,6 +799,15 @@
         "documentation": {}
     },
     {
+        "label": "api_kwargs",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name.lower() == \"end_reflection_interview\":\n    from database import get_transcript_by_student_and_type",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "api_kwargs[\"messages\"]",
         "kind": 5,
         "importPath": "code.interview",
