@@ -133,7 +133,7 @@ msg.attach(part)
 with smtplib.SMTP('smtp.leidenuniv.nl') as server:
     server.send_message(msg)
 
-print("✅ Remote email sent.")
+print("✅ Email sent.")
 """
         python_code = python_code.strip()
         encoded_code = base64.b64encode(python_code.encode()).decode()
