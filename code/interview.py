@@ -1,24 +1,16 @@
 import streamlit as st
 import time
-from utils import (
-    save_interview_data,
-    send_transcript_email,
-)
-from database import ( 
-    save_interview_to_sheet, 
-    update_progress_sheet,
-    update_interview_summary  # NEW: import the update summary function
-)
+from utils import save_interview_data, send_transcript_email
+from database import save_interview_to_sheet, update_progress_sheet, update_interview_summary
 import os
-import html  # For sanitizing query parameters
+import html
 import uuid
 import re
 import importlib.util
 
-# Load API library
-provider = st.secrets.get("API_PROVIDER", "openai").lower()  # defaults to "openai" if not provided
+# API client setup (unchanged)
+provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
-
 if provider == "openai" or "gpt" in model.lower():
     api = "openai"
     from openai import OpenAI
@@ -27,13 +19,10 @@ elif provider == "anthropic" or "claude" in model.lower():
     import anthropic
 elif provider == "deepinfra":
     api = "deepinfra"
-    import deepinfra  # Adjust the import as needed for your deepinfra client
+    import deepinfra
 else:
-    raise ValueError(
-        "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
-    )
+    raise ValueError("Unrecognized API provider.")
 
-# Initialize the LLM client early so it's available for summary generation and later streaming requests.
 if api == "openai":
     client = OpenAI(api_key=st.secrets["API_KEY"])
 elif api == "anthropic":
@@ -42,9 +31,7 @@ elif api == "deepinfra":
     client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
 
 ENV = st.secrets.get("ENV", "production")
-safe_mode = st.secrets.get("SAFE_MODE", "production")
 query_params = st.query_params
-
 if "interview_config" not in query_params:
     import config
     config_name = "Default"
@@ -52,46 +39,28 @@ else:
     config_name = st.query_params.get("interview_config", ["Default"])
     config_path = os.path.join(os.path.dirname(__file__), "interview_configs", f"{config_name}.py")
     if not os.path.exists(config_path):
-        st.error(f"Configuration file {config_name}.py not found in interview_configs folder.")
+        st.error(f"Configuration file {config_name}.py not found.")
         st.stop()
     spec = importlib.util.spec_from_file_location("config", config_path)
     config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config)
 
 st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
-required_params = ["student_number", "name", "company", "recipient_email"]
-default_values = {
-    "student_number": "zohrehvanda",
-    "name": "Miros",
-    "company": "LIACS",
-    "recipient_email": "j.s.deweert@gmail.com"
-}
 
-def validate_query_params(params, required_keys):
-    missing_keys = []
-    for key in required_keys:
+required_params = ["student_number", "name", "company", "recipient_email"]
+def validate_query_params(params):
+    missing = []
+    for key in required_params:
         if key not in params or not params[key]:
-            if ENV == "test":
-                params[key] = default_values.get(key)
-            else:
-                missing_keys.append(key)
-    
-    if ENV == "test":
-        email = params.get("recipient_email", "")
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            missing_keys.append("recipient_email (invalid format)")
-    
-    if missing_keys:
-        return False, missing_keys
+            missing.append(key)
+    if missing:
+        return False, missing
     return True, []
 
-is_valid, missing_params = validate_query_params(query_params, required_params)
+is_valid, missing = validate_query_params(query_params)
 if not is_valid:
-    st.error(f"Missing or invalid required parameter(s): {', '.join(missing_params)}")
+    st.error(f"Missing parameters: {', '.join(missing)}")
     st.stop()
-
-if st.secrets.get("DISABLE_EMAIL", False):
-    st.write("Email sending is disabled.")
 
 respondent_name = html.unescape(query_params["name"])
 recipient_email = html.unescape(query_params["recipient_email"])
@@ -99,36 +68,44 @@ recipient_email = html.unescape(query_params["recipient_email"])
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
+if "interview_active" not in st.session_state:
+    st.session_state.interview_active = True
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "email_sent" not in st.session_state:
+    st.session_state.email_sent = False
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
+
+if "awaiting_email_confirmation" not in st.session_state:
+    st.session_state.awaiting_email_confirmation = False
+
+# Sidebar with interview details
 st.sidebar.title("Interview Details")
 for param in required_params:
     sanitized_value = html.unescape(query_params[param])
     st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
-
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 st.sidebar.write(f"Interview Type: {config_name}")
 
-if "interview_active" not in st.session_state:
-    st.session_state.interview_active = True
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "email_sent" not in st.session_state:
-    st.session_state.email_sent = False
-
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-    st.session_state.start_time_file_names = time.strftime(
-        "%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time)
-    )
-
+# Evaluation URL definition
 evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
 evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
 
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
-    if st.session_state.interview_active and st.button("Quit", help="End the interview."):
+    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
+        if st.button("Quit"):
+            st.session_state.awaiting_email_confirmation = True
+
+if st.session_state.awaiting_email_confirmation:
+    st.subheader("Confirm Email Before Ending Interview")
+    email_input = st.text_input("Confirm or update your email address:", value=recipient_email)
+    send_email = st.checkbox("Yes, send a transcript to this email.")
+    if st.button("Confirm and Quit"):
         st.session_state.interview_active = False
+        st.session_state.awaiting_email_confirmation = False
+        st.session_state.email_confirmed = True
         quit_message = "You have cancelled the interview."
         st.session_state.messages.append({"role": "assistant", "content": quit_message})
 
@@ -139,14 +116,31 @@ with col2:
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
-        send_transcript_email(
-        student_number=query_params["student_number"],
-        recipient_email=query_params["recipient_email"],
-        transcript_link=transcript_link,
-        transcript_file=transcript_file,
-        name_from_form=query_params["name"]  # NEW
-    )
-        st.session_state.email_sent = True
+        if send_email:
+            send_transcript_email(
+                student_number=query_params["student_number"],
+                recipient_email=email_input,
+                transcript_link=transcript_link,
+                transcript_file=transcript_file,
+                name_from_form=query_params["name"]
+            )
+            st.session_state.email_sent = True
+
+        st.markdown("### Your interview transcript has been saved.")
+        if send_email:
+            st.markdown("A copy has been emailed to you.")
+
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+                <a href="{evaluation_url_with_session}" target="_blank" style="text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;">Click here to evaluate the interview</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.stop()
+
+
 
 if not st.session_state.interview_active:
     st.empty()
