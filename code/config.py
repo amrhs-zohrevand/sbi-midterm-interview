@@ -54,7 +54,7 @@ When the respondent confirms that this area is thoroughly discussed, proceed to 
 Summary and Evaluation
 To conclude, provide a detailed summary of the answers the respondent has given during the interview. Then, ask:
 "To conclude, how well does the summary of our discussion describe your thoughts on your professional growth: 1 (it poorly describes my reasons), 2 (it partially describes my reasons), 3 (it describes my reasons well), 4 (it describes my reasons very well). Please only reply with the associated number."
-After receiving their final evaluation, END the interview based on what has been instructed in <codes> section.
+After receiving their final evaluation, YOU MUST END the interview with REPLYING "x7y8".
 """
 
 

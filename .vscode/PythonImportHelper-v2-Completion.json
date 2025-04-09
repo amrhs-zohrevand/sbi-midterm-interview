@@ -785,7 +785,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        transcript_link, transcript_file = save_interview_data(\n            student_number=query_params[\"student_number\"],",
+        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.show_confirm_modal = True\nif st.session_state.get(\"show_confirm_modal\"):\n    with st.modal(\"Confirm Email Address\"):\n        st.write(f\"Are you sure you want to end the interview?\")\n        st.write(f\"A transcript will be saved. A copy will be sent to: **{recipient_email}**\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -794,7 +794,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.interview_active = False\n        quit_message = \"You have cancelled the interview.\"\n        st.session_state.messages.append({\"role\": \"assistant\", \"content\": quit_message})\n        transcript_link, transcript_file = save_interview_data(\n            student_number=query_params[\"student_number\"],\n            company_name=query_params[\"company\"]",
+        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and st.button(\"Quit\", help=\"End the interview.\"):\n        st.session_state.show_confirm_modal = True\nif st.session_state.get(\"show_confirm_modal\"):\n    with st.modal(\"Confirm Email Address\"):\n        st.write(f\"Are you sure you want to end the interview?\")\n        st.write(f\"A transcript will be saved. A copy will be sent to: **{recipient_email}**\")\n        st.write(\"Do you want to receive a copy by email?\")",
         "detail": "code.interview",
         "documentation": {}
     },

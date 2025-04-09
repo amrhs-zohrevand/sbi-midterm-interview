@@ -128,25 +128,56 @@ evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.se
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
     if st.session_state.interview_active and st.button("Quit", help="End the interview."):
-        st.session_state.interview_active = False
-        quit_message = "You have cancelled the interview."
-        st.session_state.messages.append({"role": "assistant", "content": quit_message})
+        st.session_state.show_confirm_modal = True
 
-        transcript_link, transcript_file = save_interview_data(
-            student_number=query_params["student_number"],
-            company_name=query_params["company"]
-        )
-        st.session_state.transcript_link = transcript_link
-        st.session_state.transcript_file = transcript_file
+if st.session_state.get("show_confirm_modal"):
+    with st.modal("Confirm Email Address"):
+        st.write(f"Are you sure you want to end the interview?")
+        st.write(f"A transcript will be saved. A copy will be sent to: **{recipient_email}**")
+        st.write("Do you want to receive a copy by email?")
 
-        send_transcript_email(
-        student_number=query_params["student_number"],
-        recipient_email=query_params["recipient_email"],
-        transcript_link=transcript_link,
-        transcript_file=transcript_file,
-        name_from_form=query_params["name"]  # NEW
-    )
-        st.session_state.email_sent = True
+        col_confirm1, col_confirm2, col_confirm3 = st.columns(3)
+
+        with col_confirm1:
+            if st.button("Yes, send email"):
+                st.session_state.interview_active = False
+                st.session_state.show_confirm_modal = False
+                quit_message = "You have cancelled the interview."
+                st.session_state.messages.append({"role": "assistant", "content": quit_message})
+                transcript_link, transcript_file = save_interview_data(
+                    student_number=query_params["student_number"],
+                    company_name=query_params["company"]
+                )
+                st.session_state.transcript_link = transcript_link
+                st.session_state.transcript_file = transcript_file
+                send_transcript_email(
+                    student_number=query_params["student_number"],
+                    recipient_email=query_params["recipient_email"],
+                    transcript_link=transcript_link,
+                    transcript_file=transcript_file,
+                    name_from_form=query_params["name"]
+                )
+                st.session_state.email_sent = True
+                st.rerun()
+
+        with col_confirm2:
+            if st.button("No, don’t send email"):
+                st.session_state.interview_active = False
+                st.session_state.show_confirm_modal = False
+                quit_message = "You have cancelled the interview."
+                st.session_state.messages.append({"role": "assistant", "content": quit_message})
+                transcript_link, transcript_file = save_interview_data(
+                    student_number=query_params["student_number"],
+                    company_name=query_params["company"]
+                )
+                st.session_state.transcript_link = transcript_link
+                st.session_state.transcript_file = transcript_file
+                st.session_state.email_sent = True
+                st.rerun()
+
+        with col_confirm3:
+            if st.button("Cancel"):
+                st.session_state.show_confirm_modal = False
 
 if not st.session_state.interview_active:
     st.empty()
