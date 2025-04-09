@@ -854,7 +854,7 @@
         "kind": 2,
         "importPath": "code.interview_selection",
         "description": "code.interview_selection",
-        "peekOfCode": "def load_interview_context_map():\n    \"\"\"Reads the interview context mapping from CSV.\"\"\"\n    mapping = {}\n    if MATRIX_FILE.exists():\n        st.info(f\"✅ Found interview matrix file: {MATRIX_FILE}\")\n        with open(MATRIX_FILE, newline=\"\", encoding=\"utf-8\") as csvfile:\n            reader = csv.DictReader(csvfile, delimiter=\";\")\n            for row in reader:\n                current = row[\"current_interview\"].strip().lower()\n                context = row[\"context_interview\"].strip().lower()",
+        "peekOfCode": "def load_interview_context_map():\n    \"\"\"Reads the interview context mapping from CSV.\"\"\"\n    mapping = {}\n    if MATRIX_FILE.exists():\n        with open(MATRIX_FILE, newline=\"\", encoding=\"utf-8\") as csvfile:\n            reader = csv.DictReader(csvfile, delimiter=\";\")\n            for row in reader:\n                current = row[\"current_interview\"].strip().lower()\n                context = row[\"context_interview\"].strip().lower()\n                mapping[current] = context",
         "detail": "code.interview_selection",
         "documentation": {}
     },
@@ -872,7 +872,7 @@
         "kind": 5,
         "importPath": "code.interview_selection",
         "description": "code.interview_selection",
-        "peekOfCode": "MATRIX_FILE = Path(__file__).parent / \"interview_matrix.csv\"\ndef load_interview_context_map():\n    \"\"\"Reads the interview context mapping from CSV.\"\"\"\n    mapping = {}\n    if MATRIX_FILE.exists():\n        st.info(f\"✅ Found interview matrix file: {MATRIX_FILE}\")\n        with open(MATRIX_FILE, newline=\"\", encoding=\"utf-8\") as csvfile:\n            reader = csv.DictReader(csvfile, delimiter=\";\")\n            for row in reader:\n                current = row[\"current_interview\"].strip().lower()",
+        "peekOfCode": "MATRIX_FILE = Path(__file__).parent / \"interview_matrix.csv\"\n# Show file load message only once\nif \"interview_matrix_notice_shown\" not in st.session_state:\n    if MATRIX_FILE.exists():\n        st.info(f\"✅ Found interview matrix file: {MATRIX_FILE}\")\n    else:\n        st.warning(f\"⚠️ interview_matrix.csv not found at {MATRIX_FILE}\")\n    st.session_state.interview_matrix_notice_shown = True\ndef load_interview_context_map():\n    \"\"\"Reads the interview context mapping from CSV.\"\"\"",
         "detail": "code.interview_selection",
         "documentation": {}
     },

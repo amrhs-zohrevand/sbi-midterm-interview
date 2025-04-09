@@ -139,7 +139,6 @@ if st.session_state.awaiting_email_confirmation:
             """,
             unsafe_allow_html=True,
         )
-        st.stop()
 
 
 if not st.session_state.interview_active:

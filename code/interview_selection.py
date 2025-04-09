@@ -5,20 +5,24 @@ from database import get_transcript_by_student_and_type
 
 MATRIX_FILE = Path(__file__).parent / "interview_matrix.csv"
 
+# Show file load message only once
+if "interview_matrix_notice_shown" not in st.session_state:
+    if MATRIX_FILE.exists():
+        st.info(f"✅ Found interview matrix file: {MATRIX_FILE}")
+    else:
+        st.warning(f"⚠️ interview_matrix.csv not found at {MATRIX_FILE}")
+    st.session_state.interview_matrix_notice_shown = True
 
 def load_interview_context_map():
     """Reads the interview context mapping from CSV."""
     mapping = {}
     if MATRIX_FILE.exists():
-        st.info(f"✅ Found interview matrix file: {MATRIX_FILE}")
         with open(MATRIX_FILE, newline="", encoding="utf-8") as csvfile:
             reader = csv.DictReader(csvfile, delimiter=";")
             for row in reader:
                 current = row["current_interview"].strip().lower()
                 context = row["context_interview"].strip().lower()
                 mapping[current] = context
-    else:
-        st.warning(f"⚠️ interview_matrix.csv not found at {MATRIX_FILE}")
     return mapping
 
 
