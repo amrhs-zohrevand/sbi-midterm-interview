@@ -7,16 +7,15 @@ from utils import (
 from database import ( 
     save_interview_to_sheet, 
     update_progress_sheet,
-    update_interview_summary  # NEW: import the update summary function
+    update_interview_summary
 )
 import os
-import html  # For sanitizing query parameters
+import html
 import uuid
 import re
 import importlib.util
 
-# Load API library
-provider = st.secrets.get("API_PROVIDER", "openai").lower()  # defaults to "openai" if not provided
+provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
 if provider == "openai" or "gpt" in model.lower():
@@ -27,13 +26,10 @@ elif provider == "anthropic" or "claude" in model.lower():
     import anthropic
 elif provider == "deepinfra":
     api = "deepinfra"
-    import deepinfra  # Adjust the import as needed for your deepinfra client
+    import deepinfra
 else:
-    raise ValueError(
-        "API provider not recognized. Please set API_PROVIDER in st.secrets to 'openai', 'anthropic', or 'deepinfra'."
-    )
+    raise ValueError("API provider not recognized.")
 
-# Initialize the LLM client early so it's available for summary generation and later streaming requests.
 if api == "openai":
     client = OpenAI(api_key=st.secrets["API_KEY"])
 elif api == "anthropic":
@@ -52,7 +48,7 @@ else:
     config_name = st.query_params.get("interview_config", ["Default"])
     config_path = os.path.join(os.path.dirname(__file__), "interview_configs", f"{config_name}.py")
     if not os.path.exists(config_path):
-        st.error(f"Configuration file {config_name}.py not found in interview_configs folder.")
+        st.error(f"Configuration file {config_name}.py not found.")
         st.stop()
     spec = importlib.util.spec_from_file_location("config", config_path)
     config = importlib.util.module_from_spec(spec)
@@ -75,12 +71,10 @@ def validate_query_params(params, required_keys):
                 params[key] = default_values.get(key)
             else:
                 missing_keys.append(key)
-    
     if ENV == "test":
         email = params.get("recipient_email", "")
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        if not re.match(r"[^@]+@[^@]+\\.[^@]+", email):
             missing_keys.append("recipient_email (invalid format)")
-    
     if missing_keys:
         return False, missing_keys
     return True, []
@@ -90,22 +84,11 @@ if not is_valid:
     st.error(f"Missing or invalid required parameter(s): {', '.join(missing_params)}")
     st.stop()
 
-if st.secrets.get("DISABLE_EMAIL", False):
-    st.write("Email sending is disabled.")
-
 respondent_name = html.unescape(query_params["name"])
 recipient_email = html.unescape(query_params["recipient_email"])
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
-
-st.sidebar.title("Interview Details")
-for param in required_params:
-    sanitized_value = html.unescape(query_params[param])
-    st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
-
-st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-st.sidebar.write(f"Interview Type: {config_name}")
 
 if "interview_active" not in st.session_state:
     st.session_state.interview_active = True
@@ -118,66 +101,66 @@ if "email_sent" not in st.session_state:
 
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
-    st.session_state.start_time_file_names = time.strftime(
-        "%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time)
-    )
+    st.session_state.start_time_file_names = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime(st.session_state.start_time))
 
-evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
-evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
+if "quit_requested" not in st.session_state:
+    st.session_state.quit_requested = False
+
+if "awaiting_email_confirmation" not in st.session_state:
+    st.session_state.awaiting_email_confirmation = False
 
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
     if st.session_state.interview_active and st.button("Quit", help="End the interview."):
-        st.session_state.show_confirm_modal = True
+        st.session_state.quit_requested = True
+        st.session_state.awaiting_email_confirmation = True
 
-if st.session_state.get("show_confirm_modal"):
-    with st.modal("Confirm Email Address"):
-        st.write(f"Are you sure you want to end the interview?")
-        st.write(f"A transcript will be saved. A copy will be sent to: **{recipient_email}**")
-        st.write("Do you want to receive a copy by email?")
+if st.session_state.quit_requested and st.session_state.awaiting_email_confirmation:
+    st.warning(f"You are about to quit the interview. A copy will be sent to: {recipient_email}")
+    st.write("Do you want to receive the transcript by email?")
+    col_a, col_b, col_c = st.columns(3)
 
-        col_confirm1, col_confirm2, col_confirm3 = st.columns(3)
+    with col_a:
+        if st.button("Yes, send email"):
+            st.session_state.interview_active = False
+            st.session_state.awaiting_email_confirmation = False
+            quit_message = "You have cancelled the interview."
+            st.session_state.messages.append({"role": "assistant", "content": quit_message})
+            transcript_link, transcript_file = save_interview_data(
+                student_number=query_params["student_number"],
+                company_name=query_params["company"]
+            )
+            st.session_state.transcript_link = transcript_link
+            st.session_state.transcript_file = transcript_file
+            send_transcript_email(
+                student_number=query_params["student_number"],
+                recipient_email=query_params["recipient_email"],
+                transcript_link=transcript_link,
+                transcript_file=transcript_file,
+                name_from_form=query_params["name"]
+            )
+            st.session_state.email_sent = True
+            st.rerun()
 
-        with col_confirm1:
-            if st.button("Yes, send email"):
-                st.session_state.interview_active = False
-                st.session_state.show_confirm_modal = False
-                quit_message = "You have cancelled the interview."
-                st.session_state.messages.append({"role": "assistant", "content": quit_message})
-                transcript_link, transcript_file = save_interview_data(
-                    student_number=query_params["student_number"],
-                    company_name=query_params["company"]
-                )
-                st.session_state.transcript_link = transcript_link
-                st.session_state.transcript_file = transcript_file
-                send_transcript_email(
-                    student_number=query_params["student_number"],
-                    recipient_email=query_params["recipient_email"],
-                    transcript_link=transcript_link,
-                    transcript_file=transcript_file,
-                    name_from_form=query_params["name"]
-                )
-                st.session_state.email_sent = True
-                st.rerun()
+    with col_b:
+        if st.button("No, don't send email"):
+            st.session_state.interview_active = False
+            st.session_state.awaiting_email_confirmation = False
+            quit_message = "You have cancelled the interview."
+            st.session_state.messages.append({"role": "assistant", "content": quit_message})
+            transcript_link, transcript_file = save_interview_data(
+                student_number=query_params["student_number"],
+                company_name=query_params["company"]
+            )
+            st.session_state.transcript_link = transcript_link
+            st.session_state.transcript_file = transcript_file
+            st.session_state.email_sent = True
+            st.rerun()
 
-        with col_confirm2:
-            if st.button("No, don’t send email"):
-                st.session_state.interview_active = False
-                st.session_state.show_confirm_modal = False
-                quit_message = "You have cancelled the interview."
-                st.session_state.messages.append({"role": "assistant", "content": quit_message})
-                transcript_link, transcript_file = save_interview_data(
-                    student_number=query_params["student_number"],
-                    company_name=query_params["company"]
-                )
-                st.session_state.transcript_link = transcript_link
-                st.session_state.transcript_file = transcript_file
-                st.session_state.email_sent = True
-                st.rerun()
-
-        with col_confirm3:
-            if st.button("Cancel"):
-                st.session_state.show_confirm_modal = False
+    with col_c:
+        if st.button("Cancel"):
+            st.session_state.awaiting_email_confirmation = False
+            st.session_state.quit_requested = False
 
 if not st.session_state.interview_active:
     st.empty()
