@@ -69,7 +69,7 @@ def send_transcript_email(
     """
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
-    from_addr = "h.bijl@cvb.leidenuniv.nl"
+    from_addr = "bs-internships@liacs.leidenuniv.nl"
     
     # Example: sending to both the student's institutional address & the "recipient_email"
     to_addr = f"{student_number}@vuw.leidenuniv.nl"
