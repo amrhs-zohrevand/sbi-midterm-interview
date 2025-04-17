@@ -862,7 +862,7 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params):\n    missing = [key for key in required_params if key not in params or not params[key]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nrespondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:",
+        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nrespondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -871,7 +871,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# We always speak the OpenAI protocol – DeepInfra provides an OpenAI‑compatible\n# endpoint, so we route both \"openai\" and \"deepinfra\" through the OpenAI SDK.\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"  # used further down to pick OpenAI‑specific code paths\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    # Treat DeepInfra exactly like OpenAI, but point the base_url to DeepInfra",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra speaks the OpenAI protocol, so we always use the OpenAI SDK and\n# just redirect the base_url when provider == \"deepinfra\".\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"  # we want all OpenAI‑specific branches further down",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -880,7 +880,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# We always speak the OpenAI protocol – DeepInfra provides an OpenAI‑compatible\n# endpoint, so we route both \"openai\" and \"deepinfra\" through the OpenAI SDK.\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"  # used further down to pick OpenAI‑specific code paths\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    # Treat DeepInfra exactly like OpenAI, but point the base_url to DeepInfra\n    api = \"openai\"  # keep OpenAI‑specific behaviour (streaming etc.)",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra speaks the OpenAI protocol, so we always use the OpenAI SDK and\n# just redirect the base_url when provider == \"deepinfra\".\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"  # we want all OpenAI‑specific branches further down\n    client = OpenAI(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -907,7 +907,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [key for key in required_params if key not in params or not params[key]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nrespondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])",
+        "peekOfCode": "required_params = [\"student_number\", \"name\", \"company\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nrespondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])",
         "detail": "code.interview",
         "documentation": {}
     },
