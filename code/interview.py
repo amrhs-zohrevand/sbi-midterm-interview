@@ -6,47 +6,45 @@ from interview_selection import get_context_transcript
 import os
 import html
 import uuid
-import re
 import importlib.util
 
 # ----------------------------------------------------------------------------
 # API client setup
 # ----------------------------------------------------------------------------
-
-context_transcript = None
-
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
-# DeepInfra is OpenAI‑compatible, so we always go through the OpenAI SDK
+# We always speak the OpenAI protocol – DeepInfra provides an OpenAI‑compatible
+# endpoint, so we route both "openai" and "deepinfra" through the OpenAI SDK.
 from openai import OpenAI
 
 if provider == "openai":
-    api = "openai"
+    api = "openai"  # used further down to pick OpenAI‑specific code paths
     client = OpenAI(api_key=st.secrets["API_KEY"])
+
 elif provider == "deepinfra":
-    # Map DeepInfra into the OpenAI code path
-    api = "openai"
+    # Treat DeepInfra exactly like OpenAI, but point the base_url to DeepInfra
+    api = "openai"  # keep OpenAI‑specific behaviour (streaming etc.)
     client = OpenAI(
         api_key=st.secrets["DEEPINFRA_API_KEY"],
         base_url="https://api.deepinfra.com/v1/openai",
     )
+
 elif provider == "anthropic" or "claude" in model.lower():
     api = "anthropic"
-    import anthropic  # noqa: E402
+    import anthropic  # noqa: E402 – imported only when needed
+
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 else:
-    raise ValueError("Unrecognized API provider.")
+    raise ValueError("Unrecognized API provider – supported: openai, deepinfra, anthropic.")
 
 # ----------------------------------------------------------------------------
-# Configuration & query‑param handling
+# Configuration loading (unchanged)
 # ----------------------------------------------------------------------------
-
 ENV = st.secrets.get("ENV", "production")
 query_params = st.query_params
-
 if "interview_config" not in query_params:
-    import config  # noqa: E402
+    import config  # local default
     config_name = "Default"
 else:
     config_name = st.query_params.get("interview_config", ["Default"])
@@ -55,25 +53,17 @@ else:
         st.error(f"Configuration file {config_name}.py not found.")
         st.stop()
     spec = importlib.util.spec_from_file_location("config", config_path)
-    config = importlib.util.module_from_spec(spec)  # type: ignore
-    spec.loader.exec_module(config)  # type: ignore
-
-st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
 
 # ----------------------------------------------------------------------------
-# Validate required query parameters
+# Streamlit session state initialisation
 # ----------------------------------------------------------------------------
-
 required_params = ["student_number", "name", "company", "recipient_email"]
 
 def validate_query_params(params):
-    missing = []
-    for key in required_params:
-        if key not in params or not params[key]:
-            missing.append(key)
-    if missing:
-        return False, missing
-    return True, []
+    missing = [key for key in required_params if key not in params or not params[key]]
+    return len(missing) == 0, missing
 
 is_valid, missing = validate_query_params(query_params)
 if not is_valid:
@@ -83,13 +73,8 @@ if not is_valid:
 respondent_name = html.unescape(query_params["name"])
 recipient_email = html.unescape(query_params["recipient_email"])
 
-# ----------------------------------------------------------------------------
-# Session‑state initialisation
-# ----------------------------------------------------------------------------
-
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
-
 if "interview_active" not in st.session_state:
     st.session_state.interview_active = True
 if "messages" not in st.session_state:
@@ -104,11 +89,9 @@ if "awaiting_email_confirmation" not in st.session_state:
 # ----------------------------------------------------------------------------
 # Sidebar with interview details
 # ----------------------------------------------------------------------------
-
 st.sidebar.title("Interview Details")
 for param in required_params:
-    sanitized_value = html.unescape(query_params[param])
-    st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {sanitized_value}")
+    st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {html.unescape(query_params[param])}")
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 st.sidebar.write(f"Interview Type: {config_name}")
 
@@ -257,51 +240,71 @@ for message in st.session_state.messages[1:]:
 # Build kwargs for subsequent LLM calls
 api_kwargs = {"stream": True}
 if api == "anthropic":
-    api_kwargs = {"system": st.secrets.get("SYSTEM_PROMPT", "Your default system prompt")}
+    api_kwargs["system"] = st.secrets.get("SYSTEM_PROMPT", "Your default system prompt")
 
-api_kwargs["messages"] = st.session_state.messages
-api_kwargs["model"] = model
-api_kwargs["max_tokens"] = config.MAX_OUTPUT_TOKENS
+api_kwargs.update({
+    "messages": st.session_state.messages,
+    "model": model,
+    "max_tokens": config.MAX_OUTPUT_TOKENS,
+})
 if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE
 
-# --- Initialise conversation with system prompt if needed ---
-
-if "messages" in st.session_state and not st.session_state.messages:
-    if api == "openai":
-        if context_transcript:
+# ----------------------------------------------------------------------------
+# Boot‑strap the conversation on first load
+# ----------------------------------------------------------------------------
+if not st.session_state.messages:
+    # 1) Add system prompt assembled from config + optional context transcript
+    if provider == "deepinfra":
+        # DeepInfra's OpenAI endpoint requires at least one user message ⇒ we add
+        # a placeholder greeting that immediately triggers the model to respond.
+        # (OpenAI itself allows system‑only messages, so we do this only here.)
+        if context_transcript := get_context_transcript(query_params["student_number"], config_name):
             system_prompt = (
-                "Context Transcript Summary (provided as context for the Interview):\n\n"
-                f"{context_transcript}\n\n"
+                "Context Transcript Summary (provided as context for the Interview):\n\n" +
+                f"{context_transcript}\n\n" +
                 f"{config.INTERVIEW_OUTLINE}"
             )
         else:
             system_prompt = config.INTERVIEW_OUTLINE
 
         st.session_state.messages.append({"role": "system", "content": system_prompt})
+        st.session_state.messages.append({"role": "user",   "content": "Hi"})
 
+    else:
+        # OpenAI & Anthropic original behaviour
+        if context_transcript := get_context_transcript(query_params["student_number"], config_name):
+            system_prompt = (
+                "Context Transcript Summary (provided as context for the Interview):\n\n" +
+                f"{context_transcript}\n\n" +
+                f"{config.INTERVIEW_OUTLINE}"
+            )
+        else:
+            system_prompt = config.INTERVIEW_OUTLINE
+
+        st.session_state.messages.append({"role": "system", "content": system_prompt})
+        if api == "anthropic":
+            st.session_state.messages.append({"role": "user", "content": "Hi"})  # Anthropic also needs user start
+
+    # 2) Produce the first interviewer question --------------------------------
+    if api == "openai":  # includes DeepInfra
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             stream = client.chat.completions.create(**api_kwargs)
-            message_interviewer = st.write_stream(stream)
-
-    elif api == "anthropic":
-        st.session_state.messages.append({"role": "user", "content": "Hi"})
+            first_reply = st.write_stream(stream)
+    else:  # anthropic branch
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
-            message_placeholder = st.empty()
-            message_interviewer = ""
+            placeholder = st.empty()
+            first_reply = ""
             with client.messages.stream(**api_kwargs) as stream:
-                for text_delta in stream.text_stream:
-                    if text_delta is not None:
-                        message_interviewer += text_delta
-                    message_placeholder.markdown(message_interviewer + "▌")
-            message_placeholder.markdown(message_interviewer)
+                for delta in stream.text_stream:
+                    if delta:
+                        first_reply += delta
+                    placeholder.markdown(first_reply + "▌")
+            placeholder.markdown(first_reply)
 
-    st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
-
-    save_interview_data(
-        student_number=query_params["student_number"],
-        company_name=query_params["company"],
-    )
+    # Save assistant reply and persist
+    st.session_state.messages.append({"role": "assistant", "content": first_reply})
+    save_interview_data(student_number=query_params["student_number"], company_name=query_params["company"])
 
 # ----------------------------------------------------------------------------
 # Main chat loop
