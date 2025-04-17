@@ -236,7 +236,10 @@ if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE
 
 if config_name != "Default":
-    context_transcript = get_context_transcript(query_params["student_number"], config_name)
+    try:
+        context_transcript = get_context_transcript(query_params["student_number"], config_name)
+    except:
+        context_transcript = None
 
 if not st.session_state.messages:
     if api == "openai":
