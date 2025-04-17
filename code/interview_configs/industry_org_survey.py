@@ -64,7 +64,7 @@ Summary and evaluation
 To conclude, write a detailed summary of the answers that the respondent gave in this interview. After your summary, add the text: 'To conclude, how well does the summary of our discussion describe your thoughts on AI’s role in firms and industry competition: 1 (it poorly describes my reasons), 2 (it partially describes my reasons), 3 (it describes my reasons well), 4 (it describes my reasons very well). Please only reply with the associated number.'
 
 
-After receiving their final evaluation, please end the interview."""
+After receiving their final evaluation, please end the interview by returning ONLY THIS CODE "x7y8"."""
 
 
 
