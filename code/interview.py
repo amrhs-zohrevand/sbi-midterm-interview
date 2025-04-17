@@ -14,16 +14,17 @@ import importlib.util
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
-# DeepInfra speaks the OpenAI protocol, so we always use the OpenAI SDK and
-# just redirect the base_url when provider == "deepinfra".
+# We always speak the OpenAI protocol – DeepInfra provides an OpenAI‑compatible
+# endpoint, so we route both "openai" and "deepinfra" through the OpenAI SDK.
 from openai import OpenAI
 
 if provider == "openai":
-    api = "openai"
+    api = "openai"  # used further down to pick OpenAI‑specific code paths
     client = OpenAI(api_key=st.secrets["API_KEY"])
 
 elif provider == "deepinfra":
-    api = "openai"  # we want all OpenAI‑specific branches further down
+    # Treat DeepInfra exactly like OpenAI, but point the base_url to DeepInfra
+    api = "openai"  # keep OpenAI‑specific behaviour (streaming etc.)
     client = OpenAI(
         api_key=st.secrets["DEEPINFRA_API_KEY"],
         base_url="https://api.deepinfra.com/v1/openai",
@@ -31,14 +32,14 @@ elif provider == "deepinfra":
 
 elif provider == "anthropic" or "claude" in model.lower():
     api = "anthropic"
-    import anthropic  # noqa: E402
+    import anthropic  # noqa: E402 – imported only when needed
 
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 else:
     raise ValueError("Unrecognized API provider – supported: openai, deepinfra, anthropic.")
 
 # ----------------------------------------------------------------------------
-# Configuration loading
+# Configuration loading (unchanged)
 # ----------------------------------------------------------------------------
 ENV = st.secrets.get("ENV", "production")
 query_params = st.query_params
@@ -56,12 +57,12 @@ else:
     spec.loader.exec_module(config)
 
 # ----------------------------------------------------------------------------
-# Streamlit session‑state initialisation
+# Streamlit session state initialisation
 # ----------------------------------------------------------------------------
 required_params = ["student_number", "name", "company", "recipient_email"]
 
 def validate_query_params(params):
-    missing = [k for k in required_params if k not in params or not params[k]]
+    missing = [key for key in required_params if key not in params or not params[key]]
     return len(missing) == 0, missing
 
 is_valid, missing = validate_query_params(query_params)
@@ -94,7 +95,7 @@ for param in required_params:
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 st.sidebar.write(f"Interview Type: {config_name}")
 
-# Evaluation URL (for after interview)
+# Evaluation URL definition
 
 evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
 evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
@@ -112,7 +113,7 @@ with col2:
 if st.session_state.awaiting_email_confirmation:
     st.subheader("Confirm Email Before Ending Interview")
     email_input = st.text_input("Confirm or update your email address:", value=recipient_email)
-    send_email = st.checkbox("Yes, send a transcript to this email.")
+    send_email_checkbox = st.checkbox("Yes, send a transcript to this email.")
     if st.button("Confirm and Quit"):
         st.session_state.interview_active = False
         st.session_state.awaiting_email_confirmation = False
@@ -127,7 +128,7 @@ if st.session_state.awaiting_email_confirmation:
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
-        if send_email:
+        if send_email_checkbox:
             send_transcript_email(
                 student_number=query_params["student_number"],
                 recipient_email=email_input,
@@ -138,7 +139,7 @@ if st.session_state.awaiting_email_confirmation:
             st.session_state.email_sent = True
 
         st.markdown("### Your interview transcript has been saved.")
-        if send_email:
+        if send_email_checkbox:
             st.markdown("A copy has been emailed to you.")
 
         st.markdown(
@@ -151,12 +152,13 @@ if st.session_state.awaiting_email_confirmation:
         )
 
 # ----------------------------------------------------------------------------
-# Post‑interview actions and persistence
+# Post‑interview actions and persistence (run *after* email confirmation)
 # ----------------------------------------------------------------------------
 
 if not st.session_state.interview_active:
     st.empty()
 
+    # Ensure transcript is stored once; email can wait for confirmation.
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
         transcript_link, transcript_file = save_interview_data(
             student_number=query_params["student_number"],
@@ -165,12 +167,13 @@ if not st.session_state.interview_active:
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
-    if not st.session_state.email_sent:
+    # Only auto‑send when no confirmation is pending
+    if (not st.session_state.email_sent) and (not st.session_state.awaiting_email_confirmation):
         send_transcript_email(
             student_number=query_params["student_number"],
             recipient_email=query_params["recipient_email"],
-            transcript_link=transcript_link,
-            transcript_file=transcript_file,
+            transcript_link=st.session_state.transcript_link,
+            transcript_file=st.session_state.transcript_file,
             name_from_form=query_params["name"],
         )
         st.session_state.email_sent = True
@@ -183,9 +186,10 @@ if not st.session_state.interview_active:
     interview_type = config_name
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-    transcript = "".join(
-        f"{msg['role']}: {msg['content']}\n" for msg in st.session_state.messages if msg["role"] in ["user", "assistant"]
-    )
+    transcript = ""
+    for msg in st.session_state.messages:
+        if msg["role"] in ["user", "assistant"]:
+            transcript += f"{msg['role']}: {msg['content']}\n"
 
     save_interview_to_sheet(
         interview_id,
@@ -198,24 +202,22 @@ if not st.session_state.interview_active:
         f"{duration_minutes:.2f}",
     )
 
-    update_progress_sheet(student_id, name, interview_type, timestamp)
+    update_progress_sheet(
+        student_id,
+        name,
+        interview_type,
+        timestamp,
+    )
 
-    # ---------------- Summary generation ----------------
+    # --- Generate and store summary via the LLM ---
     summary_prompt = (
         "Please provide a concise but detailed summary for the following interview transcript:\n\n" + transcript
     )
 
-    if api == "openai":  # includes DeepInfra
-        # DeepInfra's endpoint *requires* a user‑role message, whereas native
-        # OpenAI accepts a system‑only prompt. We branch accordingly.
-        if provider == "deepinfra":
-            summary_messages = [{"role": "user", "content": summary_prompt}]
-        else:
-            summary_messages = [{"role": "system", "content": summary_prompt}]
-
+    if api == "openai":  # DeepInfra falls in here too
         summary_response = client.chat.completions.create(
             model=model,
-            messages=summary_messages,
+            messages=[{"role": "system", "content": summary_prompt}, {"role": "user", "content": "Summarise."}],
             max_tokens=200,
             temperature=0.7,
             stream=False,
@@ -224,7 +226,6 @@ if not st.session_state.interview_active:
     else:
         summary_text = "Summary generation not implemented for this provider."
 
-    st.write("Generated Summary:", summary_text)  # Optional debug view
     update_interview_summary(interview_id, summary_text)
 
 # ----------------------------------------------------------------------------
