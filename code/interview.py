@@ -8,6 +8,7 @@ import html
 import uuid
 import re
 import importlib.util
+context_transcript = None   
 
 # API client setup (unchanged)
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
@@ -236,7 +237,13 @@ if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE
 
 if config_name != "Default":
-    context_transcript = get_context_transcript(query_params["student_number"], config_name)
+    try:
+        context_transcript = get_context_transcript(
+            query_params["student_number"], config_name
+        )
+    except Exception as e:
+        # optional: st.warning(f"Could not load context transcript: {e}")
+        context_transcript = None
 
 if not st.session_state.messages:
     if api == "openai":
