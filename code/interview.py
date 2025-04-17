@@ -8,34 +8,45 @@ import html
 import uuid
 import re
 import importlib.util
-context_transcript = None   
 
-# API client setup (unchanged)
+# ----------------------------------------------------------------------------
+# API client setup
+# ----------------------------------------------------------------------------
+
+context_transcript = None
+
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
-if provider == "openai" or "gpt" in model.lower():
+
+# DeepInfra is OpenAI‑compatible, so we always go through the OpenAI SDK
+from openai import OpenAI
+
+if provider == "openai":
     api = "openai"
-    from openai import OpenAI
+    client = OpenAI(api_key=st.secrets["API_KEY"])
+elif provider == "deepinfra":
+    # Map DeepInfra into the OpenAI code path
+    api = "openai"
+    client = OpenAI(
+        api_key=st.secrets["DEEPINFRA_API_KEY"],
+        base_url="https://api.deepinfra.com/v1/openai",
+    )
 elif provider == "anthropic" or "claude" in model.lower():
     api = "anthropic"
-    import anthropic
-elif provider == "deepinfra":
-    api = "deepinfra"
-    import deepinfra
+    import anthropic  # noqa: E402
+    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 else:
     raise ValueError("Unrecognized API provider.")
 
-if api == "openai":
-    client = OpenAI(api_key=st.secrets["API_KEY"])
-elif api == "anthropic":
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-elif api == "deepinfra":
-    client = deepinfra.Client(api_key=st.secrets["DEEPINFRA_API_KEY"])
+# ----------------------------------------------------------------------------
+# Configuration & query‑param handling
+# ----------------------------------------------------------------------------
 
 ENV = st.secrets.get("ENV", "production")
 query_params = st.query_params
+
 if "interview_config" not in query_params:
-    import config
+    import config  # noqa: E402
     config_name = "Default"
 else:
     config_name = st.query_params.get("interview_config", ["Default"])
@@ -44,12 +55,17 @@ else:
         st.error(f"Configuration file {config_name}.py not found.")
         st.stop()
     spec = importlib.util.spec_from_file_location("config", config_path)
-    config = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(config)
+    config = importlib.util.module_from_spec(spec)  # type: ignore
+    spec.loader.exec_module(config)  # type: ignore
 
 st.set_page_config(page_title="Interview", page_icon=config.AVATAR_INTERVIEWER)
 
+# ----------------------------------------------------------------------------
+# Validate required query parameters
+# ----------------------------------------------------------------------------
+
 required_params = ["student_number", "name", "company", "recipient_email"]
+
 def validate_query_params(params):
     missing = []
     for key in required_params:
@@ -67,6 +83,10 @@ if not is_valid:
 respondent_name = html.unescape(query_params["name"])
 recipient_email = html.unescape(query_params["recipient_email"])
 
+# ----------------------------------------------------------------------------
+# Session‑state initialisation
+# ----------------------------------------------------------------------------
+
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
@@ -78,11 +98,13 @@ if "email_sent" not in st.session_state:
     st.session_state.email_sent = False
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
-
 if "awaiting_email_confirmation" not in st.session_state:
     st.session_state.awaiting_email_confirmation = False
 
+# ----------------------------------------------------------------------------
 # Sidebar with interview details
+# ----------------------------------------------------------------------------
+
 st.sidebar.title("Interview Details")
 for param in required_params:
     sanitized_value = html.unescape(query_params[param])
@@ -91,6 +113,7 @@ st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 st.sidebar.write(f"Interview Type: {config_name}")
 
 # Evaluation URL definition
+
 evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
 evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
 
@@ -99,6 +122,10 @@ with col2:
     if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
         if st.button("Quit"):
             st.session_state.awaiting_email_confirmation = True
+
+# ----------------------------------------------------------------------------
+# Quit flow – confirm email & save transcript
+# ----------------------------------------------------------------------------
 
 if st.session_state.awaiting_email_confirmation:
     st.subheader("Confirm Email Before Ending Interview")
@@ -113,7 +140,7 @@ if st.session_state.awaiting_email_confirmation:
 
         transcript_link, transcript_file = save_interview_data(
             student_number=query_params["student_number"],
-            company_name=query_params["company"]
+            company_name=query_params["company"],
         )
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
@@ -124,7 +151,7 @@ if st.session_state.awaiting_email_confirmation:
                 recipient_email=email_input,
                 transcript_link=transcript_link,
                 transcript_file=transcript_file,
-                name_from_form=query_params["name"]
+                name_from_form=query_params["name"],
             )
             st.session_state.email_sent = True
 
@@ -134,35 +161,38 @@ if st.session_state.awaiting_email_confirmation:
 
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: 2em;">
-                <a href="{evaluation_url_with_session}" target="_blank" style="text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;">Click here to evaluate the interview</a>
+            <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">
+                <a href=\"{evaluation_url_with_session}\" target=\"_blank\" style=\"text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;\">Click here to evaluate the interview</a>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+# ----------------------------------------------------------------------------
+# Post‑interview actions and persistence
+# ----------------------------------------------------------------------------
 
 if not st.session_state.interview_active:
     st.empty()
-    
+
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
         transcript_link, transcript_file = save_interview_data(
             student_number=query_params["student_number"],
-            company_name=query_params["company"]
+            company_name=query_params["company"],
         )
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
-    
+
     if not st.session_state.email_sent:
         send_transcript_email(
-        student_number=query_params["student_number"],
-        recipient_email=query_params["recipient_email"],
-        transcript_link=transcript_link,
-        transcript_file=transcript_file,
-        name_from_form=query_params["name"]  # NEW
-    )
+            student_number=query_params["student_number"],
+            recipient_email=query_params["recipient_email"],
+            transcript_link=transcript_link,
+            transcript_file=transcript_file,
+            name_from_form=query_params["name"],
+        )
         st.session_state.email_sent = True
-    
+
     duration_minutes = (time.time() - st.session_state.start_time) / 60
     interview_id = st.session_state.session_id
     student_id = query_params["student_number"]
@@ -170,12 +200,12 @@ if not st.session_state.interview_active:
     company = query_params["company"]
     interview_type = config_name
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    
+
     transcript = ""
     for msg in st.session_state.messages:
         if msg["role"] in ["user", "assistant"]:
             transcript += f"{msg['role']}: {msg['content']}\n"
-    
+
     save_interview_to_sheet(
         interview_id,
         student_id,
@@ -184,68 +214,60 @@ if not st.session_state.interview_active:
         interview_type,
         timestamp,
         transcript,
-        f"{duration_minutes:.2f}"
+        f"{duration_minutes:.2f}",
     )
-    
+
     update_progress_sheet(
         student_id,
         name,
         interview_type,
-        timestamp
+        timestamp,
     )
-    
-    # --- NEW: Generate and store summary via the LLM ---
+
+    # --- Generate and store summary via the LLM ---
     summary_prompt = (
-        "Please provide a concise but detailed summary for the following interview transcript:\n\n" 
-        + transcript
+        "Please provide a concise but detailed summary for the following interview transcript:\n\n" + transcript
     )
-    if api == "openai":
-        # Call the LLM without streaming to get the full summary response directly.
+
+    if api == "openai":  # DeepInfra falls in here too
         summary_response = client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": summary_prompt}],
             max_tokens=200,
             temperature=0.7,
-            stream=False
+            stream=False,
         )
         summary_text = summary_response.choices[0].message.content.strip()
     else:
         summary_text = "Summary generation not implemented for this provider."
 
-    st.write("Generated Summary:", summary_text)  # Optional: display for debugging
+    st.write("Generated Summary:", summary_text)  # Optional debug view
     update_interview_summary(interview_id, summary_text)
-    # --- End New Section ---
+
+# ----------------------------------------------------------------------------
+# Interview chat UI and streaming logic
+# ----------------------------------------------------------------------------
 
 for message in st.session_state.messages[1:]:
-    if message["role"] == "assistant":
-        avatar = config.AVATAR_INTERVIEWER
-    else:
-        avatar = config.AVATAR_RESPONDENT
+    avatar = config.AVATAR_INTERVIEWER if message["role"] == "assistant" else config.AVATAR_RESPONDENT
     if not any(code in message["content"] for code in config.CLOSING_MESSAGES.keys()):
         with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
 
-# Remove redundant client reinitialization below; we already created the client above.
+# Build kwargs for subsequent LLM calls
 api_kwargs = {"stream": True}
 if api == "anthropic":
     api_kwargs = {"system": st.secrets.get("SYSTEM_PROMPT", "Your default system prompt")}
-    
+
 api_kwargs["messages"] = st.session_state.messages
 api_kwargs["model"] = model
 api_kwargs["max_tokens"] = config.MAX_OUTPUT_TOKENS
 if config.TEMPERATURE is not None:
     api_kwargs["temperature"] = config.TEMPERATURE
 
-if config_name != "Default":
-    try:
-        context_transcript = get_context_transcript(
-            query_params["student_number"], config_name
-        )
-    except Exception as e:
-        # optional: st.warning(f"Could not load context transcript: {e}")
-        context_transcript = None
+# --- Initialise conversation with system prompt if needed ---
 
-if not st.session_state.messages:
+if "messages" in st.session_state and not st.session_state.messages:
     if api == "openai":
         if context_transcript:
             system_prompt = (
@@ -256,12 +278,12 @@ if not st.session_state.messages:
         else:
             system_prompt = config.INTERVIEW_OUTLINE
 
-        st.session_state.messages.append(
-            {"role": "system", "content": system_prompt}
-        )
+        st.session_state.messages.append({"role": "system", "content": system_prompt})
+
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             stream = client.chat.completions.create(**api_kwargs)
             message_interviewer = st.write_stream(stream)
+
     elif api == "anthropic":
         st.session_state.messages.append({"role": "user", "content": "Hi"})
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
@@ -273,24 +295,28 @@ if not st.session_state.messages:
                         message_interviewer += text_delta
                     message_placeholder.markdown(message_interviewer + "▌")
             message_placeholder.markdown(message_interviewer)
-    st.session_state.messages.append(
-        {"role": "assistant", "content": message_interviewer}
-    )
+
+    st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
+
     save_interview_data(
         student_number=query_params["student_number"],
-        company_name=query_params["company"]
+        company_name=query_params["company"],
     )
+
+# ----------------------------------------------------------------------------
+# Main chat loop
+# ----------------------------------------------------------------------------
 
 if st.session_state.interview_active:
     if message_respondent := st.chat_input("Your message here"):
-        st.session_state.messages.append(
-            {"role": "user", "content": message_respondent}
-        )
+        st.session_state.messages.append({"role": "user", "content": message_respondent})
         with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
             st.markdown(message_respondent)
+
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             message_placeholder = st.empty()
             message_interviewer = ""
+
             if api == "openai":
                 stream = client.chat.completions.create(**api_kwargs)
                 for message in stream:
@@ -302,6 +328,7 @@ if st.session_state.interview_active:
                     if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                         message_placeholder.empty()
                         break
+
             elif api == "anthropic":
                 with client.messages.stream(**api_kwargs) as stream:
                     for text_delta in stream.text_stream:
@@ -312,28 +339,28 @@ if st.session_state.interview_active:
                         if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                             message_placeholder.empty()
                             break
+
+            # -----------------------------------------------------------------
+            # After streaming finishes, decide what to persist / show
+            # -----------------------------------------------------------------
             if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                 message_placeholder.markdown(message_interviewer)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": message_interviewer}
-                )
+                st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
                 try:
-                    transcript_link, transcript_file = save_interview_data(
+                    save_interview_data(
                         student_number=query_params["student_number"],
-                        company_name=query_params["company"]
+                        company_name=query_params["company"],
                     )
-                except:
+                except Exception:
                     pass
+
+            # Check for closing codes
             for code in config.CLOSING_MESSAGES.keys():
                 if code in message_interviewer:
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": message_interviewer}
-                    )
+                    st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
                     st.session_state.interview_active = False
                     closing_message = config.CLOSING_MESSAGES[code]
                     st.markdown(closing_message)
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": closing_message}
-                    )
+                    st.session_state.messages.append({"role": "assistant", "content": closing_message})
                     time.sleep(5)
                     st.rerun()

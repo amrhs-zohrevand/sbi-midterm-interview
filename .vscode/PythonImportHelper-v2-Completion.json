@@ -137,6 +137,14 @@
         "documentation": {}
     },
     {
+        "label": "OpenAI",
+        "importPath": "openai",
+        "description": "openai",
+        "isExtraImport": true,
+        "detail": "openai",
+        "documentation": {}
+    },
+    {
         "label": "csv",
         "kind": 6,
         "isExtraImport": true,
@@ -872,7 +880,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "context_transcript = None   \n# API client setup (unchanged)\nprovider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic",
+        "peekOfCode": "context_transcript = None\nprovider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra is OpenAI‑compatible, so we always go through the OpenAI SDK\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    # Map DeepInfra into the OpenAI code path",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -881,7 +889,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra is OpenAI‑compatible, so we always go through the OpenAI SDK\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    # Map DeepInfra into the OpenAI code path\n    api = \"openai\"",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -890,7 +898,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\" or \"gpt\" in model.lower():\n    api = \"openai\"\n    from openai import OpenAI\nelif provider == \"anthropic\" or \"claude\" in model.lower():\n    api = \"anthropic\"\n    import anthropic\nelif provider == \"deepinfra\":\n    api = \"deepinfra\"\n    import deepinfra",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra is OpenAI‑compatible, so we always go through the OpenAI SDK\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    # Map DeepInfra into the OpenAI code path\n    api = \"openai\"\n    client = OpenAI(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -899,7 +907,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found.\")",
+        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # noqa: E402\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found.\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -908,7 +916,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found.\")\n        st.stop()",
+        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # noqa: E402\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\")\n    if not os.path.exists(config_path):\n        st.error(f\"Configuration file {config_name}.py not found.\")\n        st.stop()",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -926,7 +934,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "respondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True\nif \"messages\" not in st.session_state:\n    st.session_state.messages = []\nif \"email_sent\" not in st.session_state:\n    st.session_state.email_sent = False",
+        "peekOfCode": "respondent_name = html.unescape(query_params[\"name\"])\nrecipient_email = html.unescape(query_params[\"recipient_email\"])\n# ----------------------------------------------------------------------------\n# Session‑state initialisation\n# ----------------------------------------------------------------------------\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True\nif \"messages\" not in st.session_state:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -935,7 +943,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "recipient_email = html.unescape(query_params[\"recipient_email\"])\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True\nif \"messages\" not in st.session_state:\n    st.session_state.messages = []\nif \"email_sent\" not in st.session_state:\n    st.session_state.email_sent = False\nif \"start_time\" not in st.session_state:",
+        "peekOfCode": "recipient_email = html.unescape(query_params[\"recipient_email\"])\n# ----------------------------------------------------------------------------\n# Session‑state initialisation\n# ----------------------------------------------------------------------------\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True\nif \"messages\" not in st.session_state:\n    st.session_state.messages = []",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -944,7 +952,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\nif st.session_state.awaiting_email_confirmation:\n    st.subheader(\"Confirm Email Before Ending Interview\")\n    email_input = st.text_input(\"Confirm or update your email address:\", value=recipient_email)",
+        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit flow – confirm email & save transcript\n# ----------------------------------------------------------------------------",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -953,7 +961,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\nif st.session_state.awaiting_email_confirmation:\n    st.subheader(\"Confirm Email Before Ending Interview\")\n    email_input = st.text_input(\"Confirm or update your email address:\", value=recipient_email)\n    send_email = st.checkbox(\"Yes, send a transcript to this email.\")",
+        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit flow – confirm email & save transcript\n# ----------------------------------------------------------------------------\nif st.session_state.awaiting_email_confirmation:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -962,7 +970,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name != \"Default\":\n    try:",
+        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs = {\"system\": st.secrets.get(\"SYSTEM_PROMPT\", \"Your default system prompt\")}\napi_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# --- Initialise conversation with system prompt if needed ---\nif \"messages\" in st.session_state and not st.session_state.messages:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -971,7 +979,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name != \"Default\":\n    try:\n        context_transcript = get_context_transcript(\n            query_params[\"student_number\"], config_name\n        )",
+        "peekOfCode": "api_kwargs[\"messages\"] = st.session_state.messages\napi_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# --- Initialise conversation with system prompt if needed ---\nif \"messages\" in st.session_state and not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -980,7 +988,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name != \"Default\":\n    try:\n        context_transcript = get_context_transcript(\n            query_params[\"student_number\"], config_name\n        )\n    except Exception as e:",
+        "peekOfCode": "api_kwargs[\"model\"] = model\napi_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# --- Initialise conversation with system prompt if needed ---\nif \"messages\" in st.session_state and not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -989,7 +997,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\nif config_name != \"Default\":\n    try:\n        context_transcript = get_context_transcript(\n            query_params[\"student_number\"], config_name\n        )\n    except Exception as e:\n        # optional: st.warning(f\"Could not load context transcript: {e}\")",
+        "peekOfCode": "api_kwargs[\"max_tokens\"] = config.MAX_OUTPUT_TOKENS\nif config.TEMPERATURE is not None:\n    api_kwargs[\"temperature\"] = config.TEMPERATURE\n# --- Initialise conversation with system prompt if needed ---\nif \"messages\" in st.session_state and not st.session_state.messages:\n    if api == \"openai\":\n        if context_transcript:\n            system_prompt = (\n                \"Context Transcript Summary (provided as context for the Interview):\\n\\n\"\n                f\"{context_transcript}\\n\\n\"",
         "detail": "code.interview",
         "documentation": {}
     },
