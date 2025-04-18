@@ -106,7 +106,7 @@ with col2:
             st.session_state.awaiting_email_confirmation = True
 
 # ----------------------------------------------------------------------------
-# Quit flow – confirm email & save transcript
+# Quit & Completion flow – confirm email & save transcript
 # ----------------------------------------------------------------------------
 
 if st.session_state.awaiting_email_confirmation:
@@ -117,7 +117,7 @@ if st.session_state.awaiting_email_confirmation:
         st.session_state.interview_active = False
         st.session_state.awaiting_email_confirmation = False
         st.session_state.email_confirmed = True
-        quit_message = "You have cancelled the interview."
+        quit_message = "You have cancelled the interview." if "Quit" in st.session_state.get("trigger", "") else "Interview completed."
         st.session_state.messages.append({"role": "assistant", "content": quit_message})
 
         transcript_link, transcript_file = save_interview_data(
@@ -151,10 +151,10 @@ if st.session_state.awaiting_email_confirmation:
         )
 
 # ----------------------------------------------------------------------------
-# Post‑interview actions and persistence
+# Post‑interview actions and persistence (only after confirmation screen)
 # ----------------------------------------------------------------------------
 
-if not st.session_state.interview_active:
+if not st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
     st.empty()
 
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
@@ -358,9 +358,13 @@ if st.session_state.interview_active:
             for code in config.CLOSING_MESSAGES.keys():
                 if code in message_interviewer:
                     st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
+                    # ---------------------------
+                    # UPDATED: trigger confirmation UI after automatic completion
+                    # ---------------------------
+                    st.session_state.awaiting_email_confirmation = True  # <-- new line
                     st.session_state.interview_active = False
                     closing_message = config.CLOSING_MESSAGES[code]
                     st.markdown(closing_message)
                     st.session_state.messages.append({"role": "assistant", "content": closing_message})
-                    time.sleep(5)
+                    time.sleep(1)
                     st.rerun()
