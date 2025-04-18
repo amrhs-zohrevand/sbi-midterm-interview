@@ -224,7 +224,6 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
     else:
         summary_text = "Summary generation not implemented for this provider."
 
-    st.write("Generated Summary:", summary_text)  # Optional debug view
     update_interview_summary(interview_id, summary_text)
 
 # ----------------------------------------------------------------------------
