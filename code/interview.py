@@ -94,9 +94,11 @@ for param in required_params:
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 st.sidebar.write(f"Interview Type: {config_name}")
 
-# Evaluation URL (for after interview)
-
-evaluation_url = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
+# ----------------------------------------------------------------------------
+# Qualtrics post‑interview survey link (NOW CONFIG‑DRIVEN)
+# ----------------------------------------------------------------------------
+DEFAULT_QUALTRICS_URL = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
+evaluation_url = getattr(config, "POST_INTERVIEW_SURVEY_URL", DEFAULT_QUALTRICS_URL)
 evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
 
 col1, col2 = st.columns([0.85, 0.15])

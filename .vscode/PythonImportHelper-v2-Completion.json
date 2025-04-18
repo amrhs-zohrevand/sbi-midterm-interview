@@ -448,7 +448,7 @@
         "kind": 5,
         "importPath": "code.interview_configs.industry_org_survey",
         "description": "code.interview_configs.industry_org_survey",
-        "peekOfCode": "TEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface\nAVATAR_INTERVIEWER = \"\\U0001F393\"",
+        "peekOfCode": "TEMPERATURE = None  # (None for default value)\nMAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nPOST_INTERVIEW_SURVEY_URL = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_2ccylYhvDFXPVGK\"\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface",
         "detail": "code.interview_configs.industry_org_survey",
         "documentation": {}
     },
@@ -457,7 +457,7 @@
         "kind": 5,
         "importPath": "code.interview_configs.industry_org_survey",
         "description": "code.interview_configs.industry_org_survey",
-        "peekOfCode": "MAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface\nAVATAR_INTERVIEWER = \"\\U0001F393\"\nAVATAR_RESPONDENT = \"\\U0001F9D1\\U0000200D\\U0001F4BB\"",
+        "peekOfCode": "MAX_OUTPUT_TOKENS = 1024\n# Display login screen with usernames and simple passwords for studies\nLOGINS = False\n# Directories\nPOST_INTERVIEW_SURVEY_URL = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_2ccylYhvDFXPVGK\"\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface\nAVATAR_INTERVIEWER = \"\\U0001F393\"",
         "detail": "code.interview_configs.industry_org_survey",
         "documentation": {}
     },
@@ -466,7 +466,16 @@
         "kind": 5,
         "importPath": "code.interview_configs.industry_org_survey",
         "description": "code.interview_configs.industry_org_survey",
-        "peekOfCode": "LOGINS = False\n# Directories\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface\nAVATAR_INTERVIEWER = \"\\U0001F393\"\nAVATAR_RESPONDENT = \"\\U0001F9D1\\U0000200D\\U0001F4BB\"",
+        "peekOfCode": "LOGINS = False\n# Directories\nPOST_INTERVIEW_SURVEY_URL = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_2ccylYhvDFXPVGK\"\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface\nAVATAR_INTERVIEWER = \"\\U0001F393\"\nAVATAR_RESPONDENT = \"\\U0001F9D1\\U0000200D\\U0001F4BB\"",
+        "detail": "code.interview_configs.industry_org_survey",
+        "documentation": {}
+    },
+    {
+        "label": "POST_INTERVIEW_SURVEY_URL",
+        "kind": 5,
+        "importPath": "code.interview_configs.industry_org_survey",
+        "description": "code.interview_configs.industry_org_survey",
+        "peekOfCode": "POST_INTERVIEW_SURVEY_URL = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_2ccylYhvDFXPVGK\"\nTRANSCRIPTS_DIRECTORY = \"../data/transcripts/\"\nTIMES_DIRECTORY = \"../data/times/\"\nBACKUPS_DIRECTORY = \"../data/backups/\"\n# Avatars displayed in the chat interface\nAVATAR_INTERVIEWER = \"\\U0001F393\"\nAVATAR_RESPONDENT = \"\\U0001F9D1\\U0000200D\\U0001F4BB\"",
         "detail": "code.interview_configs.industry_org_survey",
         "documentation": {}
     },
@@ -930,11 +939,20 @@
         "documentation": {}
     },
     {
+        "label": "DEFAULT_QUALTRICS_URL",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "DEFAULT_QUALTRICS_URL = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url = getattr(config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL)\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit & Completion flow – confirm email & save transcript",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "evaluation_url",
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit & Completion flow – confirm email & save transcript\n# ----------------------------------------------------------------------------",
+        "peekOfCode": "evaluation_url = getattr(config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL)\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit & Completion flow – confirm email & save transcript\n# ----------------------------------------------------------------------------",
         "detail": "code.interview",
         "documentation": {}
     },

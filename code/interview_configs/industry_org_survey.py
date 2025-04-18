@@ -134,6 +134,7 @@ LOGINS = False
 
 
 # Directories
+POST_INTERVIEW_SURVEY_URL = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_2ccylYhvDFXPVGK"
 TRANSCRIPTS_DIRECTORY = "../data/transcripts/"
 TIMES_DIRECTORY = "../data/times/"
 BACKUPS_DIRECTORY = "../data/backups/"
