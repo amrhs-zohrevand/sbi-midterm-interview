@@ -9,4 +9,3 @@ secure-smtplib
 paramiko
 cryptography
 deepinfra
-sqlite3
