@@ -56,22 +56,43 @@ else:
     spec.loader.exec_module(config)
 
 # ----------------------------------------------------------------------------
+# Helper to fetch query‑string parameters safely
+# ----------------------------------------------------------------------------
+
+def _get_param(name: str, default: str = "") -> str:
+    """Return the query‑string parameter as a string or *default* if missing."""
+    val = query_params.get(name, default)
+    # Streamlit returns lists for duplicate keys; we just take the first.
+    if isinstance(val, list):
+        val = val[0]
+    return html.unescape(val)
+
+# ----------------------------------------------------------------------------
 # Streamlit session‑state initialisation
 # ----------------------------------------------------------------------------
-required_params = ["student_number", "name", "company", "recipient_email"]
+# "student_number" is now optional – we only require the remaining fields.
+required_params = ["name", "company", "recipient_email"]
+
 
 def validate_query_params(params):
     missing = [k for k in required_params if k not in params or not params[k]]
     return len(missing) == 0, missing
+
 
 is_valid, missing = validate_query_params(query_params)
 if not is_valid:
     st.error(f"Missing parameters: {', '.join(missing)}")
     st.stop()
 
-respondent_name = html.unescape(query_params["name"])
-recipient_email = html.unescape(query_params["recipient_email"])
+# Fetch parameters -----------------------------------------------------------
+student_number = _get_param("student_number", "")  # may be an empty string
+respondent_name = _get_param("name")
+recipient_email = _get_param("recipient_email")
+company_name = _get_param("company")
 
+# ----------------------------------------------------------------------------
+# Streamlit session state defaults
+# ----------------------------------------------------------------------------
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 if "interview_active" not in st.session_state:
@@ -86,13 +107,15 @@ if "awaiting_email_confirmation" not in st.session_state:
     st.session_state.awaiting_email_confirmation = False
 
 # ----------------------------------------------------------------------------
-# Sidebar with interview details
+# Sidebar with interview details – hide student number when absent
 # ----------------------------------------------------------------------------
 st.sidebar.title("Interview Details")
 for param in required_params:
     st.sidebar.write(f"{param.replace('_', ' ').capitalize()}: {html.unescape(query_params[param])}")
+if student_number:
+    st.sidebar.write(f"Student number: {student_number}")
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-st.sidebar.write(f"Interview Type: {config_name}")
+# st.sidebar.write(f"Interview Type: {config_name}")
 
 # ----------------------------------------------------------------------------
 # Qualtrics post‑interview survey link (NOW CONFIG‑DRIVEN)
@@ -123,19 +146,19 @@ if st.session_state.awaiting_email_confirmation:
         st.session_state.messages.append({"role": "assistant", "content": quit_message})
 
         transcript_link, transcript_file = save_interview_data(
-            student_number=query_params["student_number"],
-            company_name=query_params["company"],
+            student_number=student_number,
+            company_name=company_name,
         )
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
         if send_email:
             send_transcript_email(
-                student_number=query_params["student_number"],
+                student_number=student_number,
                 recipient_email=email_input,
                 transcript_link=transcript_link,
                 transcript_file=transcript_file,
-                name_from_form=query_params["name"],
+                name_from_form=respondent_name,
             )
             st.session_state.email_sent = True
 
@@ -161,27 +184,27 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
 
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
         transcript_link, transcript_file = save_interview_data(
-            student_number=query_params["student_number"],
-            company_name=query_params["company"],
+            student_number=student_number,
+            company_name=company_name,
         )
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
     if not st.session_state.email_sent:
         send_transcript_email(
-            student_number=query_params["student_number"],
-            recipient_email=query_params["recipient_email"],
+            student_number=student_number,
+            recipient_email=recipient_email,
             transcript_link=transcript_link,
             transcript_file=transcript_file,
-            name_from_form=query_params["name"],
+            name_from_form=respondent_name,
         )
         st.session_state.email_sent = True
 
     duration_minutes = (time.time() - st.session_state.start_time) / 60
     interview_id = st.session_state.session_id
-    student_id = query_params["student_number"]
-    name = query_params["name"]
-    company = query_params["company"]
+    student_id = student_number  # might be an empty string
+    name = respondent_name
+    company = company_name
     interview_type = config_name
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
@@ -200,7 +223,8 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
         f"{duration_minutes:.2f}",
     )
 
-    update_progress_sheet(student_id, name, interview_type, timestamp)
+    if student_number:  # progress tracking only when we have a student number
+        update_progress_sheet(student_number, name, interview_type, timestamp)
 
     # ---------------- Summary generation ----------------
     summary_prompt = (
@@ -256,8 +280,14 @@ if config.TEMPERATURE is not None:
 # Initialise conversation on first load
 # ----------------------------------------------------------------------------
 if not st.session_state.messages:
+    # Decide whether we have context based on an existing student number.
+    if student_number:
+        context_transcript = get_context_transcript(student_number, config_name)
+    else:
+        context_transcript = None
+
     if provider == "deepinfra":
-        if context_transcript := get_context_transcript(query_params["student_number"], config_name):
+        if context_transcript:
             system_prompt = (
                 "Context Transcript Summary (provided as context for the Interview):\n\n" +
                 f"{context_transcript}\n\n" +
@@ -271,7 +301,7 @@ if not st.session_state.messages:
 
     else:
         # OpenAI & Anthropic original behaviour
-        if context_transcript := get_context_transcript(query_params["student_number"], config_name):
+        if context_transcript:
             system_prompt = (
                 "Context Transcript Summary (provided as context for the Interview):\n\n" +
                 f"{context_transcript}\n\n" +
@@ -302,7 +332,7 @@ if not st.session_state.messages:
 
     # Save assistant reply and persist
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
-    save_interview_data(student_number=query_params["student_number"], company_name=query_params["company"])
+    save_interview_data(student_number=student_number, company_name=company_name)
 
 # ----------------------------------------------------------------------------
 # Main chat loop
@@ -349,8 +379,8 @@ if st.session_state.interview_active:
                 st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
                 try:
                     save_interview_data(
-                        student_number=query_params["student_number"],
-                        company_name=query_params["company"],
+                        student_number=student_number,
+                        company_name=company_name,
                     )
                 except Exception:
                     pass
