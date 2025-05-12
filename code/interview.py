@@ -185,7 +185,7 @@ if st.session_state.awaiting_email_confirmation:
 
         # 4) Toggle evaluation-only mode & rerun
         st.session_state.show_evaluation_only = True
-        st.experimental_rerun()
+        st.rerun()
 
 # ----------------------------------------------------------------------------
 # Post-interview actions and persistence (only after confirmation screen)
@@ -269,7 +269,7 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
 
     # Finally flip to evaluation-only view
     st.session_state.show_evaluation_only = True
-    st.experimental_rerun()
+    st.rerun()
 
 # ----------------------------------------------------------------------------
 # Chat UI helpers – render prior conversation
