@@ -54,6 +54,15 @@
         "documentation": {}
     },
     {
+        "label": "sqlite3,",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sqlite3.",
+        "description": "sqlite3.",
+        "detail": "sqlite3.",
+        "documentation": {}
+    },
+    {
         "label": "save_interview_data",
         "importPath": "utils",
         "description": "utils",
@@ -808,7 +817,7 @@
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def format_private_key(key_str):\n    \"\"\"\n    Normalize the private key string as done in the email sending code.\n    \"\"\"\n    if \"\\\\n\" in key_str:\n        key_str = key_str.replace(\"\\\\n\", \"\\n\")\n    if key_str.startswith(\"-----BEGIN OPENSSH PRIVATE KEY-----\") and \"-----END OPENSSH PRIVATE KEY-----\" in key_str:\n        header = \"-----BEGIN OPENSSH PRIVATE KEY-----\"\n        footer = \"-----END OPENSSH PRIVATE KEY-----\"\n        key_body = key_str[len(header):-len(footer)].strip()",
+        "peekOfCode": "def format_private_key(key_str):\n    \"\"\"\n    Normalize the private key string as done in the email sending code.\n    \"\"\"\n    if \"\\n\" in key_str:\n        key_str = key_str.replace(\"\\n\", \"\\n\")\n    if key_str.startswith(\"-----BEGIN OPENSSH PRIVATE KEY-----\") and \"-----END OPENSSH PRIVATE KEY-----\" in key_str:\n        header = \"-----BEGIN OPENSSH PRIVATE KEY-----\"\n        footer = \"-----END OPENSSH PRIVATE KEY-----\"\n        key_body = key_str[len(header):-len(footer)].strip()",
         "detail": "code.database",
         "documentation": {}
     },
@@ -835,7 +844,7 @@
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def run_remote_sql(ssh, db_path, sql_query):\n    \"\"\"\n    Executes the given SQL query on the remote SQLite database using the sqlite3 command.\n    Assumes that the sqlite3 command-line tool is available on the remote server.\n    \"\"\"\n    # Escape double quotes in the query so it can be wrapped in double quotes.\n    safe_query = sql_query.replace('\"', '\\\\\"')\n    cmd = f'sqlite3 {db_path} \"{safe_query}\"'\n    stdin, stdout, stderr = ssh.exec_command(cmd)\n    err = stderr.read().decode().strip()",
+        "peekOfCode": "def run_remote_sql(ssh, db_path, sql_query):\n    \"\"\"\n    Executes *sql_query* on the remote SQLite database at *db_path*.\n    Strategy:\n    1. First try the fast path using the `sqlite3` command‑line binary.\n    2. If that binary is unavailable (e.g. recently removed from the server),\n       transparently fall back to a Python one‑liner executed remotely. Most\n       servers have Python even when the CLI tool is absent.\n    3. In both cases any stderr output is considered an error and surfaced to\n       the caller so that higher‑level functions (e.g. `save_interview_to_sheet`)",
         "detail": "code.database",
         "documentation": {}
     },
@@ -872,6 +881,60 @@
         "importPath": "code.database",
         "description": "code.database",
         "peekOfCode": "def update_interview_summary(interview_id, summary):\n    \"\"\"\n    Updates the interview record identified by interview_id with the given summary.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    db_path = f\"{remote_directory}/interviews.db\"\n    ssh, tmp_key_path = get_ssh_connection()",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "DB_PATH",
+        "kind": 5,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "DB_PATH = r'''{db_path}'''\nSQL = textwrap.dedent(r'''{safe_query_py}''')\nconn = sqlite3.connect(DB_PATH)\nconn.executescript(SQL)\nconn.commit()\nconn.close()\n\"\"\"\n        # Heredoc prevents quoting issues.\n        python_cmd = f\"python3 - <<'PY'\\n{python_script}\\nPY\"\n        stdin2, stdout2, stderr2 = ssh.exec_command(python_cmd)",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "SQL",
+        "kind": 5,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "SQL = textwrap.dedent(r'''{safe_query_py}''')\nconn = sqlite3.connect(DB_PATH)\nconn.executescript(SQL)\nconn.commit()\nconn.close()\n\"\"\"\n        # Heredoc prevents quoting issues.\n        python_cmd = f\"python3 - <<'PY'\\n{python_script}\\nPY\"\n        stdin2, stdout2, stderr2 = ssh.exec_command(python_cmd)\n        err2 = stderr2.read().decode().strip()",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "conn",
+        "kind": 5,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "conn = sqlite3.connect(DB_PATH)\nconn.executescript(SQL)\nconn.commit()\nconn.close()\n\"\"\"\n        # Heredoc prevents quoting issues.\n        python_cmd = f\"python3 - <<'PY'\\n{python_script}\\nPY\"\n        stdin2, stdout2, stderr2 = ssh.exec_command(python_cmd)\n        err2 = stderr2.read().decode().strip()\n        if err2:",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "conn",
+        "kind": 5,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "conn = sqlite3.connect(r'{db_path}')\ncur = conn.cursor()\ncur.execute(\\\"{query}\\\")\nrow = cur.fetchone()\nprint(json.dumps(row[0] if row else ''))\nconn.close()\n\"\"\"\n        python_cmd = f\"python3 - <<'PY'\\n{python_fetch}\\nPY\"\n        stdin, stdout, stderr = ssh.exec_command(python_cmd)\n        result = stdout.read().decode().strip().strip('\"')  # simple JSON string value",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "cur",
+        "kind": 5,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "cur = conn.cursor()\ncur.execute(\\\"{query}\\\")\nrow = cur.fetchone()\nprint(json.dumps(row[0] if row else ''))\nconn.close()\n\"\"\"\n        python_cmd = f\"python3 - <<'PY'\\n{python_fetch}\\nPY\"\n        stdin, stdout, stderr = ssh.exec_command(python_cmd)\n        result = stdout.read().decode().strip().strip('\"')  # simple JSON string value\n        error = stderr.read().decode().strip()",
+        "detail": "code.database",
+        "documentation": {}
+    },
+    {
+        "label": "row",
+        "kind": 5,
+        "importPath": "code.database",
+        "description": "code.database",
+        "peekOfCode": "row = cur.fetchone()\nprint(json.dumps(row[0] if row else ''))\nconn.close()\n\"\"\"\n        python_cmd = f\"python3 - <<'PY'\\n{python_fetch}\\nPY\"\n        stdin, stdout, stderr = ssh.exec_command(python_cmd)\n        result = stdout.read().decode().strip().strip('\"')  # simple JSON string value\n        error = stderr.read().decode().strip()\n        if error:\n            raise Exception(f\"SQLite error while fetching transcript: {error}\")",
         "detail": "code.database",
         "documentation": {}
     },
