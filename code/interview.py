@@ -14,8 +14,6 @@ import importlib.util
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
-# DeepInfra speaks the OpenAI protocol, so we always use the OpenAI SDK and
-# just redirect the base_url when provider == "deepinfra".
 from openai import OpenAI
 
 if provider == "openai":
@@ -23,7 +21,7 @@ if provider == "openai":
     client = OpenAI(api_key=st.secrets["API_KEY"])
 
 elif provider == "deepinfra":
-    api = "openai"  # we want all OpenAI‑specific branches further down
+    api = "openai"
     client = OpenAI(
         api_key=st.secrets["DEEPINFRA_API_KEY"],
         base_url="https://api.deepinfra.com/v1/openai",
@@ -56,20 +54,34 @@ else:
     spec.loader.exec_module(config)
 
 # ----------------------------------------------------------------------------
-# Helper to fetch query‑string parameters safely
+# Helper to fetch query-string parameters safely
 # ----------------------------------------------------------------------------
-
 def _get_param(name: str, default: str = "") -> str:
-    """Return the query‑string parameter as a string or *default* if missing."""
+    """Return the query-string parameter as a string or *default* if missing."""
     val = query_params.get(name, default)
-    # Streamlit returns lists for duplicate keys; we just take the first.
     if isinstance(val, list):
         val = val[0]
     return html.unescape(val)
 
 # ----------------------------------------------------------------------------
-# Streamlit session‑state initialisation
+# Streamlit session-state defaults
 # ----------------------------------------------------------------------------
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+if "interview_active" not in st.session_state:
+    st.session_state.interview_active = True
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "email_sent" not in st.session_state:
+    st.session_state.email_sent = False
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
+if "awaiting_email_confirmation" not in st.session_state:
+    st.session_state.awaiting_email_confirmation = False
+if "show_evaluation_only" not in st.session_state:
+    st.session_state.show_evaluation_only = False
+# ----------------------------------------------------------------------------
+
 # "student_number" is now optional – we only require the remaining fields.
 required_params = ["name", "company", "recipient_email"]
 
@@ -85,26 +97,36 @@ if not is_valid:
     st.stop()
 
 # Fetch parameters -----------------------------------------------------------
-student_number = _get_param("student_number", "")  # may be an empty string
-respondent_name = _get_param("name")
-recipient_email = _get_param("recipient_email")
-company_name = _get_param("company")
+student_number   = _get_param("student_number", "")
+respondent_name  = _get_param("name")
+recipient_email  = _get_param("recipient_email")
+company_name     = _get_param("company")
 
 # ----------------------------------------------------------------------------
-# Streamlit session state defaults
+# Qualtrics post-interview survey link (CONFIG-DRIVEN)
 # ----------------------------------------------------------------------------
-if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
-if "interview_active" not in st.session_state:
-    st.session_state.interview_active = True
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "email_sent" not in st.session_state:
-    st.session_state.email_sent = False
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-if "awaiting_email_confirmation" not in st.session_state:
-    st.session_state.awaiting_email_confirmation = False
+DEFAULT_QUALTRICS_URL   = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
+evaluation_url          = getattr(config, "POST_INTERVIEW_SURVEY_URL", DEFAULT_QUALTRICS_URL)
+evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
+
+# ----------------------------------------------------------------------------
+# EARLY EXIT if the only thing left to show is the evaluation button
+# ----------------------------------------------------------------------------
+if st.session_state.show_evaluation_only:
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: center; align-items: center; margin-top: 2em;">
+            <a href="{evaluation_url_with_session}" target="_blank"
+               style="text-decoration: none; background-color: #4CAF50; color: white;
+                      padding: 15px 32px; text-align: center; font-size: 16px;
+                      border-radius: 8px;">
+               Click here to evaluate the interview
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()  # nothing else should render
 
 # ----------------------------------------------------------------------------
 # Sidebar with interview details – hide student number when absent
@@ -115,15 +137,10 @@ for param in required_params:
 if student_number:
     st.sidebar.write(f"Student number: {student_number}")
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-# st.sidebar.write(f"Interview Type: {config_name}")
 
 # ----------------------------------------------------------------------------
-# Qualtrics post‑interview survey link (NOW CONFIG‑DRIVEN)
+# Top banner with Quit button
 # ----------------------------------------------------------------------------
-DEFAULT_QUALTRICS_URL = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
-evaluation_url = getattr(config, "POST_INTERVIEW_SURVEY_URL", DEFAULT_QUALTRICS_URL)
-evaluation_url_with_session = f"{evaluation_url}?session_id={st.session_state.session_id}"
-
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
     if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
@@ -133,17 +150,20 @@ with col2:
 # ----------------------------------------------------------------------------
 # Quit & Completion flow – confirm email & save transcript
 # ----------------------------------------------------------------------------
-
 if st.session_state.awaiting_email_confirmation:
     st.subheader("Confirm Email Before Ending Interview")
     email_input = st.text_input("Confirm or update your email address:", value=recipient_email)
-    send_email = st.checkbox("Yes, send a transcript to this email.")
+    send_email  = st.checkbox("Yes, send a transcript to this email.")
+
     if st.button("Confirm and Quit"):
-        st.session_state.interview_active = False
+        # 1) Mark interview finished
+        st.session_state.interview_active            = False
         st.session_state.awaiting_email_confirmation = False
-        st.session_state.email_confirmed = True
-        quit_message = "You have cancelled the interview." if "Quit" in st.session_state.get("trigger", "") else "Interview completed."
-        st.session_state.messages.append({"role": "assistant", "content": quit_message})
+        st.session_state.email_confirmed             = True
+
+        # 2) Persist transcript
+        quit_msg = "You have cancelled the interview."
+        st.session_state.messages.append({"role": "assistant", "content": quit_msg})
 
         transcript_link, transcript_file = save_interview_data(
             student_number=student_number,
@@ -152,36 +172,28 @@ if st.session_state.awaiting_email_confirmation:
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
+        # 3) Optional email
         if send_email:
             send_transcript_email(
-                student_number=student_number,
-                recipient_email=email_input,
-                transcript_link=transcript_link,
-                transcript_file=transcript_file,
-                name_from_form=respondent_name,
+                student_number   = student_number,
+                recipient_email  = email_input,
+                transcript_link  = transcript_link,
+                transcript_file  = transcript_file,
+                name_from_form   = respondent_name,
             )
             st.session_state.email_sent = True
 
-        st.markdown("### Your interview transcript has been saved.")
-        if send_email:
-            st.markdown("A copy has been emailed to you.")
-
-        st.markdown(
-            f"""
-            <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">
-                <a href=\"{evaluation_url_with_session}\" target=\"_blank\" style=\"text-decoration: none; background-color: #4CAF50; color: white; padding: 15px 32px; text-align: center; font-size: 16px; border-radius: 8px;\">Click here to evaluate the interview</a>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        # 4) Toggle evaluation-only mode & rerun
+        st.session_state.show_evaluation_only = True
+        st.experimental_rerun()
 
 # ----------------------------------------------------------------------------
-# Post‑interview actions and persistence (only after confirmation screen)
+# Post-interview actions and persistence (only after confirmation screen)
+# (This block now runs ONLY if the interview was closed automatically by the
+# interviewer bot, not by the user pressing Quit → Confirm & Quit.)
 # ----------------------------------------------------------------------------
-
 if not st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
-    st.empty()
-
+    # Ensure transcript exists
     if "transcript_link" not in st.session_state or not st.session_state.transcript_link:
         transcript_link, transcript_file = save_interview_data(
             student_number=student_number,
@@ -190,26 +202,30 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
 
+    # Send email if it has not been sent yet
     if not st.session_state.email_sent:
         send_transcript_email(
-            student_number=student_number,
-            recipient_email=recipient_email,
-            transcript_link=transcript_link,
-            transcript_file=transcript_file,
-            name_from_form=respondent_name,
+            student_number  = student_number,
+            recipient_email = recipient_email,
+            transcript_link = transcript_link,
+            transcript_file = transcript_file,
+            name_from_form  = respondent_name,
         )
         st.session_state.email_sent = True
 
+    # Save to sheet, update progress, generate summary -----------------------
     duration_minutes = (time.time() - st.session_state.start_time) / 60
-    interview_id = st.session_state.session_id
-    student_id = student_number  # might be an empty string
-    name = respondent_name
-    company = company_name
-    interview_type = config_name
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    interview_id     = st.session_state.session_id
+    student_id       = student_number
+    name             = respondent_name
+    company          = company_name
+    interview_type   = config_name
+    timestamp        = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
     transcript = "".join(
-        f"{msg['role']}: {msg['content']}\n" for msg in st.session_state.messages if msg["role"] in ["user", "assistant"]
+        f"{msg['role']}: {msg['content']}\n"
+        for msg in st.session_state.messages
+        if msg["role"] in ["user", "assistant"]
     )
 
     save_interview_to_sheet(
@@ -223,17 +239,16 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
         f"{duration_minutes:.2f}",
     )
 
-    if student_number:  # progress tracking only when we have a student number
+    if student_number:
         update_progress_sheet(student_number, name, interview_type, timestamp)
 
     # ---------------- Summary generation ----------------
     summary_prompt = (
-        "Please provide a concise but detailed summary for the following interview transcript:\n\n" + transcript
+        "Please provide a concise but detailed summary for the following interview transcript:\n\n"
+        + transcript
     )
 
-    if api == "openai":  # includes DeepInfra
-        # DeepInfra's endpoint *requires* a user‑role message, whereas native
-        # OpenAI accepts a system‑only prompt. We branch accordingly.
+    if api == "openai":
         if provider == "deepinfra":
             summary_messages = [{"role": "user", "content": summary_prompt}]
         else:
@@ -251,6 +266,10 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
         summary_text = "Summary generation not implemented for this provider."
 
     update_interview_summary(interview_id, summary_text)
+
+    # Finally flip to evaluation-only view
+    st.session_state.show_evaluation_only = True
+    st.experimental_rerun()
 
 # ----------------------------------------------------------------------------
 # Chat UI helpers – render prior conversation
@@ -289,9 +308,9 @@ if not st.session_state.messages:
     if provider == "deepinfra":
         if context_transcript:
             system_prompt = (
-                "Context Transcript Summary (provided as context for the Interview):\n\n" +
-                f"{context_transcript}\n\n" +
-                f"{config.INTERVIEW_OUTLINE}"
+                "Context Transcript Summary (provided as context for the Interview):\n\n"
+                + f"{context_transcript}\n\n"
+                + f"{config.INTERVIEW_OUTLINE}"
             )
         else:
             system_prompt = config.INTERVIEW_OUTLINE
@@ -300,12 +319,11 @@ if not st.session_state.messages:
         st.session_state.messages.append({"role": "user", "content": "Hi"})  # required for DeepInfra
 
     else:
-        # OpenAI & Anthropic original behaviour
         if context_transcript:
             system_prompt = (
-                "Context Transcript Summary (provided as context for the Interview):\n\n" +
-                f"{context_transcript}\n\n" +
-                f"{config.INTERVIEW_OUTLINE}"
+                "Context Transcript Summary (provided as context for the Interview):\n\n"
+                + f"{context_transcript}\n\n"
+                + f"{config.INTERVIEW_OUTLINE}"
             )
         else:
             system_prompt = config.INTERVIEW_OUTLINE
@@ -314,8 +332,8 @@ if not st.session_state.messages:
         if api == "anthropic":
             st.session_state.messages.append({"role": "user", "content": "Hi"})  # Anthropic also needs user start
 
-    # 2) Produce the first interviewer question --------------------------------
-    if api == "openai":  # includes DeepInfra
+    # Produce the first interviewer question
+    if api == "openai":
         with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
             stream = client.chat.completions.create(**api_kwargs)
             first_reply = st.write_stream(stream)
@@ -330,14 +348,12 @@ if not st.session_state.messages:
                     placeholder.markdown(first_reply + "▌")
             placeholder.markdown(first_reply)
 
-    # Save assistant reply and persist
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
     save_interview_data(student_number=student_number, company_name=company_name)
 
 # ----------------------------------------------------------------------------
 # Main chat loop
 # ----------------------------------------------------------------------------
-
 if st.session_state.interview_active:
     if message_respondent := st.chat_input("Your message here"):
         st.session_state.messages.append({"role": "user", "content": message_respondent})
@@ -371,9 +387,7 @@ if st.session_state.interview_active:
                             message_placeholder.empty()
                             break
 
-            # -----------------------------------------------------------------
             # After streaming finishes, decide what to persist / show
-            # -----------------------------------------------------------------
             if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                 message_placeholder.markdown(message_interviewer)
                 st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
@@ -389,10 +403,7 @@ if st.session_state.interview_active:
             for code in config.CLOSING_MESSAGES.keys():
                 if code in message_interviewer:
                     st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
-                    # ---------------------------
-                    # UPDATED: trigger confirmation UI after automatic completion
-                    # ---------------------------
-                    st.session_state.awaiting_email_confirmation = True  # <-- new line
+                    st.session_state.awaiting_email_confirmation = True
                     st.session_state.interview_active = False
                     closing_message = config.CLOSING_MESSAGES[code]
                     st.markdown(closing_message)

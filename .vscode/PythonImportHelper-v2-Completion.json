@@ -943,7 +943,7 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")  # may be an empty string\nrespondent_name = _get_param(\"name\")",
+        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number   = _get_param(\"student_number\", \"\")\nrespondent_name  = _get_param(\"name\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -952,7 +952,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra speaks the OpenAI protocol, so we always use the OpenAI SDK and\n# just redirect the base_url when provider == \"deepinfra\".\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"  # we want all OpenAI‑specific branches further down",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -961,7 +961,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\n# DeepInfra speaks the OpenAI protocol, so we always use the OpenAI SDK and\n# just redirect the base_url when provider == \"deepinfra\".\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"  # we want all OpenAI‑specific branches further down\n    client = OpenAI(",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],\n        base_url=\"https://api.deepinfra.com/v1/openai\",",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -988,61 +988,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"name\", \"company\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")  # may be an empty string",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "student_number",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "student_number = _get_param(\"student_number\", \"\")  # may be an empty string\nrespondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Streamlit session state defaults\n# ----------------------------------------------------------------------------\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "respondent_name",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "respondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Streamlit session state defaults\n# ----------------------------------------------------------------------------\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "recipient_email",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "recipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Streamlit session state defaults\n# ----------------------------------------------------------------------------\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True\nif \"messages\" not in st.session_state:",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "company_name",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "company_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Streamlit session state defaults\n# ----------------------------------------------------------------------------\nif \"session_id\" not in st.session_state:\n    st.session_state.session_id = str(uuid.uuid4())\nif \"interview_active\" not in st.session_state:\n    st.session_state.interview_active = True\nif \"messages\" not in st.session_state:\n    st.session_state.messages = []",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "DEFAULT_QUALTRICS_URL",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "DEFAULT_QUALTRICS_URL = \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\nevaluation_url = getattr(config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL)\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit & Completion flow – confirm email & save transcript",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "evaluation_url",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "evaluation_url = getattr(config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL)\nevaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit & Completion flow – confirm email & save transcript\n# ----------------------------------------------------------------------------",
+        "peekOfCode": "required_params = [\"name\", \"company\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number   = _get_param(\"student_number\", \"\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1051,7 +997,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\ncol1, col2 = st.columns([0.85, 0.15])\nwith col2:\n    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:\n        if st.button(\"Quit\"):\n            st.session_state.awaiting_email_confirmation = True\n# ----------------------------------------------------------------------------\n# Quit & Completion flow – confirm email & save transcript\n# ----------------------------------------------------------------------------\nif st.session_state.awaiting_email_confirmation:",
+        "peekOfCode": "evaluation_url_with_session = f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">\n            <a href=\"{evaluation_url_with_session}\" target=\"_blank\"\n               style=\"text-decoration: none; background-color: #4CAF50; color: white;",
         "detail": "code.interview",
         "documentation": {}
     },
