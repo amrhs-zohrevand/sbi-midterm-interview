@@ -52,14 +52,6 @@ def save_interview_data(student_number, company_name, transcripts_directory=None
             f"Start time (UTC): {time.strftime('%d/%m/%Y %H:%M:%S', time.localtime(st.session_state.start_time))}\n"
             f"Interview duration (minutes): {duration:.2f}"
         )
-        
-    if st.secrets.get("UPLOAD_TRANSCRIPTS_TO_DB", False):
-        try:
-            from database import upload_transcript_file
-            upload_transcript_file(transcript_file)
-        except Exception as e:
-            # Don’t crash the interview if the transfer fails
-            st.error(f"⚠️  Could not upload transcript to database folder:\n{e}")
 
     # Removed Google Drive upload; transcript_link is now set to an empty string.
     transcript_link = ""

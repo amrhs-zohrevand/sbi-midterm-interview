@@ -849,20 +849,11 @@
         "documentation": {}
     },
     {
-        "label": "upload_transcript_file",
-        "kind": 2,
-        "importPath": "code.database",
-        "description": "code.database",
-        "peekOfCode": "def upload_transcript_file(local_path: str) -> None:\n    \"\"\"\n    Copy *local_path* to the Transcripts sub-folder next to interviews.db on\n    the LIACS server.  The folder is created automatically if it is missing.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_dir = f\"/home/{ssh_username}/BS-Interviews/Database/Transcripts\"\n    ssh, tmp_key_path = get_ssh_connection()",
-        "detail": "code.database",
-        "documentation": {}
-    },
-    {
         "label": "save_interview_to_sheet",
         "kind": 2,
         "importPath": "code.database",
         "description": "code.database",
-        "peekOfCode": "def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):\n    \"\"\"\n    Inserts the interview data into the remote SQLite database.\n    The database file (interviews.db) is located in the SSH directory.\n    \"\"\"\n    ssh_username = st.secrets.get(\"LIACS_SSH_USERNAME\")\n    if not ssh_username:\n        raise ValueError(\"LIACS_SSH_USERNAME is not defined in secrets.\")\n    remote_directory = f\"/home/{ssh_username}/BS-Interviews/Database\"\n    db_path = f\"{remote_directory}/interviews.db\"",
+        "peekOfCode": "def save_interview_to_sheet(\n    interview_id: str,\n    student_id: str,\n    name: str,\n    company: str,\n    interview_type: str,\n    timestamp: str,\n    transcript: str,\n    duration_minutes: str,\n) -> None:",
         "detail": "code.database",
         "documentation": {}
     },

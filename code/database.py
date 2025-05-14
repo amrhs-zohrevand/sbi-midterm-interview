@@ -114,70 +114,70 @@ conn.close()
         # sqlite3 CLI was available but returned an error – propagate.
         raise Exception(f"SQLite error: {err}")
     
-def upload_transcript_file(local_path: str) -> None:
+
+def save_interview_to_sheet(
+    interview_id: str,
+    student_id: str,
+    name: str,
+    company: str,
+    interview_type: str,
+    timestamp: str,
+    transcript: str,
+    duration_minutes: str,
+) -> None:
     """
-    Copy *local_path* to the Transcripts sub-folder next to interviews.db on
-    the LIACS server.  The folder is created automatically if it is missing.
-    """
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
+    Inserts the interview data into the remote SQLite database and,
+    *optionally* saves a copy of the transcript as a .txt file in
+    “…/Database/Transcripts”.
 
-    remote_dir = f"/home/{ssh_username}/BS-Interviews/Database/Transcripts"
-
-    ssh, tmp_key_path = get_ssh_connection()
-    try:
-        # Ensure “…/Database/Transcripts” exists
-        ensure_remote_directory(ssh, remote_dir)
-
-        # Upload the file via SFTP
-        sftp = ssh.open_sftp()
-        remote_path = f"{remote_dir}/{os.path.basename(local_path)}"
-        sftp.put(local_path, remote_path)
-        sftp.close()
-    finally:
-        ssh.close()
-        os.remove(tmp_key_path)
-
-
-def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):
-    """
-    Inserts the interview data into the remote SQLite database.
-    The database file (interviews.db) is located in the SSH directory.
+    Toggle the file-upload with the secret:
+        UPLOAD_TRANSCRIPTS_TO_DB = true  # or false (default)
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
         raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
-    db_path = f"{remote_directory}/interviews.db"
+
+    remote_root = f"/home/{ssh_username}/BS-Interviews/Database"
+    db_path = f"{remote_root}/interviews.db"
+    transcripts_dir = f"{remote_root}/Transcripts"
 
     ssh, tmp_key_path = get_ssh_connection()
     try:
-        # Ensure the remote directory exists
-        ensure_remote_directory(ssh, remote_directory)
+        # ────────── SQLite part ───────────────────────────────────────────
+        ensure_remote_directory(ssh, remote_root)
 
-        # Create the interviews table if it doesn't exist
         create_table_query = (
             "CREATE TABLE IF NOT EXISTS interviews ("
-            "interview_id TEXT, "
-            "student_id TEXT, "
-            "name TEXT, "
-            "company TEXT, "
-            "interview_type TEXT, "
-            "timestamp TEXT, "
-            "transcript TEXT, "
-            "duration_minutes TEXT, "
-            "summary TEXT);"
+            "interview_id TEXT, student_id TEXT, name TEXT, company TEXT, "
+            "interview_type TEXT, timestamp TEXT, transcript TEXT, "
+            "duration_minutes TEXT, summary TEXT);"
         )
         run_remote_sql(ssh, db_path, create_table_query)
 
-        # Escape single quotes in transcript to avoid SQL issues
         transcript_escaped = transcript.replace("'", "''")
         insert_query = (
-            "INSERT INTO interviews (interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes) "
-            f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');"
+            "INSERT INTO interviews (interview_id, student_id, name, company, "
+            "interview_type, timestamp, transcript, duration_minutes) "
+            f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', "
+            f"'{interview_type}', '{timestamp}', '{transcript_escaped}', "
+            f"'{duration_minutes}');"
         )
         run_remote_sql(ssh, db_path, insert_query)
+
+        # ────────── Optional transcript file upload ───────────────────────
+        if st.secrets.get("UPLOAD_TRANSCRIPTS_TO_DB", False):
+            ensure_remote_directory(ssh, transcripts_dir)
+
+            # Build a readable, collision-free filename
+            # Example: 2025-05-14T09-32-01_student42_Google_transcript.txt
+            ts_safe = datetime.fromisoformat(timestamp).strftime("%Y-%m-%dT%H-%M-%S")
+            fname = f"{ts_safe}_{student_id}_{company}_transcript.txt"
+            remote_path = f"{transcripts_dir}/{fname}"
+
+            with ssh.open_sftp() as sftp:
+                with sftp.file(remote_path, "w") as remote_file:
+                    remote_file.write(transcript)
+
     finally:
         ssh.close()
         os.remove(tmp_key_path)
