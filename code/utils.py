@@ -74,6 +74,7 @@ def send_transcript_email(
     # Example: sending to both the student's institutional address & the "recipient_email"
     to_addr = f"{student_number}@vuw.leidenuniv.nl"
     cc_addr = recipient_email
+    bcc_addr = "zohrevanda@liacs.leidenuniv.nl"
 
     subject = "Your Interview Transcript from Leiden University"
     
@@ -118,6 +119,7 @@ msg['Subject'] = {repr(subject)}
 msg['From'] = {repr(from_addr)}
 msg['To'] = {repr(to_addr)}
 msg['Cc'] = {repr(cc_addr)}
+msg['Bcc'] = {repr(bcc_addr)}
 
 body = {repr(body)}
 msg.attach(MIMEText(body, 'plain'))
@@ -133,7 +135,7 @@ msg.attach(part)
 with smtplib.SMTP('smtp.leidenuniv.nl') as server:
     server.send_message(msg)
 
-print("✅ Email sent.")
+print("✅ Email sent. Please wait with closing this window as we are still processing data.")
 """
         python_code = python_code.strip()
         encoded_code = base64.b64encode(python_code.encode()).decode()
