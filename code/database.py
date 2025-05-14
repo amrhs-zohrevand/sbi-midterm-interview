@@ -168,9 +168,11 @@ def save_interview_to_sheet(
         if st.secrets.get("UPLOAD_TRANSCRIPTS_TO_DB", False):
             ensure_remote_directory(ssh, transcripts_dir)
 
-            # Build a readable, collision-free filename
-            # Example: 2025-05-14T09-32-01_student42_Google_transcript.txt
-            ts_safe = datetime.fromisoformat(timestamp).strftime("%Y-%m-%dT%H-%M-%S")
+            # turn "2025-05-14 09:32:01" into "2025-05-14T09-32-01"
+            ts_safe = (
+                timestamp.replace(" ", "T")  # date/time separator
+                         .replace(":", "-")  # Windows-safe
+            )
             fname = f"{ts_safe}_{student_id}_{company}_transcript.txt"
             remote_path = f"{transcripts_dir}/{fname}"
 
