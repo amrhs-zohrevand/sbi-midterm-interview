@@ -72,7 +72,7 @@ def send_transcript_email(
     from_addr = "bs-internships@liacs.leidenuniv.nl"
     
     # Example: sending to both the student's institutional address & the "recipient_email"
-     student_number = (student_number or "").strip()
+    student_number = (student_number or "").strip()
 
     if student_number:
         # Normal case ─ mail the transcript to the LU card address
