@@ -9,6 +9,7 @@ MATRIX_FILE = Path(__file__).parent / "interview_matrix.csv"
 if "interview_matrix_notice_shown" not in st.session_state:
     if MATRIX_FILE.exists():
         # st.info(f"✅ Found interview matrix file: {MATRIX_FILE}")
+        pass
     else:
         st.warning(f"⚠️ interview_matrix.csv not found at {MATRIX_FILE}")
     st.session_state.interview_matrix_notice_shown = True
