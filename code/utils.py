@@ -58,33 +58,41 @@ def save_interview_data(student_number, company_name, transcripts_directory=None
     return transcript_link, transcript_file
 
 def send_transcript_email(
-    student_number,
-    recipient_email,
-    transcript_link,
-    transcript_file,
-    name_from_form=None  # NEW parameter to pass the interviewee's name
+    student_number: str,
+    recipient_email: str,
+    transcript_link: str,
+    transcript_file: str,
+    name_from_form: str | None = None,
 ):
     """
-    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
+    Send the interview transcript via LIACS SMTP (default) or Gmail (fallback).
+
+    When *student_number* is empty we send the message **directly** to
+    *recipient_email* and do NOT use a Cc field.
     """
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
     from_addr = "bs-internships@liacs.leidenuniv.nl"
-    
-    # Example: sending to both the student's institutional address & the "recipient_email"
-    to_addr = f"{student_number}@vuw.leidenuniv.nl"
-    cc_addr = recipient_email
-    bcc_addr = "zohrevanda@liacs.leidenuniv.nl"
+    bcc_addr  = "zohrevanda@liacs.leidenuniv.nl"
+
+    # ------------------------------------------------------------------ #
+    # Compute TO / CC                                                    #
+    # ------------------------------------------------------------------ #
+    student_number = (student_number or "").strip()
+
+    if student_number:
+        # Normal case ─ mail the transcript to the LU card address
+        to_addr = f"{student_number}@vuw.leidenuniv.nl"
+        cc_addr = recipient_email.strip()
+    else:
+        # No student number → send directly to the address provided
+        to_addr = recipient_email.strip()
+        cc_addr = ""                           # no Cc header
 
     subject = "Your Interview Transcript from Leiden University"
-    
-    # Decide how to greet the recipient
-    if name_from_form and name_from_form.strip():
-        greeting_name = name_from_form.strip()
-    else:
-        greeting_name = "participant"
 
-    # Updated email body:
+    greeting_name = name_from_form.strip() if (name_from_form or "").strip() else "participant"
+
     body = f"""\
 This is an automated email, please do not reply.
 
@@ -97,85 +105,88 @@ Business Studies Internship Team
 LIACS, Leiden University
 """
 
-    fallback_name = "transcript.txt"
-    file_name = os.path.basename(transcript_file) or fallback_name
-    if not file_name:
-        file_name = fallback_name
+    file_name = os.path.basename(transcript_file) or "transcript.txt"
 
+    # ------------------------------------------------------------------ #
+    #  LIACS SMTP route (runs remotely over SSH)                         #
+    # ------------------------------------------------------------------ #
     if use_liacs:
         with open(transcript_file, "rb") as f:
             attachment_data = base64.b64encode(f.read()).decode()
-        python_code = f"""\
-import base64
-import smtplib
-from email.mime.text import MIMEText
+
+        # Build the little helper-script that will run on ssh.liacs.nl
+        python_code = f"""
+import base64, smtplib, os
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import os
+
+from_addr = {from_addr!r}
+to_addr   = {to_addr!r}
+cc_addr   = {cc_addr!r}
+bcc_addr  = {bcc_addr!r}
 
 msg = MIMEMultipart()
-msg['Subject'] = {repr(subject)}
-msg['From'] = {repr(from_addr)}
-msg['To'] = {repr(to_addr)}
-msg['Cc'] = {repr(cc_addr)}
-msg['Bcc'] = {repr(bcc_addr)}
+msg["Subject"] = {subject!r}
+msg["From"]    = from_addr
+msg["To"]      = to_addr
+if cc_addr:                # only add when non-empty
+    msg["Cc"]  = cc_addr
+msg["Bcc"]     = bcc_addr  # removed automatically by smtplib
 
-body = {repr(body)}
-msg.attach(MIMEText(body, 'plain'))
+msg.attach(MIMEText({body!r}, "plain"))
 
-attachment_data = base64.b64decode({repr(attachment_data)})
 part = MIMEBase("text", "plain")
-part.set_payload(attachment_data)
+part.set_payload(base64.b64decode({attachment_data!r}))
 encoders.encode_base64(part)
-part.add_header("Content-Type", f'text/plain; name="{file_name}"')
+part.add_header("Content-Type",  f'text/plain; name="{file_name}"')
 part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
 msg.attach(part)
 
-with smtplib.SMTP('smtp.leidenuniv.nl') as server:
+with smtplib.SMTP("smtp.leidenuniv.nl") as server:
     server.send_message(msg)
 
-print("✅ Email sent. Please wait with closing this window as we are still processing data.")
-"""
-        python_code = python_code.strip()
+print("✅ Email sent successfully.")
+""".strip()
+
         encoded_code = base64.b64encode(python_code.encode()).decode()
+
         try:
-            ssh_host = "ssh.liacs.nl"
-            ssh_username = st.secrets["LIACS_SSH_USERNAME"]
-            key_str = st.secrets["LIACS_SSH_KEY"]
-            if "\\n" in key_str:
-                key_str = key_str.replace("\\n", "\n")
-            if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
-                header = "-----BEGIN OPENSSH PRIVATE KEY-----"
-                footer = "-----END OPENSSH PRIVATE KEY-----"
-                key_body = key_str[len(header):-len(footer)].strip()
-                lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
-                key_str = header + "\n" + "\n".join(lines) + "\n" + footer
-            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
-                tmp_key_file.write(key_str)
-                tmp_key_path = tmp_key_file.name
+            ssh_host      = "ssh.liacs.nl"
+            ssh_username  = st.secrets["LIACS_SSH_USERNAME"]
+            key_str       = st.secrets["LIACS_SSH_KEY"].replace("\\n", "\n")
+
+            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key:
+                tmp_key.write(key_str)
+                tmp_key_path = tmp_key.name
+
+            from paramiko import SSHClient, AutoAddPolicy, Ed25519Key, RSAKey
             try:
-                from paramiko import Ed25519Key
-                key = Ed25519Key.from_private_key_file(tmp_key_path)
+                pkey = Ed25519Key.from_private_key_file(tmp_key_path)
             except paramiko.SSHException:
-                from paramiko import RSAKey
-                key = RSAKey.from_private_key_file(tmp_key_path)
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ssh_host, username=ssh_username, pkey=key)
+                pkey = RSAKey.from_private_key_file(tmp_key_path)
+
+            ssh = SSHClient()
+            ssh.set_missing_host_key_policy(AutoAddPolicy())
+            ssh.connect(ssh_host, username=ssh_username, pkey=pkey)
+
             remote_cmd = f'printf "%s" "{encoded_code}" | base64 -d | python3'
             stdin, stdout, stderr = ssh.exec_command(remote_cmd)
-            output = stdout.read().decode()
-            error = stderr.read().decode()
-            if error:
-                st.error(f"⚠️ Remote error:\n{error}")
+
+            if err := stderr.read().decode():
+                st.error(f"⚠️ Remote error:\n{err}")
             else:
-                st.success(output.strip())
-            ssh.close()
-            os.remove(tmp_key_path)
+                st.success(stdout.read().decode().strip())
+
         except Exception as e:
             st.error("❌ Failed to send email via LIACS SMTP.")
             st.exception(e)
+        finally:
+            try:
+                os.remove(tmp_key_path)
+            except Exception:
+                pass
     else:
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
