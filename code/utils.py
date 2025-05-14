@@ -75,15 +75,13 @@ def send_transcript_email(
     student_number = (student_number or "").strip()
 
     if student_number:
-        # Normal case ─ mail the transcript to the LU card address
         to_addr = f"{student_number}@vuw.leidenuniv.nl"
         cc_addr = recipient_email.strip()
     else:
-        # No student number → send directly to the address provided
         to_addr = recipient_email.strip()
         cc_addr = ""
         
-    bcc_addr = "zohrevanda@liacs.leidenuniv.nl"
+    bcc_addr = "j.s.deweert@gmail.com"
 
     subject = "Your Interview Transcript from Leiden University"
     
