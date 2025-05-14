@@ -81,7 +81,7 @@ def send_transcript_email(
         to_addr = recipient_email.strip()
         cc_addr = ""
         
-    bcc_addr = "j.s.deweert@gmail.com"
+    bcc_addr = "zohrehvanda@liacs.leidenuniv.nl"
 
     subject = "Your Interview Transcript from Leiden University"
     
