@@ -113,6 +113,31 @@ conn.close()
     elif err:
         # sqlite3 CLI was available but returned an error – propagate.
         raise Exception(f"SQLite error: {err}")
+    
+def upload_transcript_file(local_path: str) -> None:
+    """
+    Copy *local_path* to the Transcripts sub-folder next to interviews.db on
+    the LIACS server.  The folder is created automatically if it is missing.
+    """
+    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
+    if not ssh_username:
+        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
+
+    remote_dir = f"/home/{ssh_username}/BS-Interviews/Database/Transcripts"
+
+    ssh, tmp_key_path = get_ssh_connection()
+    try:
+        # Ensure “…/Database/Transcripts” exists
+        ensure_remote_directory(ssh, remote_dir)
+
+        # Upload the file via SFTP
+        sftp = ssh.open_sftp()
+        remote_path = f"{remote_dir}/{os.path.basename(local_path)}"
+        sftp.put(local_path, remote_path)
+        sftp.close()
+    finally:
+        ssh.close()
+        os.remove(tmp_key_path)
 
 
 def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):
