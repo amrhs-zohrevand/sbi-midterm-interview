@@ -55,7 +55,6 @@ def save_interview_data(student_number, company_name, transcripts_directory=None
 
     # Removed Google Drive upload; transcript_link is now set to an empty string.
     transcript_link = ""
-    
     return transcript_link, transcript_file
 
 def send_transcript_email(
@@ -82,7 +81,7 @@ def send_transcript_email(
         to_addr = recipient_email.strip()
         cc_addr = ""
         
-    bcc_addr = "j.s.deweert@gmail.com"
+    bcc_addr = "zohrehvanda@liacs.leidenuniv.nl"
 
     subject = "Your Interview Transcript from Leiden University"
     
