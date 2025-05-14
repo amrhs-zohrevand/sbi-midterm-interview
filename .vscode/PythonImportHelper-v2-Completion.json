@@ -111,6 +111,22 @@
         "documentation": {}
     },
     {
+        "label": "get_ssh_connection",
+        "importPath": "database",
+        "description": "database",
+        "isExtraImport": true,
+        "detail": "database",
+        "documentation": {}
+    },
+    {
+        "label": "ensure_remote_directory",
+        "importPath": "database",
+        "description": "database",
+        "isExtraImport": true,
+        "detail": "database",
+        "documentation": {}
+    },
+    {
         "label": "get_context_transcript",
         "importPath": "interview_selection",
         "description": "interview_selection",
@@ -1096,7 +1112,7 @@
         "kind": 2,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "def check_if_interview_completed(directory, username):\n    \"\"\"Check if interview transcript/time file exists which signals that interview was completed.\"\"\"\n    if username != \"testaccount\":\n        try:\n            with open(os.path.join(directory, f\"{username}.txt\"), \"r\") as _:\n                return True\n        except FileNotFoundError:\n            return False\n    else:\n        return False",
+        "peekOfCode": "def check_if_interview_completed(directory, username):\n    \"\"\"Check if interview transcript/time file exists which signals that interview was completed.\"\"\"\n    if username != \"testaccount\":\n        try:\n            with open(os.path.join(directory, f\"{username}.txt\"), \"r\"):\n                return True\n        except FileNotFoundError:\n            return False\n    return False\ndef save_interview_data(",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -1105,7 +1121,7 @@
         "kind": 2,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "def save_interview_data(student_number, company_name, transcripts_directory=None, times_directory=None):\n    # Use default directories from config if not provided\n    if transcripts_directory is None or times_directory is None:\n        import config\n        if transcripts_directory is None:\n            transcripts_directory = config.TRANSCRIPTS_DIRECTORY\n        if times_directory is None:\n            times_directory = config.TIMES_DIRECTORY\n    current_date = time.strftime(\"%y%m%d\")\n    sanitized_company = \"\".join(c for c in company_name if c.isalnum())",
+        "peekOfCode": "def save_interview_data(\n    student_number,\n    company_name,\n    transcripts_directory=None,\n    times_directory=None,\n):\n    \"\"\"\n    Creates/updates two local files (transcript + timing) **and, optionally,\n    uploads the transcript** to the remote *Database/Transcripts* folder when\n    `SAVE_TRANSCRIPT_TO_DB_FOLDER` is True in Streamlit secrets.",
         "detail": "code.utils",
         "documentation": {}
     },

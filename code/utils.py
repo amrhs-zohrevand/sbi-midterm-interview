@@ -10,50 +10,108 @@ import base64
 import paramiko
 import io
 import tempfile
+# ▸ NEW: reuse the SSH helpers that already exist in database.py
+from database import get_ssh_connection, ensure_remote_directory
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  UTILITIES
+# ─────────────────────────────────────────────────────────────────────────────
+def _upload_to_remote_database_folder(local_path: str, subfolder: str = "Transcripts"):
+    """
+    Copy *local_path* to /home/<user>/BS-Interviews/Database/<subfolder>/ on the
+    LIACS server.  Called only when the toggle
+    `SAVE_TRANSCRIPT_TO_DB_FOLDER` (boolean) is **true** in secrets.
+
+    Any exception is swallowed after logging a Streamlit warning so that the
+    main flow never breaks if the SCP fails.
+    """
+    try:
+        ssh, tmp_key_path = get_ssh_connection()          # existing helper
+        ssh_username = st.secrets["LIACS_SSH_USERNAME"]   # guaranteed by helper
+        remote_dir   = f"/home/{ssh_username}/BS-Interviews/Database/{subfolder}"
+        ensure_remote_directory(ssh, remote_dir)          # idempotent
+
+        sftp = ssh.open_sftp()
+        remote_path = f"{remote_dir}/{os.path.basename(local_path)}"
+        sftp.put(local_path, remote_path)
+        sftp.close()
+        ssh.close()
+    except Exception as e:
+        st.warning(f"⚠️ Could not upload transcript to remote folder: {e}")
+    finally:
+        # get_ssh_connection creates a temporary key file; best-effort cleanup
+        try:
+            os.remove(tmp_key_path)
+        except Exception:
+            pass
+
 
 def check_if_interview_completed(directory, username):
     """Check if interview transcript/time file exists which signals that interview was completed."""
     if username != "testaccount":
         try:
-            with open(os.path.join(directory, f"{username}.txt"), "r") as _:
+            with open(os.path.join(directory, f"{username}.txt"), "r"):
                 return True
         except FileNotFoundError:
             return False
-    else:
-        return False
+    return False
 
-def save_interview_data(student_number, company_name, transcripts_directory=None, times_directory=None):
+
+def save_interview_data(
+    student_number,
+    company_name,
+    transcripts_directory=None,
+    times_directory=None,
+):
+    """
+    Creates/updates two local files (transcript + timing) **and, optionally,
+    uploads the transcript** to the remote *Database/Transcripts* folder when
+    `SAVE_TRANSCRIPT_TO_DB_FOLDER` is True in Streamlit secrets.
+    """
     # Use default directories from config if not provided
     if transcripts_directory is None or times_directory is None:
         import config
-        if transcripts_directory is None:
-            transcripts_directory = config.TRANSCRIPTS_DIRECTORY
-        if times_directory is None:
-            times_directory = config.TIMES_DIRECTORY
 
-    current_date = time.strftime("%y%m%d")
+        transcripts_directory = transcripts_directory or config.TRANSCRIPTS_DIRECTORY
+        times_directory       = times_directory       or config.TIMES_DIRECTORY
+
+    current_date      = time.strftime("%y%m%d")
     sanitized_company = "".join(c for c in company_name if c.isalnum())
-    transcript_filename = f"{current_date}_{student_number}_{sanitized_company}_transcript.txt"
-    time_filename = f"{current_date}_{student_number}_{sanitized_company}_time.txt"
-    os.makedirs(transcripts_directory, exist_ok=True)
-    os.makedirs(times_directory, exist_ok=True)
-    transcript_file = os.path.join(transcripts_directory, transcript_filename)
-    time_file = os.path.join(times_directory, time_filename)
 
-    with open(transcript_file, "w") as t:
+    transcript_filename = (
+        f"{current_date}_{student_number}_{sanitized_company}_transcript.txt"
+    )
+    time_filename       = (
+        f"{current_date}_{student_number}_{sanitized_company}_time.txt"
+    )
+
+    os.makedirs(transcripts_directory, exist_ok=True)
+    os.makedirs(times_directory,       exist_ok=True)
+
+    transcript_file = os.path.join(transcripts_directory, transcript_filename)
+    time_file       = os.path.join(times_directory,       time_filename)
+
+    # ── write transcript ───────────────────────────────────────────────────
+    with open(transcript_file, "w", encoding="utf-8") as t:
         t.write(f"Session ID: {st.session_state.session_id}\n\n")
         for message in st.session_state.messages[1:]:
             t.write(f"{message['role']}: {message['content']}\n")
 
-    with open(time_file, "w") as d:
-        duration = (time.time() - st.session_state.start_time) / 60
+    # ── write timing – kept unchanged ──────────────────────────────────────
+    duration = (time.time() - st.session_state.start_time) / 60
+    with open(time_file, "w", encoding="utf-8") as d:
         d.write(
             f"Session ID: {st.session_state.session_id}\n"
-            f"Start time (UTC): {time.strftime('%d/%m/%Y %H:%M:%S', time.localtime(st.session_state.start_time))}\n"
+            f"Start time (UTC): "
+            f"{time.strftime('%d/%m/%Y %H:%M:%S', time.localtime(st.session_state.start_time))}\n"
             f"Interview duration (minutes): {duration:.2f}"
         )
 
-    # Removed Google Drive upload; transcript_link is now set to an empty string.
+    # ▸ NEW: optional remote upload ----------------------------------------
+    if st.secrets.get("SAVE_TRANSCRIPT_TO_DB_FOLDER", False):
+        _upload_to_remote_database_folder(transcript_file, subfolder="Transcripts")
+
+    # Google-Drive upload was removed earlier – leave link blank
     transcript_link = ""
     return transcript_link, transcript_file
 
