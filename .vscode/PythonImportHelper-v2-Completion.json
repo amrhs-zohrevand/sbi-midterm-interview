@@ -988,7 +988,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"name\", \"company\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")",
+        "peekOfCode": "required_params = [\"name\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1105,7 +1105,7 @@
         "kind": 2,
         "importPath": "code.utils",
         "description": "code.utils",
-        "peekOfCode": "def save_interview_data(student_number, company_name, transcripts_directory=None, times_directory=None):\n    # Use default directories from config if not provided\n    if transcripts_directory is None or times_directory is None:\n        import config\n        if transcripts_directory is None:\n            transcripts_directory = config.TRANSCRIPTS_DIRECTORY\n        if times_directory is None:\n            times_directory = config.TIMES_DIRECTORY\n    current_date = time.strftime(\"%y%m%d\")\n    sanitized_company = \"\".join(c for c in company_name if c.isalnum())",
+        "peekOfCode": "def save_interview_data(student_number, company_name=\"\", transcripts_directory=None, times_directory=None):\n    \"\"\"Persist transcript & timing information.\n    *company_name* is now optional – when omitted, filenames do **not** contain\n    the company segment and no trailing underscore is left behind.\n    \"\"\"\n    # Use default directories from config if not provided\n    if transcripts_directory is None or times_directory is None:\n        import config\n        if transcripts_directory is None:\n            transcripts_directory = config.TRANSCRIPTS_DIRECTORY",
         "detail": "code.utils",
         "documentation": {}
     },

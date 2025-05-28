@@ -22,7 +22,11 @@ def check_if_interview_completed(directory, username):
     else:
         return False
 
-def save_interview_data(student_number, company_name, transcripts_directory=None, times_directory=None):
+def save_interview_data(student_number, company_name="", transcripts_directory=None, times_directory=None):
+    """Persist transcript & timing information.
+    *company_name* is now optional – when omitted, filenames do **not** contain
+    the company segment and no trailing underscore is left behind.
+    """
     # Use default directories from config if not provided
     if transcripts_directory is None or times_directory is None:
         import config
@@ -32,13 +36,20 @@ def save_interview_data(student_number, company_name, transcripts_directory=None
             times_directory = config.TIMES_DIRECTORY
 
     current_date = time.strftime("%y%m%d")
-    sanitized_company = "".join(c for c in company_name if c.isalnum())
-    transcript_filename = f"{current_date}_{student_number}_{sanitized_company}_transcript.txt"
-    time_filename = f"{current_date}_{student_number}_{sanitized_company}_time.txt"
+    sanitized_company = "".join(c for c in company_name if c.isalnum()) if company_name else ""
+
+    # Build filenames – add the company part only when present
+    if sanitized_company:
+        transcript_filename = f"{current_date}_{student_number}_{sanitized_company}_transcript.txt"
+        time_filename       = f"{current_date}_{student_number}_{sanitized_company}_time.txt"
+    else:
+        transcript_filename = f"{current_date}_{student_number}_transcript.txt"
+        time_filename       = f"{current_date}_{student_number}_time.txt"
+
     os.makedirs(transcripts_directory, exist_ok=True)
-    os.makedirs(times_directory, exist_ok=True)
+    os.makedirs(times_directory,     exist_ok=True)
     transcript_file = os.path.join(transcripts_directory, transcript_filename)
-    time_file = os.path.join(times_directory, time_filename)
+    time_file       = os.path.join(times_directory,       time_filename)
 
     with open(transcript_file, "w") as t:
         t.write(f"Session ID: {st.session_state.session_id}\n\n")

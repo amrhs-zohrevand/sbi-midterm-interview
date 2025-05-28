@@ -92,8 +92,10 @@ if "show_evaluation_only" not in st.session_state:
     st.session_state.show_evaluation_only = False
 # ----------------------------------------------------------------------------
 
-# "student_number" is now optional – we only require the remaining fields.
-required_params = ["name", "company", "recipient_email"]
+# ----------------------------------------------------------------------------
+# "student_number" **and "company"** are now optional – only the fields below are required.
+# ----------------------------------------------------------------------------
+required_params = ["name", "recipient_email"]
 
 
 def validate_query_params(params):
@@ -145,15 +147,20 @@ if st.session_state.show_evaluation_only:
     st.stop()  # nothing else should render
 
 # ----------------------------------------------------------------------------
-# Sidebar with interview details – hide student number when absent
+# Sidebar with interview details – hide student number and company when absent
 # ----------------------------------------------------------------------------
 st.sidebar.title("Interview Details")
 for param in required_params:
     st.sidebar.write(
         f"{param.replace('_', ' ').capitalize()}: {html.unescape(query_params[param])}"
     )
+
+# Show optional fields only when provided
+if company_name:
+    st.sidebar.write(f"Company: {company_name}")
 if student_number:
     st.sidebar.write(f"Student number: {student_number}")
+
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 
 # ----------------------------------------------------------------------------
