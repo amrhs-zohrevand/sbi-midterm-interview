@@ -416,12 +416,12 @@ if st.session_state.interview_active:
     col_text, col_mic = st.columns([0.8, 0.2])
     message_respondent = None
 
+    # Text entry field for user message
     with col_text:
-        # Text entry field for user message
         message_respondent = st.chat_input("Your message here")
 
+    # Microphone recorder button
     with col_mic:
-        # Microphone recorder button
         audio_dict = mic_recorder(
             start_prompt="🎙️ Hold to talk",
             stop_prompt="🛑 Release",
@@ -429,7 +429,7 @@ if st.session_state.interview_active:
             use_container_width=True
         )
         if audio_dict:
-            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
+            raw = audio_dict.get("bytes", audio_dict)
             with st.spinner("Transcribing..."):
                 try:
                     transcript = transcribe(raw)
