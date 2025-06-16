@@ -411,32 +411,73 @@ if not st.session_state.messages:
 # ----------------------------------------------------------------------------
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
-if st.session_state.interview_active:
-    # Bottom bar layout: 80% text input, 20% mic button
-    col_text, col_mic = st.columns([0.8, 0.2])
-    message_respondent = None
+st.markdown(
+    """
+    <style>
+    /* ----- fixed bottom bar ----- */
+    .fixed-input-wrapper {
+        position: fixed;
+        bottom:   0;            /* stick to bottom */
+        left:     0;            /* full‑width */
+        right:    0;
+        padding:  0.75rem 1rem; /* air around components */
+        background: var(--background-color, #fff);
+        border-top: 1px solid #eee;
+        z-index: 9999;          /* on top of other elements */
+    }
+    /* Prevent Streamlit from adding its own vertical spacing below the bar */
+    .fixed-input-wrapper .block-container { padding: 0; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-    # Text entry field for user message
-    with col_text:
-        message_respondent = st.chat_input("Your message here")
+# Build the input bar inside a markdown "wrapper" so the CSS above applies.
+# The HTML tags are closed immediately after the Streamlit components.
+with st.container():
+    st.markdown('<div class="fixed-input-wrapper">', unsafe_allow_html=True)
+    col_text, col_mic = st.columns([0.8, 0.2])  # 80 / 20
 
-    # Microphone recorder button
-    with col_mic:
-        audio_dict = mic_recorder(
-            start_prompt="🎙️ Hold to talk",
-            stop_prompt="🛑 Release",
-            just_once=True,
-            use_container_width=True
-        )
-        if audio_dict:
-            raw = audio_dict.get("bytes", audio_dict)
-            with st.spinner("Transcribing..."):
-                try:
-                    transcript = transcribe(raw)
-                    st.markdown(f"**You said:** {transcript}")
-                    message_respondent = transcript
-                except Exception as e:
-                    st.error(f"Transcription error: {e}")
+    # Text field (acts like st.chat_input but inside the fixed bar)
+    user_typed = col_text.text_input(
+        label="Your message here",
+        key="typed_msg",
+        label_visibility="collapsed",
+    )
+
+    # Mic button (records once, returns bytes)
+    audio_dict = col_mic.empty().mic_recorder(
+        start_prompt="🎙️ Hold to talk",
+        stop_prompt="🛑 Release",
+        just_once=True,
+        use_container_width=True,
+        key="voice_msg",
+    )
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Handle input coming from either the text box or the microphone
+# ---------------------------------------------------------------------------
+message_respondent = None
+
+# 1️⃣  If the user hit the mic button ---------------------------------------
+if audio_dict:
+    raw_audio = audio_dict.get("bytes", audio_dict)
+    with st.spinner("Transcribing …"):
+        try:
+            transcript = transcribe(raw_audio)
+            message_respondent = transcript
+            st.markdown(f"**You said:** {transcript}")
+        except Exception as e:
+            st.error(f"Transcription error: {e}")
+
+# 2️⃣  If the user typed a message ------------------------------------------
+if user_typed:
+    message_respondent = user_typed
+    # Clear the text box so it feels like a chat input
+    st.session_state.typed_msg = ""
+
 
     # Handle the submitted or transcribed message
     if message_respondent:

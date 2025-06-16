@@ -1091,6 +1091,15 @@
         "documentation": {}
     },
     {
+        "label": "message_respondent",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "message_respondent = None\n# 1️⃣  If the user hit the mic button ---------------------------------------\nif audio_dict:\n    raw_audio = audio_dict.get(\"bytes\", audio_dict)\n    with st.spinner(\"Transcribing …\"):\n        try:\n            transcript = transcribe(raw_audio)\n            message_respondent = transcript\n            st.markdown(f\"**You said:** {transcript}\")\n        except Exception as e:",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "load_interview_context_map",
         "kind": 2,
         "importPath": "code.interview_selection",
