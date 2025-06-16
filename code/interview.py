@@ -412,9 +412,16 @@ if not st.session_state.messages:
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
-    use_voice = st.checkbox("🎤 Voice input")
-    message_respondent = None
+    # — bottom input row: chat box + voice toggle —
+    col_input, col_voice = st.columns([0.8, 0.2])
+    with col_input:
+        message_respondent = None
+        if not st.session_state.get("use_voice", False):
+            message_respondent = st.chat_input("Your message here")
+    with col_voice:
+        use_voice = st.checkbox("🎤", key="use_voice")
 
+    # handle voice mode
     if use_voice:
         audio_dict = mic_recorder(
             start_prompt="🎙️ Hold to talk",
@@ -423,10 +430,12 @@ if st.session_state.interview_active:
             use_container_width=True
         )
         if audio_dict:
-            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
-            with st.spinner("Transcribing..."):
+            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) else audio_dict
+            with st.spinner("Transcribing…"):
                 try:
                     transcript = transcribe(raw)
+                    message_respondent = transcript
+                    st.markdown(f"**You said:** {transcript}")
                 except Exception as e:
                     st.error(f"Transcription error: {e}")
                     transcript = ""
