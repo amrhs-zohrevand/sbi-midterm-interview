@@ -60,7 +60,7 @@ def transcribe(audio_bytes: bytes) -> str:
             file=f,
             response_format="text"
         )
-    return resp.text.strip()
+    return resp.strip()
 
 # ----------------------------------------------------------------------------
 # Configuration loading
