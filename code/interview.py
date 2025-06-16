@@ -407,16 +407,17 @@ if st.session_state.interview_active:
     message_respondent = None
 
     if use_voice:
-        audio_bytes = mic_recorder(
+        audio_dict = mic_recorder(
             start_prompt="🎙️ Hold to talk",
             stop_prompt="🛑 Release",
             just_once=True,
             use_container_width=True
         )
-        if audio_bytes:
+        if audio_dict:
+            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
             with st.spinner("Transcribing..."):
                 try:
-                    transcript = transcribe(audio_bytes)
+                    transcript = transcribe(raw)
                 except Exception as e:
                     st.error(f"Transcription error: {e}")
                     transcript = ""
