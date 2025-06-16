@@ -147,10 +147,10 @@
     },
     {
         "label": "mic_recorder",
-        "importPath": "st_mic_recorder",
-        "description": "st_mic_recorder",
+        "importPath": "streamlit_mic_recorder",
+        "description": "streamlit_mic_recorder",
         "isExtraImport": true,
-        "detail": "st_mic_recorder",
+        "detail": "streamlit_mic_recorder",
         "documentation": {}
     },
     {

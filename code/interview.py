@@ -11,7 +11,7 @@ import os
 import html
 import uuid
 import importlib.util
-from st_mic_recorder import mic_recorder
+from streamlit_mic_recorder import mic_recorder
 import tempfile
 
 # ----------------------------------------------------------------------------
