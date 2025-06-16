@@ -951,7 +951,7 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def transcribe(audio_bytes: bytes) -> str:\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,\n            response_format=\"text\"\n        )",
+        "peekOfCode": "def transcribe(audio_bytes: bytes) -> str:\n    # write bytes to a temp wav\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    # call Whisper\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -987,7 +987,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "audio_client = OpenAI(api_key=st.secrets[\"API_KEY\"])\ndef transcribe(audio_bytes: bytes) -> str:\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,\n            response_format=\"text\"",
+        "peekOfCode": "audio_client = OpenAI(api_key=st.secrets[\"API_KEY\"])\ndef transcribe(audio_bytes: bytes) -> str:\n    # write bytes to a temp wav\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    # call Whisper\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",",
         "detail": "code.interview",
         "documentation": {}
     },

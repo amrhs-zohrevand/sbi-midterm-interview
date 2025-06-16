@@ -51,16 +51,25 @@ else:
 audio_client = OpenAI(api_key=st.secrets["API_KEY"])
 
 def transcribe(audio_bytes: bytes) -> str:
+    # write bytes to a temp wav
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
+    # call Whisper
     with open(tmp_path, "rb") as f:
         resp = audio_client.audio.transcriptions.create(
             model="whisper-1",
             file=f,
             response_format="text"
         )
-    return resp.strip()
+    # resp may be a str (when response_format="text"), an object with .text, or a dict
+    if hasattr(resp, "text"):
+        text = resp.text
+    elif isinstance(resp, dict) and "text" in resp:
+        text = resp["text"]
+    else:
+        text = resp  # assume it's already a str
+    return text.strip()
 
 # ----------------------------------------------------------------------------
 # Configuration loading
