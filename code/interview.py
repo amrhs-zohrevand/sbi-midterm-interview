@@ -412,41 +412,32 @@ if not st.session_state.messages:
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
-    # 80% chat box / 20% voice toggle, *at the bottom*
-    col_input, col_voice = st.columns([0.8, 0.2])
-    with col_voice:
-        st.checkbox("🎤 Voice input", key="use_voice")
-    with col_input:
-        if not st.session_state.use_voice:
-            # single chat_input, unique key so no dup errors
-            message_respondent = st.chat_input("Your message here", key="respondent")
-        else:
-            message_respondent = None
+    use_voice = st.checkbox("🎤 Voice input")
+    message_respondent = None
 
-    # if mic‐mode, record + transcribe
-    if st.session_state.use_voice:
-        audio = mic_recorder(
+    if use_voice:
+        audio_dict = mic_recorder(
             start_prompt="🎙️ Hold to talk",
             stop_prompt="🛑 Release",
             just_once=True,
-            use_container_width=True,
+            use_container_width=True
         )
-        if audio:
-            raw = audio["bytes"] if isinstance(audio, dict) else audio
-            with st.spinner("Transcribing…"):
+        if audio_dict:
+            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
+            with st.spinner("Transcribing..."):
                 try:
                     transcript = transcribe(raw)
-                    message_respondent = transcript
-                    st.markdown(f"**You said:** {transcript}")
                 except Exception as e:
                     st.error(f"Transcription error: {e}")
-                    message_respondent = None
-    # Only one place where a user message is appended
+                    transcript = ""
+                if transcript:
+                    message_respondent = transcript
+                    st.markdown(f"**You said:** {transcript}")
+    else:
+        message_respondent = st.chat_input("Your message here")
+
     if message_respondent:
-        # save & render user message
-        st.session_state.messages.append(
-            {"role": "user", "content": message_respondent}
-        )
+        st.session_state.messages.append({"role": "user", "content": message_respondent})
         with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
             st.markdown(message_respondent)
 
