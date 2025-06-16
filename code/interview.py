@@ -442,8 +442,8 @@ if st.session_state.interview_active:
                 if transcript:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
-    else:
-        message_respondent = st.chat_input("Your message here")
+    # else:
+    #     message_respondent = st.chat_input("Your message here")
 
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
