@@ -146,6 +146,14 @@
         "documentation": {}
     },
     {
+        "label": "mic_recorder",
+        "importPath": "streamlit_mic_recorder",
+        "description": "streamlit_mic_recorder",
+        "isExtraImport": true,
+        "detail": "streamlit_mic_recorder",
+        "documentation": {}
+    },
+    {
         "label": "OpenAI",
         "importPath": "openai",
         "description": "openai",
@@ -939,6 +947,15 @@
         "documentation": {}
     },
     {
+        "label": "transcribe",
+        "kind": 2,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "def transcribe(audio_bytes: bytes) -> str:\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,\n            response_format=\"text\"\n        )",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "validate_query_params",
         "kind": 2,
         "importPath": "code.interview",
@@ -962,6 +979,15 @@
         "importPath": "code.interview",
         "description": "code.interview",
         "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],\n        base_url=\"https://api.deepinfra.com/v1/openai\",",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "audio_client",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "audio_client = OpenAI(api_key=st.secrets[\"API_KEY\"])\ndef transcribe(audio_bytes: bytes) -> str:\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,\n            response_format=\"text\"",
         "detail": "code.interview",
         "documentation": {}
     },
