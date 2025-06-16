@@ -9,4 +9,4 @@ secure-smtplib
 paramiko
 cryptography
 deepinfra
-streamlit-mic-recorder openai
+streamlit-mic-recorder
