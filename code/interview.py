@@ -412,33 +412,27 @@ if not st.session_state.messages:
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
-    # — bottom input row: text box (80%) + voice toggle (20%) —
+    # 80% chat box / 20% voice toggle, *at the bottom*
     col_input, col_voice = st.columns([0.8, 0.2])
     with col_voice:
-        # single checkbox, controlling mic vs text mode
-        st.checkbox("🎤", key="use_voice")
-
+        st.checkbox("🎤 Voice input", key="use_voice")
     with col_input:
-        # single chat_input, always in bottom bar
-        if not st.session_state.get("use_voice", False):
+        if not st.session_state.use_voice:
+            # single chat_input, unique key so no dup errors
             message_respondent = st.chat_input("Your message here", key="respondent")
         else:
-            message_respondent = None  # we'll fill this via transcription
+            message_respondent = None
 
-    # If mic‐mode is active, capture & transcribe
-    if st.session_state.get("use_voice", False):
-        audio_dict = mic_recorder(
+    # if mic‐mode, record + transcribe
+    if st.session_state.use_voice:
+        audio = mic_recorder(
             start_prompt="🎙️ Hold to talk",
             stop_prompt="🛑 Release",
             just_once=True,
             use_container_width=True,
         )
-        if audio_dict:
-            raw = (
-                audio_dict["bytes"]
-                if isinstance(audio_dict, dict)
-                else audio_dict
-            )
+        if audio:
+            raw = audio["bytes"] if isinstance(audio, dict) else audio
             with st.spinner("Transcribing…"):
                 try:
                     transcript = transcribe(raw)
@@ -447,7 +441,6 @@ if st.session_state.interview_active:
                 except Exception as e:
                     st.error(f"Transcription error: {e}")
                     message_respondent = None
-
     # Only one place where a user message is appended
     if message_respondent:
         # save & render user message
