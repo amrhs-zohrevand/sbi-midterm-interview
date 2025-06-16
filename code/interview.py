@@ -412,10 +412,16 @@ if not st.session_state.messages:
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
-    use_voice = st.checkbox("🎤 Voice input")
+    # Bottom bar layout: 80% text input, 20% mic button
+    col_text, col_mic = st.columns([0.8, 0.2])
     message_respondent = None
 
-    if use_voice:
+    with col_text:
+        # Text entry field for user message
+        message_respondent = st.chat_input("Your message here")
+
+    with col_mic:
+        # Microphone recorder button
         audio_dict = mic_recorder(
             start_prompt="🎙️ Hold to talk",
             stop_prompt="🛑 Release",
@@ -427,15 +433,12 @@ if st.session_state.interview_active:
             with st.spinner("Transcribing..."):
                 try:
                     transcript = transcribe(raw)
+                    st.markdown(f"**You said:** {transcript}")
+                    message_respondent = transcript
                 except Exception as e:
                     st.error(f"Transcription error: {e}")
-                    transcript = ""
-                if transcript:
-                    message_respondent = transcript
-                    st.markdown(f"**You said:** {transcript}")
-    else:
-        message_respondent = st.chat_input("Your message here")
 
+    # Handle the submitted or transcribed message
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
         with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
@@ -445,6 +448,7 @@ if st.session_state.interview_active:
             message_placeholder = st.empty()
             message_interviewer = ""
 
+            # (existing LLM streaming logic unchanged)
             if api == "openai":
                 stream = client.chat.completions.create(**api_kwargs)
                 for message in stream:
@@ -456,7 +460,6 @@ if st.session_state.interview_active:
                     if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                         message_placeholder.empty()
                         break
-
             elif api == "anthropic":
                 with client.messages.stream(**api_kwargs) as stream:
                     for text_delta in stream.text_stream:
