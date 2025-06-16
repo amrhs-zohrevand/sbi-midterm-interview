@@ -146,6 +146,14 @@
         "documentation": {}
     },
     {
+        "label": "mic_recorder",
+        "importPath": "st_mic_recorder",
+        "description": "st_mic_recorder",
+        "isExtraImport": true,
+        "detail": "st_mic_recorder",
+        "documentation": {}
+    },
+    {
         "label": "OpenAI",
         "importPath": "openai",
         "description": "openai",
@@ -939,11 +947,20 @@
         "documentation": {}
     },
     {
+        "label": "transcribe_audio",
+        "kind": 2,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "def transcribe_audio(audio_bytes: bytes) -> str:\n    \"\"\"\n    Transcribe audio bytes using OpenAI Whisper.\n    \"\"\"\n    if not whisper_client:\n        st.error(\"OpenAI API key for Whisper not configured.\")\n        return \"\"\n    # Write to temp file\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "validate_query_params",
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")",
+        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nstudent_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -952,7 +969,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\n# Primary LLM client\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -961,7 +978,25 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],\n        base_url=\"https://api.deepinfra.com/v1/openai\",",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\n# Primary LLM client\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "_openai_whisper_key",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "_openai_whisper_key = st.secrets.get(\"OPENAI_API_KEY\", None)\nwhisper_client = OpenAI(api_key=_openai_whisper_key) if _openai_whisper_key else None\ndef transcribe_audio(audio_bytes: bytes) -> str:\n    \"\"\"\n    Transcribe audio bytes using OpenAI Whisper.\n    \"\"\"\n    if not whisper_client:\n        st.error(\"OpenAI API key for Whisper not configured.\")\n        return \"\"\n    # Write to temp file",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "whisper_client",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "whisper_client = OpenAI(api_key=_openai_whisper_key) if _openai_whisper_key else None\ndef transcribe_audio(audio_bytes: bytes) -> str:\n    \"\"\"\n    Transcribe audio bytes using OpenAI Whisper.\n    \"\"\"\n    if not whisper_client:\n        st.error(\"OpenAI API key for Whisper not configured.\")\n        return \"\"\n    # Write to temp file\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -970,7 +1005,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )",
+        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])[0]\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -979,7 +1014,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )\n    if not os.path.exists(config_path):",
+        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])[0]\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )\n    if not os.path.exists(config_path):",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -988,7 +1023,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"name\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")",
+        "peekOfCode": "required_params = [\"name\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nstudent_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -997,7 +1032,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "student_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)",
+        "peekOfCode": "student_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# Qualtrics survey link\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1006,7 +1041,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "respondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(",
+        "peekOfCode": "respondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# Qualtrics survey link\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1015,7 +1050,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "recipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL",
+        "peekOfCode": "recipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# Qualtrics survey link\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1024,7 +1059,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "company_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)",
+        "peekOfCode": "company_name = _get_param(\"company\")\n# Qualtrics survey link\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1042,7 +1077,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:",
+        "peekOfCode": "evaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# Early exit: evaluation-only view\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1051,7 +1086,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">",
+        "peekOfCode": "evaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# Early exit: evaluation-only view\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1060,7 +1095,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs[\"system\"] = st.secrets.get(\n        \"SYSTEM_PROMPT\", \"Your default system prompt\"\n    )\napi_kwargs.update(\n    {\n        \"messages\": st.session_state.messages,\n        \"model\": model,\n        \"max_tokens\": config.MAX_OUTPUT_TOKENS,",
+        "peekOfCode": "api_kwargs = {\"stream\": True}\nif api == \"anthropic\":\n    api_kwargs[\"system\"] = st.secrets.get(\n        \"SYSTEM_PROMPT\", \"Your default system prompt\"\n    )\napi_kwargs.update({\n    \"messages\": st.session_state.messages,\n    \"model\": model,\n    \"max_tokens\": config.MAX_OUTPUT_TOKENS,\n})",
         "detail": "code.interview",
         "documentation": {}
     },
