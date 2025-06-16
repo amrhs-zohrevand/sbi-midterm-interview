@@ -951,7 +951,7 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def transcribe(audio_bytes: bytes) -> str:\n    # write bytes to a temp wav\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    # call Whisper\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,",
+        "peekOfCode": "def transcribe(audio_bytes: bytes) -> str:\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,\n            response_format=\"text\"\n        )",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -960,7 +960,7 @@
         "kind": 2,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")",
+        "peekOfCode": "def validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nstudent_number  = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -969,7 +969,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],",
+        "peekOfCode": "provider = st.secrets.get(\"API_PROVIDER\", \"openai\").lower()\nmodel = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],\n        base_url=\"https://api.deepinfra.com/v1/openai\",",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -978,7 +978,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nfrom openai import OpenAI\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],\n        base_url=\"https://api.deepinfra.com/v1/openai\",",
+        "peekOfCode": "model = st.secrets.get(\"MODEL\", \"gpt-3.5-turbo\")\nif provider == \"openai\":\n    api = \"openai\"\n    client = OpenAI(api_key=st.secrets[\"API_KEY\"])\nelif provider == \"deepinfra\":\n    api = \"openai\"\n    client = OpenAI(\n        api_key=st.secrets[\"DEEPINFRA_API_KEY\"],\n        base_url=\"https://api.deepinfra.com/v1/openai\",\n    )",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -987,7 +987,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "audio_client = OpenAI(api_key=st.secrets[\"API_KEY\"])\ndef transcribe(audio_bytes: bytes) -> str:\n    # write bytes to a temp wav\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    # call Whisper\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",",
+        "peekOfCode": "audio_client = OpenAI(api_key=st.secrets[\"API_KEY\"])\ndef transcribe(audio_bytes: bytes) -> str:\n    with tempfile.NamedTemporaryFile(delete=False, suffix=\".wav\") as tmp:\n        tmp.write(audio_bytes)\n        tmp_path = tmp.name\n    with open(tmp_path, \"rb\") as f:\n        resp = audio_client.audio.transcriptions.create(\n            model=\"whisper-1\",\n            file=f,\n            response_format=\"text\"",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -996,7 +996,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )",
+        "peekOfCode": "ENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = query_params.get(\"interview_config\", [\"Default\"])[0]\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1005,7 +1005,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = st.query_params.get(\"interview_config\", [\"Default\"])\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )\n    if not os.path.exists(config_path):",
+        "peekOfCode": "query_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default\n    config_name = \"Default\"\nelse:\n    config_name = query_params.get(\"interview_config\", [\"Default\"])[0]\n    config_path = os.path.join(\n        os.path.dirname(__file__), \"interview_configs\", f\"{config_name}.py\"\n    )\n    if not os.path.exists(config_path):",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1014,16 +1014,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "required_params = [\"name\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\n# Fetch parameters -----------------------------------------------------------\nstudent_number = _get_param(\"student_number\", \"\")",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "student_number",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "student_number = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)",
+        "peekOfCode": "required_params = [\"name\", \"recipient_email\"]\ndef validate_query_params(params):\n    missing = [k for k in required_params if k not in params or not params[k]]\n    return len(missing) == 0, missing\nis_valid, missing = validate_query_params(query_params)\nif not is_valid:\n    st.error(f\"Missing parameters: {', '.join(missing)}\")\n    st.stop()\nstudent_number  = _get_param(\"student_number\", \"\")\nrespondent_name = _get_param(\"name\")",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1032,7 +1023,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "respondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(",
+        "peekOfCode": "respondent_name = _get_param(\"name\")\nrecipient_email = _get_param(\"recipient_email\")\ncompany_name    = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics link & early exit\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1041,16 +1032,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "recipient_email = _get_param(\"recipient_email\")\ncompany_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL",
-        "detail": "code.interview",
-        "documentation": {}
-    },
-    {
-        "label": "company_name",
-        "kind": 5,
-        "importPath": "code.interview",
-        "description": "code.interview",
-        "peekOfCode": "company_name = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics post-interview survey link (CONFIG-DRIVEN)\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)",
+        "peekOfCode": "recipient_email = _get_param(\"recipient_email\")\ncompany_name    = _get_param(\"company\")\n# ----------------------------------------------------------------------------\n# Qualtrics link & early exit\n# ----------------------------------------------------------------------------\nDEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1059,7 +1041,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "DEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------",
+        "peekOfCode": "DEFAULT_QUALTRICS_URL = (\n    \"https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey\"\n)\nevaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\nif st.session_state.show_evaluation_only:",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1068,7 +1050,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:",
+        "peekOfCode": "evaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1077,7 +1059,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">",
+        "peekOfCode": "evaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">\n            <a href=\"{evaluation_url_with_session}\" target=\"_blank\"\n               style=\"text-decoration: none; background-color: #4CAF50; color: white;\n                      padding: 15px 32px; text-align: center; font-size: 16px;",
         "detail": "code.interview",
         "documentation": {}
     },
