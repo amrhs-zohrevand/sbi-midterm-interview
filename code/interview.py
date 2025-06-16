@@ -11,41 +11,10 @@ import os
 import html
 import uuid
 import importlib.util
-import tempfile
 
 # Voice input imports
+import tempfile
 from streamlit_mic_recorder import mic_recorder
-from openai import OpenAI
-
-# ----------------------------------------------------------------------------
-# Inject CSS for fixed bottom bar
-# ----------------------------------------------------------------------------
-st.markdown(
-    """
-    <style>
-      .bottom-bar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background-color: #fff;
-        padding: 0.5rem 1rem;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-        z-index: 999;
-      }
-      .bottom-bar .stCheckbox,
-      .bottom-bar .stTextInput,
-      .bottom-bar .stButton {
-        width: 100%;
-        margin-bottom: 0.25rem;
-      }
-      .reportview-container .main .block-container {
-        padding-bottom: 5rem;
-      }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 # ----------------------------------------------------------------------------
 # API client setup
@@ -53,18 +22,23 @@ st.markdown(
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
 
+from openai import OpenAI
+
 if provider == "openai":
     api = "openai"
     client = OpenAI(api_key=st.secrets["API_KEY"])
+
 elif provider == "deepinfra":
     api = "openai"
     client = OpenAI(
         api_key=st.secrets["DEEPINFRA_API_KEY"],
         base_url="https://api.deepinfra.com/v1/openai",
     )
+
 elif provider == "anthropic" or "claude" in model.lower():
     api = "anthropic"
     import anthropic  # noqa: E402
+
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 else:
     raise ValueError(
@@ -72,26 +46,29 @@ else:
     )
 
 # ----------------------------------------------------------------------------
-# Setup Whisper transcription client
+# Setup OpenAI client for audio transcription (Whisper)
 # ----------------------------------------------------------------------------
 audio_client = OpenAI(api_key=st.secrets["API_KEY"])
 
 def transcribe(audio_bytes: bytes) -> str:
+    # write bytes to a temp wav
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
+    # call Whisper
     with open(tmp_path, "rb") as f:
         resp = audio_client.audio.transcriptions.create(
             model="whisper-1",
             file=f,
             response_format="text"
         )
+    # resp may be a str (when response_format="text"), an object with .text, or a dict
     if hasattr(resp, "text"):
         text = resp.text
     elif isinstance(resp, dict) and "text" in resp:
         text = resp["text"]
     else:
-        text = resp
+        text = resp  # assume it's already a str
     return text.strip()
 
 # ----------------------------------------------------------------------------
@@ -101,9 +78,10 @@ ENV = st.secrets.get("ENV", "production")
 query_params = st.query_params
 if "interview_config" not in query_params:
     import config  # local default
+
     config_name = "Default"
 else:
-    config_name = query_params.get("interview_config", ["Default"])[0]
+    config_name = st.query_params.get("interview_config", ["Default"])
     config_path = os.path.join(
         os.path.dirname(__file__), "interview_configs", f"{config_name}.py"
     )
@@ -118,6 +96,7 @@ else:
 # Helper to fetch query-string parameters safely
 # ----------------------------------------------------------------------------
 def _get_param(name: str, default: str = "") -> str:
+    """Return the query-string parameter as a string or *default* if missing."""
     val = query_params.get(name, default)
     if isinstance(val, list):
         val = val[0]
@@ -141,7 +120,11 @@ if "awaiting_email_confirmation" not in st.session_state:
 if "show_evaluation_only" not in st.session_state:
     st.session_state.show_evaluation_only = False
 
+# ----------------------------------------------------------------------------
+# "student_number" **and "company"** are now optional – only the fields below are required.
+# ----------------------------------------------------------------------------
 required_params = ["name", "recipient_email"]
+
 def validate_query_params(params):
     missing = [k for k in required_params if k not in params or not params[k]]
     return len(missing) == 0, missing
@@ -151,13 +134,14 @@ if not is_valid:
     st.error(f"Missing parameters: {', '.join(missing)}")
     st.stop()
 
-student_number  = _get_param("student_number", "")
+# Fetch parameters -----------------------------------------------------------
+student_number = _get_param("student_number", "")
 respondent_name = _get_param("name")
 recipient_email = _get_param("recipient_email")
-company_name    = _get_param("company")
+company_name = _get_param("company")
 
 # ----------------------------------------------------------------------------
-# Qualtrics link & early exit
+# Qualtrics post-interview survey link (CONFIG-DRIVEN)
 # ----------------------------------------------------------------------------
 DEFAULT_QUALTRICS_URL = (
     "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
@@ -169,6 +153,9 @@ evaluation_url_with_session = (
     f"{evaluation_url}?session_id={st.session_state.session_id}"
 )
 
+# ----------------------------------------------------------------------------
+# EARLY EXIT if the only thing left to show is the evaluation button
+# ----------------------------------------------------------------------------
 if st.session_state.show_evaluation_only:
     st.markdown(
         f"""
@@ -425,9 +412,7 @@ if not st.session_state.messages:
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
-    st.markdown('<div class="bottom-bar">', unsafe_allow_html=True)
-
-    use_voice = st.checkbox("🎤 Voice input", key="voice_checkbox")
+    use_voice = st.checkbox("🎤 Voice input")
     message_respondent = None
 
     if use_voice:
@@ -435,7 +420,7 @@ if st.session_state.interview_active:
             start_prompt="🎙️ Hold to talk",
             stop_prompt="🛑 Release",
             just_once=True,
-            use_container_width=True,
+            use_container_width=True
         )
         if audio_dict:
             raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
@@ -449,13 +434,9 @@ if st.session_state.interview_active:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
     else:
-        message_respondent = st.chat_input("Your message here", key="text_input")
-
-    st.markdown('</div>', unsafe_allow_html=True)
+        message_respondent = st.chat_input("Your message here")
 
     if message_respondent:
-        # … your existing logic to append user message,
-        # stream assistant reply, save data, handle closing codes, etc. …
         st.session_state.messages.append({"role": "user", "content": message_respondent})
         with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
             st.markdown(message_respondent)
@@ -465,51 +446,45 @@ if st.session_state.interview_active:
             message_interviewer = ""
 
             if api == "openai":
-                stream = client.chat.completions.create(**{
-                    "stream": True,
-                    "messages": st.session_state.messages,
-                    "model": model,
-                    "max_tokens": config.MAX_OUTPUT_TOKENS,
-                    "temperature": config.TEMPERATURE or 0.0,
-                })
-                for chunk in stream:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        message_interviewer += delta
+                stream = client.chat.completions.create(**api_kwargs)
+                for message in stream:
+                    text_delta = message.choices[0].delta.content
+                    if text_delta is not None:
+                        message_interviewer += text_delta
+                    if len(message_interviewer) > 5:
                         message_placeholder.markdown(message_interviewer + "▌")
-                        if any(code in message_interviewer for code in config.CLOSING_MESSAGES):
+                    if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
+                        message_placeholder.empty()
+                        break
+
+            elif api == "anthropic":
+                with client.messages.stream(**api_kwargs) as stream:
+                    for text_delta in stream.text_stream:
+                        if text_delta is not None:
+                            message_interviewer += text_delta
+                        if len(message_interviewer) > 5:
+                            message_placeholder.markdown(message_interviewer + "▌")
+                        if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                             message_placeholder.empty()
                             break
 
-            else:  # Anthropic
-                with client.messages.stream(**{
-                    "stream": True,
-                    "system": st.secrets.get("SYSTEM_PROMPT", ""),
-                    "model": model,
-                    "messages": st.session_state.messages,
-                    "max_tokens": config.MAX_OUTPUT_TOKENS,
-                    "temperature": config.TEMPERATURE or 0.0,
-                }) as stream:
-                    for delta in stream.text_stream:
-                        if delta:
-                            message_interviewer += delta
-                            message_placeholder.markdown(message_interviewer + "▌")
-                            if any(code in message_interviewer for code in config.CLOSING_MESSAGES):
-                                message_placeholder.empty()
-                                break
-
-            if not any(code in message_interviewer for code in config.CLOSING_MESSAGES):
+            if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
                 message_placeholder.markdown(message_interviewer)
                 st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
                 try:
-                    save_interview_data(student_number=student_number, company_name=company_name)
-                except:
+                    save_interview_data(
+                        student_number=student_number,
+                        company_name=company_name,
+                    )
+                except Exception:
                     pass
 
-            for code, closing_message in config.CLOSING_MESSAGES.items():
+            for code in config.CLOSING_MESSAGES.keys():
                 if code in message_interviewer:
+                    st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
                     st.session_state.awaiting_email_confirmation = True
                     st.session_state.interview_active = False
+                    closing_message = config.CLOSING_MESSAGES[code]
                     st.markdown(closing_message)
                     st.session_state.messages.append({"role": "assistant", "content": closing_message})
                     time.sleep(1)
