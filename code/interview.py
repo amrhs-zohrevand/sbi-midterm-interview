@@ -435,6 +435,10 @@ if st.session_state.interview_active:
             z-index: 9999;
         }
         .fixed-input-wrapper .block-container { padding: 0; }
+        .appview-container .main .block-container {
+            padding-bottom: 6rem;
+        }
+        body { padding-bottom: 6rem; }
         </style>
         """,
         unsafe_allow_html=True,
