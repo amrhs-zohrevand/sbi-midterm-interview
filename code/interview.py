@@ -435,6 +435,8 @@ if st.session_state.interview_active:
             z-index: 9999;
         }
         .fixed-input-wrapper .block-container { padding: 0; }
+        /* Ensure chat content isn't hidden behind the fixed input */
+        .block-container { padding-bottom: 5rem; }
         </style>
         """,
         unsafe_allow_html=True,
