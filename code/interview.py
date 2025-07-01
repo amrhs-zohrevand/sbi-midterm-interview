@@ -71,6 +71,11 @@ def transcribe(audio_bytes: bytes) -> str:
         text = resp  # assume it's already a str
     return text.strip()
 
+
+def toggle_voice_mode() -> None:
+    """Toggle between text and voice input modes."""
+    st.session_state.use_voice = not st.session_state.use_voice
+
 # ----------------------------------------------------------------------------
 # Configuration loading
 # ----------------------------------------------------------------------------
@@ -119,6 +124,8 @@ if "awaiting_email_confirmation" not in st.session_state:
     st.session_state.awaiting_email_confirmation = False
 if "show_evaluation_only" not in st.session_state:
     st.session_state.show_evaluation_only = False
+if "use_voice" not in st.session_state:
+    st.session_state.use_voice = False
 
 # ----------------------------------------------------------------------------
 # "student_number" **and "company"** are now optional – only the fields below are required.
@@ -412,16 +419,21 @@ if not st.session_state.messages:
 # Main chat loop with voice input
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
-    use_voice = st.checkbox("🎤 Voice input")
     message_respondent = None
+    input_container = st.container()
 
-    if use_voice:
-        audio_dict = mic_recorder(
-            start_prompt="🎙️ Hold to talk",
-            stop_prompt="🛑 Release",
-            just_once=True,
-            use_container_width=True
-        )
+    if st.session_state.use_voice:
+        voice_col, text_col = input_container.columns([0.1, 0.9])
+        with text_col:
+            audio_dict = mic_recorder(
+                start_prompt="🎙️ Hold to talk",
+                stop_prompt="🛑 Release",
+                just_once=True,
+                use_container_width=True,
+                key="mic_recorder",
+            )
+        with voice_col:
+            st.button("⌨️", on_click=toggle_voice_mode, use_container_width=True)
         if audio_dict:
             raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
             with st.spinner("Transcribing..."):
@@ -434,7 +446,11 @@ if st.session_state.interview_active:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
     else:
-        message_respondent = st.chat_input("Your message here")
+        text_col, voice_col = input_container.columns([0.9, 0.1])
+        with text_col:
+            message_respondent = st.chat_input("Your message here")
+        with voice_col:
+            st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
 
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
