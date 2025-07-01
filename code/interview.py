@@ -420,6 +420,30 @@ if not st.session_state.messages:
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
     message_respondent = None
+    st.markdown(
+        """
+        <style>
+        .fixed-input-wrapper {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 0.75rem 1rem;
+            background: var(--background-color, #fff);
+            border-top: 1px solid #eee;
+            z-index: 9999;
+        }
+        .fixed-input-wrapper .block-container { padding: 0; }
+        .appview-container .main .block-container {
+            padding-bottom: 6rem;
+        }
+        body { padding-bottom: 6rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="fixed-input-wrapper">', unsafe_allow_html=True)
     input_container = st.container()
 
     if st.session_state.use_voice:
@@ -451,6 +475,8 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
