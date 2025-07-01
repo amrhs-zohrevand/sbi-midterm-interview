@@ -420,11 +420,30 @@ if not st.session_state.messages:
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
     message_respondent = None
-    input_container = st.container()
 
+    st.markdown(
+        """
+        <style>
+        .fixed-input-wrapper {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 0.75rem 1rem;
+            background: var(--background-color, #fff);
+            border-top: 1px solid #eee;
+            z-index: 9999;
+        }
+        .fixed-input-wrapper .block-container { padding: 0; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="fixed-input-wrapper">', unsafe_allow_html=True)
     if st.session_state.use_voice:
-        voice_col, text_col = input_container.columns([0.1, 0.9])
-        with text_col:
+        voice_col, toggle_col = st.columns([0.9, 0.1])
+        with voice_col:
             audio_dict = mic_recorder(
                 start_prompt="🎙️ Hold to talk",
                 stop_prompt="🛑 Release",
@@ -432,10 +451,23 @@ if st.session_state.interview_active:
                 use_container_width=True,
                 key="mic_recorder",
             )
-        with voice_col:
+        with toggle_col:
             st.button("⌨️", on_click=toggle_voice_mode, use_container_width=True)
+    else:
+        text_col, toggle_col = st.columns([0.9, 0.1])
+        with text_col:
+            user_typed = st.text_input(
+                label="Your message here",
+                key="typed_msg",
+                label_visibility="collapsed",
+            )
+        with toggle_col:
+            st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state.use_voice:
         if audio_dict:
-            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
+            raw = audio_dict.get("bytes", audio_dict)
             with st.spinner("Transcribing..."):
                 try:
                     transcript = transcribe(raw)
@@ -446,11 +478,9 @@ if st.session_state.interview_active:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
     else:
-        text_col, voice_col = input_container.columns([0.9, 0.1])
-        with text_col:
-            message_respondent = st.chat_input("Your message here")
-        with voice_col:
-            st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+        if user_typed:
+            message_respondent = user_typed
+            st.session_state.typed_msg = ""
 
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
