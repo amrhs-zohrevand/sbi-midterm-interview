@@ -1,12 +1,12 @@
 import streamlit as st
 import time
-from utils import save_interview_data, send_transcript_email
+from utils import save_interview_data, send_transcript_email, send_verification_code
 from database import (
     save_interview_to_sheet,
     update_progress_sheet,
     update_interview_summary,
 )
-from interview_selection import get_context_transcript
+from interview_selection import get_context_transcript, load_interview_context_map
 import os
 import html
 import uuid
@@ -126,6 +126,12 @@ if "show_evaluation_only" not in st.session_state:
     st.session_state.show_evaluation_only = False
 if "use_voice" not in st.session_state:
     st.session_state.use_voice = False
+if "student_verified" not in st.session_state:
+    st.session_state.student_verified = False
+if "verification_code" not in st.session_state:
+    st.session_state.verification_code = ""
+if "verification_code_sent" not in st.session_state:
+    st.session_state.verification_code_sent = False
 
 # ----------------------------------------------------------------------------
 # "student_number" **and "company"** are now optional – only the fields below are required.
@@ -159,6 +165,33 @@ evaluation_url = getattr(
 evaluation_url_with_session = (
     f"{evaluation_url}?session_id={st.session_state.session_id}"
 )
+
+# ----------------------------------------------------------------------------
+# Verification step for retrieving prior transcripts
+# ----------------------------------------------------------------------------
+context_map = load_interview_context_map()
+needs_context = student_number and config_name.lower() in context_map
+if needs_context and not st.session_state.student_verified:
+    if not st.session_state.verification_code_sent:
+        code = f"{uuid.uuid4().int % 1000000:06d}"
+        st.session_state.verification_code = code
+        send_verification_code(student_number, code)
+        st.session_state.verification_code_sent = True
+        st.info(
+            f"A verification code has been sent to {student_number}@vuw.leidenuniv.nl"
+        )
+
+    user_code = st.text_input(
+        "Enter the verification code sent to your university email:", ""
+    )
+    if st.button("Verify Code"):
+        if user_code.strip() == st.session_state.verification_code:
+            st.session_state.student_verified = True
+            st.success("Verification successful. Loading interview...")
+            st.experimental_rerun()
+        else:
+            st.error("Incorrect code. Please try again.")
+    st.stop()
 
 # ----------------------------------------------------------------------------
 # EARLY EXIT if the only thing left to show is the evaluation button
@@ -371,7 +404,7 @@ if config.TEMPERATURE is not None:
 # ----------------------------------------------------------------------------
 if not st.session_state.messages:
     # ... existing init logic unchanged ...
-    if student_number:
+    if student_number and st.session_state.student_verified:
         context_transcript = get_context_transcript(student_number, config_name)
     else:
         context_transcript = None

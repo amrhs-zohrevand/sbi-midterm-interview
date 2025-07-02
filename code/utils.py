@@ -224,3 +224,89 @@ print("✅ Email sent. Please wait with closing this window as we are still proc
         except Exception as e:
             st.error("Error sending email via Gmail SMTP.")
             st.exception(e)
+
+
+def send_verification_code(student_number, code):
+    """Send a short verification code to the student's institutional email."""
+    use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
+    from_addr = "bs-internships@liacs.leidenuniv.nl"
+    to_addr = f"{student_number}@vuw.leidenuniv.nl"
+    subject = "Interview Verification Code"
+    body = (
+        "This is an automated email, please do not reply.\n\n"
+        f"Your verification code is: {code}\n\n"
+        "Enter this code in the interview window to continue."
+    )
+
+    if use_liacs:
+        python_code = f"""
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+msg = MIMEMultipart()
+msg['Subject'] = {repr(subject)}
+msg['From'] = {repr(from_addr)}
+msg['To'] = {repr(to_addr)}
+
+body = {repr(body)}
+msg.attach(MIMEText(body, 'plain'))
+
+with smtplib.SMTP('smtp.leidenuniv.nl') as server:
+    server.send_message(msg)
+
+print('✅ Verification email sent.')
+"""
+        python_code = python_code.strip()
+        encoded_code = base64.b64encode(python_code.encode()).decode()
+        try:
+            ssh_host = "ssh.liacs.nl"
+            ssh_username = st.secrets["LIACS_SSH_USERNAME"]
+            key_str = st.secrets["LIACS_SSH_KEY"]
+            if "\n" in key_str:
+                key_str = key_str.replace("\n", "\n")
+            if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
+                header = "-----BEGIN OPENSSH PRIVATE KEY-----"
+                footer = "-----END OPENSSH PRIVATE KEY-----"
+                key_body = key_str[len(header):-len(footer)].strip()
+                lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
+                key_str = header + "\n" + "\n".join(lines) + "\n" + footer
+            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
+                tmp_key_file.write(key_str)
+                tmp_key_path = tmp_key_file.name
+            try:
+                from paramiko import Ed25519Key
+                key = Ed25519Key.from_private_key_file(tmp_key_path)
+            except paramiko.SSHException:
+                from paramiko import RSAKey
+                key = RSAKey.from_private_key_file(tmp_key_path)
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ssh_host, username=ssh_username, pkey=key)
+            remote_cmd = f'printf "%s" "{encoded_code}" | base64 -d | python3'
+            ssh.exec_command(remote_cmd)
+            ssh.close()
+            os.remove(tmp_key_path)
+        except Exception as e:
+            st.error("❌ Failed to send verification email via LIACS SMTP.")
+            st.exception(e)
+    else:
+        smtp_server = "smtp.gmail.com"
+        smtp_port = 587
+        sender_email = "businessinternship.liacs@gmail.com"
+        sender_password = st.secrets["EMAIL_PASSWORD"]
+        msg = MIMEMultipart()
+        msg["From"] = sender_email
+        msg["To"] = to_addr
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, to_addr, msg.as_string())
+            server.quit()
+            st.success(f"📬 Verification email sent to {to_addr}")
+        except Exception as e:
+            st.error("Error sending verification email via Gmail SMTP.")
+            st.exception(e)
