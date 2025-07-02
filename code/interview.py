@@ -188,7 +188,7 @@ if needs_context and not st.session_state.student_verified:
         if user_code.strip() == st.session_state.verification_code:
             st.session_state.student_verified = True
             st.success("Verification successful. Loading interview...")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Incorrect code. Please try again.")
     st.stop()
