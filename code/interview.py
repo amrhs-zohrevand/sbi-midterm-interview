@@ -384,6 +384,8 @@ with conversation_container:
         ):
             with st.chat_message(message["role"], avatar=avatar):
                 st.markdown(message["content"])
+    # Anchor marking the end of the conversation area
+    st.markdown('<div id="end-of-chat"></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # Helper dict for LLM calls
@@ -458,47 +460,60 @@ if not st.session_state.messages:
 if st.session_state.interview_active:
     message_respondent = None
     
+    # Decide if autoscroll should be active (only after a real user reply)
+    has_real_user_reply = any(
+        (m.get("role") == "user") and (m.get("content", "").strip().lower() not in ("hi", "hello"))
+        for m in st.session_state.messages
+    )
+
     # Add minimal CSS for better spacing and auto-scroll
     st.markdown(
-        """
+        f"""
         <style>
         /* Ensure proper spacing between messages */
-        .stChatMessage {
+        .stChatMessage {{
             margin-bottom: 1rem;
-        }
+        }}
         
         /* Ensure the last message has proper spacing above input */
-        .stChatMessage:last-child {
+        .stChatMessage:last-child {{
             margin-bottom: 1.5rem;
-        }
+        }}
         
         /* Auto-scroll to bottom when new content is added */
-        .main .block-container {
+        .main .block-container {{
             padding-bottom: 2rem;
-        }
+        }}
         </style>
         
         <script>
-        // Auto-scroll to bottom when new messages arrive
-        function scrollToBottom() {
-            window.scrollTo(0, document.body.scrollHeight);
-        }
+        const SHOULD_AUTO_SCROLL = {str(has_real_user_reply).lower()};
         
-        // Scroll to bottom on page load
-        window.addEventListener('load', scrollToBottom);
+        function scrollToBottom() {{
+            if (!SHOULD_AUTO_SCROLL) return;
+            const anchor = document.getElementById('end-of-chat');
+            if (anchor && typeof anchor.scrollIntoView === 'function') {{
+                anchor.scrollIntoView({{ behavior: 'auto', block: 'end' }});
+            }} else {{
+                window.scrollTo(0, document.body.scrollHeight);
+            }}
+        }}
         
         // Scroll to bottom when new content is added
         const observer = new MutationObserver(scrollToBottom);
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, {{ childList: true, subtree: true }});
         
-        // Scroll to bottom after a short delay to ensure content is rendered
-        setTimeout(scrollToBottom, 300);
+        // Also try shortly after render to catch async content
+        setTimeout(scrollToBottom, 200);
+        setTimeout(scrollToBottom, 600);
         </script>
         """,
         unsafe_allow_html=True,
     )
 
     # Create the input area that appears naturally after the last message
+    # Add an anchor just before the input to guarantee bottom scrolling target
+    st.markdown('<div id="end-of-chat"></div>', unsafe_allow_html=True)
     st.markdown("---")  # Add a separator line
     
     # Input container with proper styling
