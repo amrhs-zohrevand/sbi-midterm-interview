@@ -1145,7 +1145,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "conversation_container = st.container()\n# Add the conversation area class for proper styling\nst.markdown('<div class=\"conversation-area\">', unsafe_allow_html=True)\nwith conversation_container:\n    for message in st.session_state.messages[1:]:\n        avatar = (\n            config.AVATAR_INTERVIEWER\n            if message[\"role\"] == \"assistant\"\n            else config.AVATAR_RESPONDENT\n        )",
+        "peekOfCode": "conversation_container = st.container()\nwith conversation_container:\n    for message in st.session_state.messages[1:]:\n        avatar = (\n            config.AVATAR_INTERVIEWER\n            if message[\"role\"] == \"assistant\"\n            else config.AVATAR_RESPONDENT\n        )\n        if not any(\n            code in message[\"content\"] for code in config.CLOSING_MESSAGES.keys()",
         "detail": "code.interview",
         "documentation": {}
     },

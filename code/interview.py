@@ -372,9 +372,6 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
 # Create a container for the conversation area
 conversation_container = st.container()
 
-# Add the conversation area class for proper styling
-st.markdown('<div class="conversation-area">', unsafe_allow_html=True)
-
 with conversation_container:
     for message in st.session_state.messages[1:]:
         avatar = (
@@ -387,9 +384,6 @@ with conversation_container:
         ):
             with st.chat_message(message["role"], avatar=avatar):
                 st.markdown(message["content"])
-    
-    # Close the conversation area div
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # Helper dict for LLM calls
@@ -464,63 +458,23 @@ if not st.session_state.messages:
 if st.session_state.interview_active:
     message_respondent = None
     
-    # Add CSS for fixed input and proper scrolling
+    # Add minimal CSS for better spacing and auto-scroll
     st.markdown(
         """
         <style>
-        .fixed-input-wrapper {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: var(--background-color, #ffffff);
-            border-top: 1px solid #e0e0e0;
-            z-index: 1000;
-            padding: 1rem;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .conversation-area {
-            padding-bottom: 120px;
-            min-height: calc(100vh - 120px);
-            margin-bottom: 0;
-        }
-        
+        /* Ensure proper spacing between messages */
         .stChatMessage {
             margin-bottom: 1rem;
         }
         
-        /* Ensure proper spacing for the last message */
+        /* Ensure the last message has proper spacing above input */
         .stChatMessage:last-child {
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
         
-        /* Auto-scroll to bottom */
+        /* Auto-scroll to bottom when new content is added */
         .main .block-container {
-            padding-bottom: 120px;
-        }
-        
-        /* Ensure the main content area has proper spacing */
-        .main .block-container > div:last-child {
-            margin-bottom: 120px;
-        }
-        
-        /* Hide scrollbar but keep functionality */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            padding-bottom: 2rem;
         }
         </style>
         
@@ -537,22 +491,15 @@ if st.session_state.interview_active:
         const observer = new MutationObserver(scrollToBottom);
         observer.observe(document.body, { childList: true, subtree: true });
         
-        // Also scroll to bottom when the page becomes visible
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                setTimeout(scrollToBottom, 100);
-            }
-        });
-        
         // Scroll to bottom after a short delay to ensure content is rendered
-        setTimeout(scrollToBottom, 500);
+        setTimeout(scrollToBottom, 300);
         </script>
         """,
         unsafe_allow_html=True,
     )
 
-    # Create the fixed input area at the bottom
-    st.markdown('<div class="fixed-input-wrapper">', unsafe_allow_html=True)
+    # Create the input area that appears naturally after the last message
+    st.markdown("---")  # Add a separator line
     
     # Input container with proper styling
     input_container = st.container()
@@ -586,8 +533,6 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Process user input and generate responses
     if message_respondent:
