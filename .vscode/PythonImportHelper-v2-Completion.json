@@ -1141,6 +1141,15 @@
         "documentation": {}
     },
     {
+        "label": "conversation_container",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "conversation_container = st.container()\nwith conversation_container:\n    for message in st.session_state.messages[1:]:\n        avatar = (\n            config.AVATAR_INTERVIEWER\n            if message[\"role\"] == \"assistant\"\n            else config.AVATAR_RESPONDENT\n        )\n        if not any(\n            code in message[\"content\"] for code in config.CLOSING_MESSAGES.keys()",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "api_kwargs",
         "kind": 5,
         "importPath": "code.interview",
