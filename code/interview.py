@@ -487,25 +487,57 @@ if st.session_state.interview_active:
         </style>
         
         <script>
-        const SHOULD_AUTO_SCROLL = {str(has_real_user_reply).lower()};
-        
+        // More robust auto-scroll implementation
         function scrollToBottom() {{
-            if (!SHOULD_AUTO_SCROLL) return;
-            const anchor = document.getElementById('end-of-chat');
-            if (anchor && typeof anchor.scrollIntoView === 'function') {{
-                anchor.scrollIntoView({{ behavior: 'auto', block: 'end' }});
+            // Try multiple scrolling methods for better compatibility
+            const endAnchor = document.getElementById('end-of-chat');
+            if (endAnchor) {{
+                endAnchor.scrollIntoView({{ behavior: 'smooth', block: 'end' }});
             }} else {{
-                window.scrollTo(0, document.body.scrollHeight);
+                // Fallback to window scrolling
+                window.scrollTo({{ top: document.body.scrollHeight, behavior: 'smooth' }});
             }}
         }}
         
-        // Scroll to bottom when new content is added
-        const observer = new MutationObserver(scrollToBottom);
-        observer.observe(document.body, {{ childList: true, subtree: true }});
+        // Function to scroll after a delay to ensure content is rendered
+        function delayedScroll() {{
+            setTimeout(scrollToBottom, 100);
+            setTimeout(scrollToBottom, 300);
+            setTimeout(scrollToBottom, 600);
+        }}
         
-        // Also try shortly after render to catch async content
-        setTimeout(scrollToBottom, 200);
-        setTimeout(scrollToBottom, 600);
+        // Scroll on page load
+        window.addEventListener('load', delayedScroll);
+        
+        // Scroll when DOM changes (new messages added)
+        const observer = new MutationObserver((mutations) => {{
+            // Check if new chat messages were added
+            const hasNewMessages = mutations.some(mutation => {{
+                return mutation.addedNodes.length > 0 && 
+                       Array.from(mutation.addedNodes).some(node => {{
+                           return node.nodeType === 1 && 
+                                  (node.classList.contains('stChatMessage') || 
+                                   node.querySelector('.stChatMessage'));
+                       }});
+            }});
+            
+            if (hasNewMessages) {{
+                delayedScroll();
+            }}
+        }});
+        
+        // Start observing after a short delay to ensure DOM is ready
+        setTimeout(() => {{
+            observer.observe(document.body, {{ 
+                childList: true, 
+                subtree: true,
+                attributes: false,
+                characterData: false
+            }});
+        }}, 500);
+        
+        // Also try scrolling periodically to catch any missed updates
+        setInterval(scrollToBottom, 2000);
         </script>
         """,
         unsafe_allow_html=True,
@@ -548,6 +580,41 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+
+    # Add a bottom anchor for scrolling
+    st.markdown('<div id="bottom-anchor"></div>', unsafe_allow_html=True)
+    
+    # Add JavaScript to force scroll to bottom after input
+    st.markdown(
+        """
+        <script>
+        // Force scroll to bottom when input is focused or after input
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input[type="text"], textarea');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    setTimeout(() => {
+                        const bottomAnchor = document.getElementById('bottom-anchor');
+                        if (bottomAnchor) {
+                            bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    }, 100);
+                });
+                
+                input.addEventListener('input', function() {
+                    setTimeout(() => {
+                        const bottomAnchor = document.getElementById('bottom-anchor');
+                        if (bottomAnchor) {
+                            bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    }, 100);
+                });
+            });
+        });
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Process user input and generate responses
     if message_respondent:
@@ -598,6 +665,21 @@ if st.session_state.interview_active:
                         )
                     except Exception:
                         pass
+                    
+                    # Force scroll to bottom after message is complete
+                    st.markdown(
+                        """
+                        <script>
+                        setTimeout(() => {
+                            const bottomAnchor = document.getElementById('bottom-anchor');
+                            if (bottomAnchor) {
+                                bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                            }
+                        }, 100);
+                        </script>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
                 for code in config.CLOSING_MESSAGES.keys():
                     if code in message_interviewer:
