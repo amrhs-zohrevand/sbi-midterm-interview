@@ -384,8 +384,6 @@ with conversation_container:
         ):
             with st.chat_message(message["role"], avatar=avatar):
                 st.markdown(message["content"])
-    # Anchor marking the end of the conversation area
-    st.markdown('<div id="end-of-chat"></div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # Helper dict for LLM calls
@@ -466,86 +464,30 @@ if st.session_state.interview_active:
         for m in st.session_state.messages
     )
 
-    # Add minimal CSS for better spacing and auto-scroll
+    # Add minimal CSS for better spacing
     st.markdown(
-        f"""
+        """
         <style>
         /* Ensure proper spacing between messages */
-        .stChatMessage {{
+        .stChatMessage {
             margin-bottom: 1rem;
-        }}
+        }
         
         /* Ensure the last message has proper spacing above input */
-        .stChatMessage:last-child {{
+        .stChatMessage:last-child {
             margin-bottom: 1.5rem;
-        }}
+        }
         
-        /* Auto-scroll to bottom when new content is added */
-        .main .block-container {{
+        /* Basic spacing for the main container */
+        .main .block-container {
             padding-bottom: 2rem;
-        }}
+        }
         </style>
-        
-        <script>
-        // More robust auto-scroll implementation
-        function scrollToBottom() {{
-            // Try multiple scrolling methods for better compatibility
-            const endAnchor = document.getElementById('end-of-chat');
-            if (endAnchor) {{
-                endAnchor.scrollIntoView({{ behavior: 'smooth', block: 'end' }});
-            }} else {{
-                // Fallback to window scrolling
-                window.scrollTo({{ top: document.body.scrollHeight, behavior: 'smooth' }});
-            }}
-        }}
-        
-        // Function to scroll after a delay to ensure content is rendered
-        function delayedScroll() {{
-            setTimeout(scrollToBottom, 100);
-            setTimeout(scrollToBottom, 300);
-            setTimeout(scrollToBottom, 600);
-        }}
-        
-        // Scroll on page load
-        window.addEventListener('load', delayedScroll);
-        
-        // Scroll when DOM changes (new messages added)
-        const observer = new MutationObserver((mutations) => {{
-            // Check if new chat messages were added
-            const hasNewMessages = mutations.some(mutation => {{
-                return mutation.addedNodes.length > 0 && 
-                       Array.from(mutation.addedNodes).some(node => {{
-                           return node.nodeType === 1 && 
-                                  (node.classList.contains('stChatMessage') || 
-                                   node.querySelector('.stChatMessage'));
-                       }});
-            }});
-            
-            if (hasNewMessages) {{
-                delayedScroll();
-            }}
-        }});
-        
-        // Start observing after a short delay to ensure DOM is ready
-        setTimeout(() => {{
-            observer.observe(document.body, {{ 
-                childList: true, 
-                subtree: true,
-                attributes: false,
-                characterData: false
-            }});
-        }}, 500);
-        
-        // Also try scrolling periodically to catch any missed updates
-        setInterval(scrollToBottom, 2000);
-        </script>
         """,
         unsafe_allow_html=True,
     )
 
     # Create the input area that appears naturally after the last message
-    # Add an anchor just before the input to guarantee bottom scrolling target
-    st.markdown('<div id="end-of-chat"></div>', unsafe_allow_html=True)
     st.markdown("---")  # Add a separator line
     
     # Input container with proper styling
@@ -580,41 +522,6 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
-
-    # Add a bottom anchor for scrolling
-    st.markdown('<div id="bottom-anchor"></div>', unsafe_allow_html=True)
-    
-    # Add JavaScript to force scroll to bottom after input
-    st.markdown(
-        """
-        <script>
-        // Force scroll to bottom when input is focused or after input
-        document.addEventListener('DOMContentLoaded', function() {
-            const inputs = document.querySelectorAll('input[type="text"], textarea');
-            inputs.forEach(input => {
-                input.addEventListener('focus', function() {
-                    setTimeout(() => {
-                        const bottomAnchor = document.getElementById('bottom-anchor');
-                        if (bottomAnchor) {
-                            bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        }
-                    }, 100);
-                });
-                
-                input.addEventListener('input', function() {
-                    setTimeout(() => {
-                        const bottomAnchor = document.getElementById('bottom-anchor');
-                        if (bottomAnchor) {
-                            bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        }
-                    }, 100);
-                });
-            });
-        });
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
 
     # Process user input and generate responses
     if message_respondent:
@@ -665,21 +572,6 @@ if st.session_state.interview_active:
                         )
                     except Exception:
                         pass
-                    
-                    # Force scroll to bottom after message is complete
-                    st.markdown(
-                        """
-                        <script>
-                        setTimeout(() => {
-                            const bottomAnchor = document.getElementById('bottom-anchor');
-                            if (bottomAnchor) {
-                                bottomAnchor.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                            }
-                        }, 100);
-                        </script>
-                        """,
-                        unsafe_allow_html=True,
-                    )
 
                 for code in config.CLOSING_MESSAGES.keys():
                     if code in message_interviewer:
