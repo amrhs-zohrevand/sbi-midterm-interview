@@ -369,17 +369,27 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
 # ----------------------------------------------------------------------------
 # Chat UI helpers – render prior conversation
 # ----------------------------------------------------------------------------
-for message in st.session_state.messages[1:]:
-    avatar = (
-        config.AVATAR_INTERVIEWER
-        if message["role"] == "assistant"
-        else config.AVATAR_RESPONDENT
-    )
-    if not any(
-        code in message["content"] for code in config.CLOSING_MESSAGES.keys()
-    ):
-        with st.chat_message(message["role"], avatar=avatar):
-            st.markdown(message["content"])
+# Create a container for the conversation area
+conversation_container = st.container()
+
+# Add the conversation area class for proper styling
+st.markdown('<div class="conversation-area">', unsafe_allow_html=True)
+
+with conversation_container:
+    for message in st.session_state.messages[1:]:
+        avatar = (
+            config.AVATAR_INTERVIEWER
+            if message["role"] == "assistant"
+            else config.AVATAR_RESPONDENT
+        )
+        if not any(
+            code in message["content"] for code in config.CLOSING_MESSAGES.keys()
+        ):
+            with st.chat_message(message["role"], avatar=avatar):
+                st.markdown(message["content"])
+    
+    # Close the conversation area div
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # Helper dict for LLM calls
@@ -453,6 +463,8 @@ if not st.session_state.messages:
 # ----------------------------------------------------------------------------
 if st.session_state.interview_active:
     message_respondent = None
+    
+    # Add CSS for fixed input and proper scrolling
     st.markdown(
         """
         <style>
@@ -461,24 +473,90 @@ if st.session_state.interview_active:
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 0.75rem 1rem;
-            background: var(--background-color, #fff);
-            border-top: 1px solid #eee;
-            z-index: 9999;
+            background: var(--background-color, #ffffff);
+            border-top: 1px solid #e0e0e0;
+            z-index: 1000;
+            padding: 1rem;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
         }
-        .fixed-input-wrapper .block-container { padding: 0; }
-        .appview-container .main .block-container {
-            padding-bottom: 6rem;
+        
+        .conversation-area {
+            padding-bottom: 120px;
+            min-height: calc(100vh - 120px);
+            margin-bottom: 0;
         }
-        body { padding-bottom: 6rem; }
+        
+        .stChatMessage {
+            margin-bottom: 1rem;
+        }
+        
+        /* Ensure proper spacing for the last message */
+        .stChatMessage:last-child {
+            margin-bottom: 2rem;
+        }
+        
+        /* Auto-scroll to bottom */
+        .main .block-container {
+            padding-bottom: 120px;
+        }
+        
+        /* Ensure the main content area has proper spacing */
+        .main .block-container > div:last-child {
+            margin-bottom: 120px;
+        }
+        
+        /* Hide scrollbar but keep functionality */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
         </style>
+        
+        <script>
+        // Auto-scroll to bottom when new messages arrive
+        function scrollToBottom() {
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+        
+        // Scroll to bottom on page load
+        window.addEventListener('load', scrollToBottom);
+        
+        // Scroll to bottom when new content is added
+        const observer = new MutationObserver(scrollToBottom);
+        observer.observe(document.body, { childList: true, subtree: true });
+        
+        // Also scroll to bottom when the page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                setTimeout(scrollToBottom, 100);
+            }
+        });
+        
+        // Scroll to bottom after a short delay to ensure content is rendered
+        setTimeout(scrollToBottom, 500);
+        </script>
         """,
         unsafe_allow_html=True,
     )
 
+    # Create the fixed input area at the bottom
     st.markdown('<div class="fixed-input-wrapper">', unsafe_allow_html=True)
+    
+    # Input container with proper styling
     input_container = st.container()
-
+    
     if st.session_state.use_voice:
         voice_col, text_col = input_container.columns([0.1, 0.9])
         with text_col:
@@ -511,30 +589,26 @@ if st.session_state.interview_active:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # Process user input and generate responses
     if message_respondent:
+        # Add user message to conversation
         st.session_state.messages.append({"role": "user", "content": message_respondent})
-        with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
-            st.markdown(message_respondent)
+        
+        # Display user message in conversation area
+        with conversation_container:
+            with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
+                st.markdown(message_respondent)
 
-        with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
-            message_placeholder = st.empty()
-            message_interviewer = ""
+        # Generate and display assistant response
+        with conversation_container:
+            with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
+                message_placeholder = st.empty()
+                message_interviewer = ""
 
-            if api == "openai":
-                stream = client.chat.completions.create(**api_kwargs)
-                for message in stream:
-                    text_delta = message.choices[0].delta.content
-                    if text_delta is not None:
-                        message_interviewer += text_delta
-                    if len(message_interviewer) > 5:
-                        message_placeholder.markdown(message_interviewer + "▌")
-                    if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
-                        message_placeholder.empty()
-                        break
-
-            elif api == "anthropic":
-                with client.messages.stream(**api_kwargs) as stream:
-                    for text_delta in stream.text_stream:
+                if api == "openai":
+                    stream = client.chat.completions.create(**api_kwargs)
+                    for message in stream:
+                        text_delta = message.choices[0].delta.content
                         if text_delta is not None:
                             message_interviewer += text_delta
                         if len(message_interviewer) > 5:
@@ -543,24 +617,35 @@ if st.session_state.interview_active:
                             message_placeholder.empty()
                             break
 
-            if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
-                message_placeholder.markdown(message_interviewer)
-                st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
-                try:
-                    save_interview_data(
-                        student_number=student_number,
-                        company_name=company_name,
-                    )
-                except Exception:
-                    pass
+                elif api == "anthropic":
+                    with client.messages.stream(**api_kwargs) as stream:
+                        for text_delta in stream.text_stream:
+                            if text_delta is not None:
+                                message_interviewer += text_delta
+                            if len(message_interviewer) > 5:
+                                message_placeholder.markdown(message_interviewer + "▌")
+                            if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
+                                message_placeholder.empty()
+                                break
 
-            for code in config.CLOSING_MESSAGES.keys():
-                if code in message_interviewer:
+                if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
+                    message_placeholder.markdown(message_interviewer)
                     st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
-                    st.session_state.awaiting_email_confirmation = True
-                    st.session_state.interview_active = False
-                    closing_message = config.CLOSING_MESSAGES[code]
-                    st.markdown(closing_message)
-                    st.session_state.messages.append({"role": "assistant", "content": closing_message})
-                    time.sleep(1)
-                    st.rerun()
+                    try:
+                        save_interview_data(
+                            student_number=student_number,
+                            company_name=company_name,
+                        )
+                    except Exception:
+                        pass
+
+                for code in config.CLOSING_MESSAGES.keys():
+                    if code in message_interviewer:
+                        st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
+                        st.session_state.awaiting_email_confirmation = True
+                        st.session_state.interview_active = False
+                        closing_message = config.CLOSING_MESSAGES[code]
+                        st.markdown(closing_message)
+                        st.session_state.messages.append({"role": "assistant", "content": closing_message})
+                        time.sleep(1)
+                        st.rerun()

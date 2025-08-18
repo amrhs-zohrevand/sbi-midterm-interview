@@ -79,6 +79,14 @@
         "documentation": {}
     },
     {
+        "label": "send_verification_code",
+        "importPath": "utils",
+        "description": "utils",
+        "isExtraImport": true,
+        "detail": "utils",
+        "documentation": {}
+    },
+    {
         "label": "save_interview_to_sheet",
         "importPath": "database",
         "description": "database",
@@ -112,6 +120,14 @@
     },
     {
         "label": "get_context_transcript",
+        "importPath": "interview_selection",
+        "description": "interview_selection",
+        "isExtraImport": true,
+        "detail": "interview_selection",
+        "documentation": {}
+    },
+    {
+        "label": "load_interview_context_map",
         "importPath": "interview_selection",
         "description": "interview_selection",
         "isExtraImport": true,
@@ -219,6 +235,22 @@
         "description": "email.mime.multipart",
         "isExtraImport": true,
         "detail": "email.mime.multipart",
+        "documentation": {}
+    },
+    {
+        "label": "MIMEMultipart",
+        "importPath": "email.mime.multipart",
+        "description": "email.mime.multipart",
+        "isExtraImport": true,
+        "detail": "email.mime.multipart",
+        "documentation": {}
+    },
+    {
+        "label": "MIMEText",
+        "importPath": "email.mime.text",
+        "description": "email.mime.text",
+        "isExtraImport": true,
+        "detail": "email.mime.text",
         "documentation": {}
     },
     {
@@ -956,6 +988,15 @@
         "documentation": {}
     },
     {
+        "label": "toggle_voice_mode",
+        "kind": 2,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "def toggle_voice_mode() -> None:\n    \"\"\"Toggle between text and voice input modes.\"\"\"\n    st.session_state.use_voice = not st.session_state.use_voice\n# ----------------------------------------------------------------------------\n# Configuration loading\n# ----------------------------------------------------------------------------\nENV = st.secrets.get(\"ENV\", \"production\")\nquery_params = st.query_params\nif \"interview_config\" not in query_params:\n    import config  # local default",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
         "label": "validate_query_params",
         "kind": 2,
         "importPath": "code.interview",
@@ -1068,7 +1109,7 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:",
+        "peekOfCode": "evaluation_url = getattr(\n    config, \"POST_INTERVIEW_SURVEY_URL\", DEFAULT_QUALTRICS_URL\n)\nevaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# Verification step for retrieving prior transcripts\n# ----------------------------------------------------------------------------\ncontext_map = load_interview_context_map()",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1077,7 +1118,34 @@
         "kind": 5,
         "importPath": "code.interview",
         "description": "code.interview",
-        "peekOfCode": "evaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# EARLY EXIT if the only thing left to show is the evaluation button\n# ----------------------------------------------------------------------------\nif st.session_state.show_evaluation_only:\n    st.markdown(\n        f\"\"\"\n        <div style=\"display: flex; justify-content: center; align-items: center; margin-top: 2em;\">",
+        "peekOfCode": "evaluation_url_with_session = (\n    f\"{evaluation_url}?session_id={st.session_state.session_id}\"\n)\n# ----------------------------------------------------------------------------\n# Verification step for retrieving prior transcripts\n# ----------------------------------------------------------------------------\ncontext_map = load_interview_context_map()\nneeds_context = student_number and config_name.lower() in context_map\nif needs_context and not st.session_state.student_verified:\n    if not st.session_state.verification_code_sent:",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "context_map",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "context_map = load_interview_context_map()\nneeds_context = student_number and config_name.lower() in context_map\nif needs_context and not st.session_state.student_verified:\n    if not st.session_state.verification_code_sent:\n        code = f\"{uuid.uuid4().int % 1000000:06d}\"\n        st.session_state.verification_code = code\n        send_verification_code(student_number, code)\n        st.session_state.verification_code_sent = True\n        st.info(\n            f\"A verification code has been sent to {student_number}@vuw.leidenuniv.nl\"",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "needs_context",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "needs_context = student_number and config_name.lower() in context_map\nif needs_context and not st.session_state.student_verified:\n    if not st.session_state.verification_code_sent:\n        code = f\"{uuid.uuid4().int % 1000000:06d}\"\n        st.session_state.verification_code = code\n        send_verification_code(student_number, code)\n        st.session_state.verification_code_sent = True\n        st.info(\n            f\"A verification code has been sent to {student_number}@vuw.leidenuniv.nl\"\n        )",
+        "detail": "code.interview",
+        "documentation": {}
+    },
+    {
+        "label": "conversation_container",
+        "kind": 5,
+        "importPath": "code.interview",
+        "description": "code.interview",
+        "peekOfCode": "conversation_container = st.container()\n# Add the conversation area class for proper styling\nst.markdown('<div class=\"conversation-area\">', unsafe_allow_html=True)\nwith conversation_container:\n    for message in st.session_state.messages[1:]:\n        avatar = (\n            config.AVATAR_INTERVIEWER\n            if message[\"role\"] == \"assistant\"\n            else config.AVATAR_RESPONDENT\n        )",
         "detail": "code.interview",
         "documentation": {}
     },
@@ -1141,6 +1209,15 @@
         "importPath": "code.utils",
         "description": "code.utils",
         "peekOfCode": "def send_transcript_email(\n    student_number,\n    recipient_email,\n    transcript_link,\n    transcript_file,\n    name_from_form=None  # NEW parameter to pass the interviewee's name\n):\n    \"\"\"\n    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.\n    \"\"\"",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "send_verification_code",
+        "kind": 2,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "def send_verification_code(student_number, code):\n    \"\"\"Send a short verification code to the student's institutional email.\"\"\"\n    use_liacs = st.secrets.get(\"USE_LIACS_EMAIL\", False)\n    from_addr = \"bs-internships@liacs.leidenuniv.nl\"\n    to_addr = f\"{student_number}@vuw.leidenuniv.nl\"\n    subject = \"Interview Verification Code\"\n    body = (\n        \"This is an automated email, please do not reply.\\n\\n\"\n        f\"Your verification code is: {code}\\n\\n\"\n        \"Enter this code in the interview window to continue.\"",
         "detail": "code.utils",
         "documentation": {}
     },
@@ -1222,6 +1299,51 @@
         "importPath": "code.utils",
         "description": "code.utils",
         "peekOfCode": "part = MIMEBase(\"text\", \"plain\")\npart.set_payload(attachment_data)\nencoders.encode_base64(part)\npart.add_header(\"Content-Type\", f'text/plain; name=\"{file_name}\"')\npart.add_header(\"Content-Disposition\", f'attachment; filename=\"{file_name}\"')\nmsg.attach(part)\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint(\"✅ Email sent. Please wait with closing this window as we are still processing data.\")\n\"\"\"",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "msg",
+        "kind": 5,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "msg = MIMEMultipart()\nmsg['Subject'] = {repr(subject)}\nmsg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint('✅ Verification email sent.')\n\"\"\"",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "msg['Subject']",
+        "kind": 5,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "msg['Subject'] = {repr(subject)}\nmsg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint('✅ Verification email sent.')\n\"\"\"\n        python_code = python_code.strip()",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "msg['From']",
+        "kind": 5,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "msg['From'] = {repr(from_addr)}\nmsg['To'] = {repr(to_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint('✅ Verification email sent.')\n\"\"\"\n        python_code = python_code.strip()\n        encoded_code = base64.b64encode(python_code.encode()).decode()",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "msg['To']",
+        "kind": 5,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "msg['To'] = {repr(to_addr)}\nbody = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint('✅ Verification email sent.')\n\"\"\"\n        python_code = python_code.strip()\n        encoded_code = base64.b64encode(python_code.encode()).decode()\n        try:",
+        "detail": "code.utils",
+        "documentation": {}
+    },
+    {
+        "label": "body",
+        "kind": 5,
+        "importPath": "code.utils",
+        "description": "code.utils",
+        "peekOfCode": "body = {repr(body)}\nmsg.attach(MIMEText(body, 'plain'))\nwith smtplib.SMTP('smtp.leidenuniv.nl') as server:\n    server.send_message(msg)\nprint('✅ Verification email sent.')\n\"\"\"\n        python_code = python_code.strip()\n        encoded_code = base64.b64encode(python_code.encode()).decode()\n        try:\n            ssh_host = \"ssh.liacs.nl\"",
         "detail": "code.utils",
         "documentation": {}
     }
