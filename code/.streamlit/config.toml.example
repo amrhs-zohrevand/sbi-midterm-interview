@@ -1,0 +1,14 @@
+# .streamlit/config.toml.example
+#
+# This is a template file showing the default Streamlit configuration.
+# Copy this file to config.toml in the same directory to customize settings.
+
+[browser]
+# Disable streamlit collecting user statistics
+# https://streamlit.io/privacy-policy
+gatherUsageStats = false
+
+[client]
+# Minimal appearance of user interface
+toolbarMode = "minimal"
+

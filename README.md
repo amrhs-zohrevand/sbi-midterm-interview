@@ -35,13 +35,29 @@ The platform uses Google Drive to store transcripts and timing data. Ensure you:
 - Requires enabling 'Less secure app access' or setting up an App Password in Gmail.
 - Store the email password in `.streamlit/secrets.toml` under `EMAIL_PASSWORD`.
 
+### Local Development Configuration Setup
+For local development, you need to create configuration files from the provided templates:
+
+1. **Navigate to the code directory**: `cd code/.streamlit`
+2. **Create secrets.toml**: Copy the template file and configure your credentials:
+   - Copy `secrets.toml.example` to `secrets.toml`
+   - Replace placeholder values with your actual API keys and credentials
+   - **Never commit `secrets.toml` to version control** (it's excluded in `.gitignore`)
+3. **Create config.toml** (optional): Copy `config.toml.example` to `config.toml` if you want custom Streamlit settings
+
+**Important for Streamlit Cloud deployments**: 
+- Do not use local `secrets.toml` for production deployments
+- Configure all secrets through the Streamlit Cloud dashboard's secrets management interface
+- The local configuration files are only for local development
+
 ## Installation Guide
 1. Install Miniconda (if not already installed).
 2. Clone this repository.
 3. Navigate to the `code` directory.
-4. Create the environment: `conda env create -f interviewsenv.yml`
-5. Activate the environment: `conda activate interviews`
-6. Start the platform: `streamlit run interview.py`
+4. **Set up configuration files** (see "Local Development Configuration Setup" above).
+5. Create the environment: `conda env create -f interviewsenv.yml`
+6. Activate the environment: `conda activate interviews`
+7. Start the platform: `streamlit run interview.py`
 
 ## Usage Guide
 1. Navigate to the Streamlit URL provided in the terminal.
@@ -67,7 +83,10 @@ The interview platform is built using the library `streamlit` and the APIs of Op
 - Download miniconda from https://docs.anaconda.com/miniconda/miniconda-install/ and install it (skip if `conda` is already installed)
 - Obtain an API key from https://platform.openai.com/ or https://www.anthropic.com/api. In case of the OpenAI API, choose a "project" key
 - Download this repository
-- In the repository folder on your computer, paste your API key into the file `/code/.streamlit/secrets.toml` (requires to make hidden folders visible)
+- In the repository folder on your computer, set up your configuration files (requires making hidden folders visible):
+  - Navigate to `/code/.streamlit/`
+  - Copy `secrets.toml.example` to `secrets.toml`
+  - Edit `secrets.toml` and paste your API key
 - In the config.py, select a language model and adjust the interview outline
 - In Terminal (Mac) or Anaconda Prompt (Windows), navigate to the folder `code` with `cd` (if unclear, briefly look up basic Linux command line syntax for navigating to folders)
 - Once in the `code` folder, create the environment from the .yml file by writing `conda env create -f interviewsenv.yml` and confirming with enter (this installs Python and all libraries necessary to run the platform; only needs to be done once)
