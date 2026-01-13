@@ -1,4 +1,11 @@
 # Import base configuration
+import sys
+import os
+# Add the interview_configs directory to path for imports
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+if _current_dir not in sys.path:
+    sys.path.insert(0, _current_dir)
+
 from base_config import (
     GENERAL_INSTRUCTIONS,
     CODES,
