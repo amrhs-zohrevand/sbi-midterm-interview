@@ -152,8 +152,6 @@ def _initialize_session_state():
         st.session_state.verification_code = ""
     if "verification_code_sent" not in st.session_state:
         st.session_state.verification_code_sent = False
-    if "messages_to_display" not in st.session_state:
-        st.session_state.messages_to_display = 7  # Show last 7 messages by default
 
 
 # ----------------------------------------------------------------------------
@@ -408,40 +406,12 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
     st.rerun()
 
 # ----------------------------------------------------------------------------
-# Chat UI helpers – render prior conversation (with limited window)
+# Chat UI helpers – render prior conversation
 # ----------------------------------------------------------------------------
-# Show "Load Earlier Messages" button if there are more messages than displayed
-all_messages = st.session_state.messages[1:]  # Exclude system message
-total_messages = len(all_messages)
-
-if total_messages > st.session_state.messages_to_display:
-    if st.button(f"⬆️ Load Earlier Messages ({total_messages - st.session_state.messages_to_display} hidden)"):
-        st.session_state.messages_to_display += 5
-        st.rerun()
-
-# Create a scrollable container for messages with height limit
 conversation_container = st.container()
 
-# Add CSS for scrollable message container
-st.markdown(
-    """
-    <style>
-    /* Message container stays scrollable */
-    .message-display-area {
-        max-height: calc(100vh - 280px);
-        overflow-y: auto;
-        margin-bottom: 1rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Calculate which messages to show (last N)
-messages_to_show = all_messages[-st.session_state.messages_to_display:] if total_messages > st.session_state.messages_to_display else all_messages
-
 with conversation_container:
-    for message in messages_to_show:
+    for message in st.session_state.messages[1:]:
         avatar = (
             config.AVATAR_INTERVIEWER
             if message["role"] == "assistant"
@@ -452,6 +422,17 @@ with conversation_container:
         ):
             with st.chat_message(message["role"], avatar=avatar):
                 st.markdown(message["content"])
+
+# Visual hint for users to scroll if conversation is long
+if len(st.session_state.messages) > 5:
+    st.markdown(
+        """
+        <div style="text-align: center; color: #666; font-size: 0.9em; margin: 1rem 0;">
+            👇 Scroll down to reply
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ----------------------------------------------------------------------------
 # Helper dict for LLM calls
@@ -536,25 +517,13 @@ if st.session_state.interview_active:
     st.markdown(
         """
         <style>
-        /* Message spacing */
         .stChatMessage {
             margin-bottom: 1rem;
-        }
-        
-        /* Input area styling */
-        .input-area-wrapper {
-            background: var(--background-color);
-            padding: 1rem 0;
-            border-top: 1px solid var(--border-color);
-            margin-top: 1rem;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    
-    # Visual separator before input
-    st.markdown('<div class="input-area-wrapper">', unsafe_allow_html=True)
     
     if st.session_state.use_voice:
         voice_col, text_col = st.columns([0.1, 0.9])
@@ -585,9 +554,6 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
-    
-    # Close input area wrapper
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Process user input and generate responses
     if message_respondent:
