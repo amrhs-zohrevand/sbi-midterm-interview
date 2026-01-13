@@ -152,6 +152,8 @@ def _initialize_session_state():
         st.session_state.verification_code = ""
     if "verification_code_sent" not in st.session_state:
         st.session_state.verification_code_sent = False
+    if "messages_to_display" not in st.session_state:
+        st.session_state.messages_to_display = 7  # Show last 7 messages by default
 
 
 # ----------------------------------------------------------------------------
@@ -406,13 +408,40 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
     st.rerun()
 
 # ----------------------------------------------------------------------------
-# Chat UI helpers – render prior conversation
+# Chat UI helpers – render prior conversation (with limited window)
 # ----------------------------------------------------------------------------
-# Create a container for the conversation area
+# Show "Load Earlier Messages" button if there are more messages than displayed
+all_messages = st.session_state.messages[1:]  # Exclude system message
+total_messages = len(all_messages)
+
+if total_messages > st.session_state.messages_to_display:
+    if st.button(f"⬆️ Load Earlier Messages ({total_messages - st.session_state.messages_to_display} hidden)"):
+        st.session_state.messages_to_display += 5
+        st.rerun()
+
+# Create a scrollable container for messages with height limit
 conversation_container = st.container()
 
+# Add CSS for scrollable message container
+st.markdown(
+    """
+    <style>
+    /* Message container stays scrollable */
+    .message-display-area {
+        max-height: calc(100vh - 280px);
+        overflow-y: auto;
+        margin-bottom: 1rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Calculate which messages to show (last N)
+messages_to_show = all_messages[-st.session_state.messages_to_display:] if total_messages > st.session_state.messages_to_display else all_messages
+
 with conversation_container:
-    for message in st.session_state.messages[1:]:
+    for message in messages_to_show:
         avatar = (
             config.AVATAR_INTERVIEWER
             if message["role"] == "assistant"
@@ -503,79 +532,29 @@ if st.session_state.interview_active:
         for m in st.session_state.messages
     )
 
-    # CSS to make input area sticky at bottom
+    # Minimal CSS for message spacing
     st.markdown(
         """
         <style>
-        /* Add padding to main container for fixed input area */
-        .main .block-container {
-            padding-bottom: 100px !important;
-        }
-        
         /* Message spacing */
         .stChatMessage {
             margin-bottom: 1rem;
         }
         
-        /* Dynamically applied class for sticky input */
-        .stickychat-input-wrapper {
-            position: fixed !important;
-            bottom: 0 !important;
-            left: 21rem !important; /* Account for sidebar width */
-            right: 0 !important;
-            background: var(--background-color) !important;
-            padding: 1rem !important;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
-            z-index: 1000 !important;
+        /* Input area styling */
+        .input-area-wrapper {
+            background: var(--background-color);
+            padding: 1rem 0;
+            border-top: 1px solid var(--border-color);
+            margin-top: 1rem;
         }
-        
-        /* Ensure columns inside stay properly formatted */
-        .stickychat-input-wrapper [data-testid="column"] {
-            position: relative !important;
-        }
-        
-        /* Auto-scroll to latest message */
         </style>
-        
-        <script>
-        function makeInputSticky() {
-            // Find horizontal blocks (row containers with columns)
-            const hBlocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
-            
-            for (let block of hBlocks) {
-                const chatInput = block.querySelector('[data-testid="stChatInput"]');
-                const hasMicButton = block.textContent.includes('🎤') || block.textContent.includes('⌨️');
-                
-                if (chatInput && hasMicButton && !block.classList.contains('stickychat-input-wrapper')) {
-                    block.classList.add('stickychat-input-wrapper');
-                    
-                    // Scroll to show latest message
-                    setTimeout(() => {
-                        const messages = document.querySelectorAll('[data-testid="stChatMessageContainer"]');
-                        if (messages.length > 0) {
-                            messages[messages.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }
-                    }, 200);
-                    break;
-                }
-            }
-        }
-        
-        // Run after Streamlit renders
-        setTimeout(makeInputSticky, 200);
-        setTimeout(makeInputSticky, 600);
-        setTimeout(makeInputSticky, 1200);
-        
-        // Watch for DOM changes and reapply
-        const obs = new MutationObserver(() => setTimeout(makeInputSticky, 100));
-        setTimeout(() => {
-            const mainEl = document.querySelector('.main');
-            if (mainEl) obs.observe(mainEl, { childList: true, subtree: true });
-        }, 300);
-        </script>
         """,
         unsafe_allow_html=True,
     )
+    
+    # Visual separator before input
+    st.markdown('<div class="input-area-wrapper">', unsafe_allow_html=True)
     
     if st.session_state.use_voice:
         voice_col, text_col = st.columns([0.1, 0.9])
@@ -606,6 +585,9 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+    
+    # Close input area wrapper
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Process user input and generate responses
     if message_respondent:
