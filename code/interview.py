@@ -503,15 +503,74 @@ if st.session_state.interview_active:
         for m in st.session_state.messages
     )
 
-    # Minimal CSS for message spacing - let Streamlit handle input positioning
+    # CSS to make input sticky at bottom and conversation scrollable
     st.markdown(
         """
         <style>
-        /* Ensure proper spacing between messages */
+        /* Make the main container have proper layout */
+        .main .block-container {
+            padding-bottom: 120px !important; /* Space for fixed input */
+        }
+        
+        /* Message spacing */
         .stChatMessage {
             margin-bottom: 1rem;
         }
+        
+        /* Make chat input container fixed at bottom */
+        [data-testid="stChatInput"] {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: var(--background-color) !important;
+            padding: 1rem !important;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+            z-index: 999 !important;
+            margin: 0 !important;
+        }
+        
+        /* Ensure input is above sidebar */
+        [data-testid="stChatInput"] > div {
+            max-width: calc(100% - 300px) !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        
+        /* Auto-scroll conversation to bottom when new messages appear */
         </style>
+        
+        <script>
+        // Scroll conversation area to bottom
+        function scrollToLatestMessage() {
+            const messages = document.querySelectorAll('[data-testid="stChatMessageContainer"]');
+            if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
+        }
+        
+        // Run after a short delay to ensure DOM is ready
+        setTimeout(scrollToLatestMessage, 300);
+        setTimeout(scrollToLatestMessage, 800);
+        
+        // Also watch for new messages
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes.length) {
+                    scrollToLatestMessage();
+                }
+            });
+        });
+        
+        const config = { childList: true, subtree: true };
+        setTimeout(() => {
+            const targetNode = document.querySelector('.main');
+            if (targetNode) {
+                observer.observe(targetNode, config);
+            }
+        }, 500);
+        </script>
         """,
         unsafe_allow_html=True,
     )
