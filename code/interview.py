@@ -503,13 +503,13 @@ if st.session_state.interview_active:
         for m in st.session_state.messages
     )
 
-    # CSS to make input sticky at bottom and conversation scrollable
+    # CSS to make input area sticky at bottom
     st.markdown(
         """
         <style>
-        /* Make the main container have proper layout */
+        /* Add padding to main container for fixed input area */
         .main .block-container {
-            padding-bottom: 120px !important; /* Space for fixed input */
+            padding-bottom: 100px !important;
         }
         
         /* Message spacing */
@@ -517,31 +517,27 @@ if st.session_state.interview_active:
             margin-bottom: 1rem;
         }
         
-        /* Make chat input container fixed at bottom */
-        [data-testid="stChatInput"] {
+        /* Make the input area container fixed at bottom */
+        .fixed-input-container {
             position: fixed !important;
             bottom: 0 !important;
-            left: 0 !important;
+            left: 21rem !important; /* Account for sidebar width */
             right: 0 !important;
             background: var(--background-color) !important;
             padding: 1rem !important;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
             z-index: 999 !important;
-            margin: 0 !important;
         }
         
-        /* Ensure input is above sidebar */
-        [data-testid="stChatInput"] > div {
-            max-width: calc(100% - 300px) !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
+        /* Ensure content inside fixed container flows normally */
+        .fixed-input-container > div {
+            max-width: 100% !important;
         }
         
-        /* Auto-scroll conversation to bottom when new messages appear */
+        /* Auto-scroll to latest message */
         </style>
         
         <script>
-        // Scroll conversation area to bottom
         function scrollToLatestMessage() {
             const messages = document.querySelectorAll('[data-testid="stChatMessageContainer"]');
             if (messages.length > 0) {
@@ -550,11 +546,9 @@ if st.session_state.interview_active:
             }
         }
         
-        // Run after a short delay to ensure DOM is ready
         setTimeout(scrollToLatestMessage, 300);
         setTimeout(scrollToLatestMessage, 800);
         
-        // Also watch for new messages
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.addedNodes.length) {
@@ -563,17 +557,18 @@ if st.session_state.interview_active:
             });
         });
         
-        const config = { childList: true, subtree: true };
         setTimeout(() => {
             const targetNode = document.querySelector('.main');
             if (targetNode) {
-                observer.observe(targetNode, config);
+                observer.observe(targetNode, { childList: true, subtree: true });
             }
         }, 500);
         </script>
         """,
         unsafe_allow_html=True,
     )
+    # Create a container for the input area that we can make sticky
+    st.markdown('<div class="fixed-input-container">', unsafe_allow_html=True)
     
     if st.session_state.use_voice:
         voice_col, text_col = st.columns([0.1, 0.9])
@@ -604,6 +599,9 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+    
+    # Close the fixed input container
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Process user input and generate responses
     if message_respondent:
