@@ -276,7 +276,7 @@ company_name = _get_param("company")
 # Qualtrics post-interview survey link (CONFIG-DRIVEN)
 # ----------------------------------------------------------------------------
 DEFAULT_QUALTRICS_URL = (
-    "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_bvafC8YWGQJC1Ey"
+    "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_agZpa5UeS9sUwLQ"
 )
 evaluation_url = getattr(
     config, "POST_INTERVIEW_SURVEY_URL", DEFAULT_QUALTRICS_URL
@@ -503,7 +503,7 @@ if st.session_state.interview_active:
         for m in st.session_state.messages
     )
 
-    # Add CSS for better spacing and auto-scroll
+    # Minimal CSS for message spacing - let Streamlit handle input positioning
     st.markdown(
         """
         <style>
@@ -511,63 +511,13 @@ if st.session_state.interview_active:
         .stChatMessage {
             margin-bottom: 1rem;
         }
-        
-        /* Ensure the last message has proper spacing above input */
-        .stChatMessage:last-child {
-            margin-bottom: 1.5rem;
-        }
-        
-        /* Basic spacing for the main container */
-        .main .block-container {
-            padding-bottom: 8rem;
-        }
-        
-        /* Make input area sticky at bottom */
-        .stChatInputContainer {
-            position: sticky;
-            bottom: 0;
-            background-color: var(--background-color);
-            padding: 1rem 0;
-            z-index: 100;
-        }
         </style>
-        
-        <script>
-        // Auto-scroll to bottom when new messages appear
-        function scrollToBottom() {
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
-            });
-        }
-        
-        // Run on page load and after a short delay (to account for dynamic content)
-        setTimeout(scrollToBottom, 100);
-        setTimeout(scrollToBottom, 500);
-        
-        // Also observe for new messages being added
-        const observer = new MutationObserver(function(mutations) {
-            scrollToBottom();
-        });
-        
-        const config = { childList: true, subtree: true };
-        const targetNode = document.querySelector('.main');
-        if (targetNode) {
-            observer.observe(targetNode, config);
-        }
-        </script>
         """,
         unsafe_allow_html=True,
     )
-
-    # Create the input area that appears naturally after the last message
-    st.markdown("---")  # Add a separator line
-    
-    # Input container with proper styling
-    input_container = st.container()
     
     if st.session_state.use_voice:
-        voice_col, text_col = input_container.columns([0.1, 0.9])
+        voice_col, text_col = st.columns([0.1, 0.9])
         with text_col:
             audio_dict = mic_recorder(
                 start_prompt="🎙️ Hold to talk",
@@ -590,7 +540,7 @@ if st.session_state.interview_active:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
     else:
-        text_col, voice_col = input_container.columns([0.9, 0.1])
+        text_col, voice_col = st.columns([0.9, 0.1])
         with text_col:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
@@ -605,21 +555,6 @@ if st.session_state.interview_active:
         with conversation_container:
             with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
                 st.markdown(message_respondent)
-        
-        # Trigger scroll to bottom after user message
-        st.markdown(
-            """
-            <script>
-            setTimeout(function() {
-                window.scrollTo({
-                    top: document.body.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }, 100);
-            </script>
-            """,
-            unsafe_allow_html=True,
-        )
 
         # Generate and display assistant response
         with conversation_container:
@@ -660,21 +595,6 @@ if st.session_state.interview_active:
                         )
                     except Exception:
                         pass
-                    
-                    # Scroll to bottom after assistant response
-                    st.markdown(
-                        """
-                        <script>
-                        setTimeout(function() {
-                            window.scrollTo({
-                                top: document.body.scrollHeight,
-                                behavior: 'smooth'
-                            });
-                        }, 200);
-                        </script>
-                        """,
-                        unsafe_allow_html=True,
-                    )
 
                 for code in config.CLOSING_MESSAGES.keys():
                     if code in message_interviewer:
