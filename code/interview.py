@@ -358,6 +358,25 @@ with col2:
 # Quit & Completion flow – confirm email & save transcript
 # ----------------------------------------------------------------------------
 if st.session_state.awaiting_email_confirmation:
+    # Sticky notification at bottom to scroll up
+    st.markdown(
+        """
+        <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+                    background-color: #ff6b6b; color: white; padding: 1rem 2rem; 
+                    border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+                    z-index: 9999; text-align: center; font-weight: bold; animation: pulse 2s infinite;">
+            ⬆️ Scroll up to complete final confirmation before closing! ⬆️
+        </div>
+        <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
     st.subheader("Confirm Email Before Ending Interview")
     email_input = st.text_input(
         "Confirm or update your email address:", value=recipient_email
