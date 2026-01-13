@@ -1,5 +1,5 @@
 # Import base configuration
-from interview_configs.base_config import (
+from base_config import (
     GENERAL_INSTRUCTIONS,
     CODES,
     CLOSING_MESSAGES,

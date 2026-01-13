@@ -1,18 +1,38 @@
 # Import base configuration
-from interview_configs.base_config import (
-    GENERAL_INSTRUCTIONS,
-    CODES,
-    CLOSING_MESSAGES,
-    build_system_prompt,
-    TEMPERATURE,
-    MAX_OUTPUT_TOKENS,
-    LOGINS,
-    TRANSCRIPTS_DIRECTORY,
-    TIMES_DIRECTORY,
-    BACKUPS_DIRECTORY,
-    AVATAR_INTERVIEWER,
-    AVATAR_RESPONDENT,
-)
+try:
+    from interview_configs.base_config import (
+        GENERAL_INSTRUCTIONS,
+        CODES,
+        CLOSING_MESSAGES,
+        build_system_prompt,
+        TEMPERATURE,
+        MAX_OUTPUT_TOKENS,
+        LOGINS,
+        TRANSCRIPTS_DIRECTORY,
+        TIMES_DIRECTORY,
+        BACKUPS_DIRECTORY,
+        AVATAR_INTERVIEWER,
+        AVATAR_RESPONDENT,
+    )
+except ImportError:
+    # When loaded as a module from interview.py, use direct import
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'interview_configs'))
+    from base_config import (
+        GENERAL_INSTRUCTIONS,
+        CODES,
+        CLOSING_MESSAGES,
+        build_system_prompt,
+        TEMPERATURE,
+        MAX_OUTPUT_TOKENS,
+        LOGINS,
+        TRANSCRIPTS_DIRECTORY,
+        TIMES_DIRECTORY,
+        BACKUPS_DIRECTORY,
+        AVATAR_INTERVIEWER,
+        AVATAR_RESPONDENT,
+    )
 
 # Interview-specific outline
 INTERVIEW_OUTLINE = """
