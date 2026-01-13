@@ -517,8 +517,8 @@ if st.session_state.interview_active:
             margin-bottom: 1rem;
         }
         
-        /* Make the input area container fixed at bottom */
-        .fixed-input-container {
+        /* Dynamically applied class for sticky input */
+        .stickychat-input-wrapper {
             position: fixed !important;
             bottom: 0 !important;
             left: 21rem !important; /* Account for sidebar width */
@@ -526,49 +526,56 @@ if st.session_state.interview_active:
             background: var(--background-color) !important;
             padding: 1rem !important;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
-            z-index: 999 !important;
+            z-index: 1000 !important;
         }
         
-        /* Ensure content inside fixed container flows normally */
-        .fixed-input-container > div {
-            max-width: 100% !important;
+        /* Ensure columns inside stay properly formatted */
+        .stickychat-input-wrapper [data-testid="column"] {
+            position: relative !important;
         }
         
         /* Auto-scroll to latest message */
         </style>
         
         <script>
-        function scrollToLatestMessage() {
-            const messages = document.querySelectorAll('[data-testid="stChatMessageContainer"]');
-            if (messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        function makeInputSticky() {
+            // Find horizontal blocks (row containers with columns)
+            const hBlocks = document.querySelectorAll('[data-testid="stHorizontalBlock"]');
+            
+            for (let block of hBlocks) {
+                const chatInput = block.querySelector('[data-testid="stChatInput"]');
+                const hasMicButton = block.textContent.includes('🎤') || block.textContent.includes('⌨️');
+                
+                if (chatInput && hasMicButton && !block.classList.contains('stickychat-input-wrapper')) {
+                    block.classList.add('stickychat-input-wrapper');
+                    
+                    // Scroll to show latest message
+                    setTimeout(() => {
+                        const messages = document.querySelectorAll('[data-testid="stChatMessageContainer"]');
+                        if (messages.length > 0) {
+                            messages[messages.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    }, 200);
+                    break;
+                }
             }
         }
         
-        setTimeout(scrollToLatestMessage, 300);
-        setTimeout(scrollToLatestMessage, 800);
+        // Run after Streamlit renders
+        setTimeout(makeInputSticky, 200);
+        setTimeout(makeInputSticky, 600);
+        setTimeout(makeInputSticky, 1200);
         
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.addedNodes.length) {
-                    scrollToLatestMessage();
-                }
-            });
-        });
-        
+        // Watch for DOM changes and reapply
+        const obs = new MutationObserver(() => setTimeout(makeInputSticky, 100));
         setTimeout(() => {
-            const targetNode = document.querySelector('.main');
-            if (targetNode) {
-                observer.observe(targetNode, { childList: true, subtree: true });
-            }
-        }, 500);
+            const mainEl = document.querySelector('.main');
+            if (mainEl) obs.observe(mainEl, { childList: true, subtree: true });
+        }, 300);
         </script>
         """,
         unsafe_allow_html=True,
     )
-    # Create a container for the input area that we can make sticky
-    st.markdown('<div class="fixed-input-container">', unsafe_allow_html=True)
     
     if st.session_state.use_voice:
         voice_col, text_col = st.columns([0.1, 0.9])
@@ -599,9 +606,6 @@ if st.session_state.interview_active:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
-    
-    # Close the fixed input container
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Process user input and generate responses
     if message_respondent:
