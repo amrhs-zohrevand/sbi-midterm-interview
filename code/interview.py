@@ -503,7 +503,7 @@ if st.session_state.interview_active:
         for m in st.session_state.messages
     )
 
-    # Add minimal CSS for better spacing
+    # Add CSS for better spacing and auto-scroll
     st.markdown(
         """
         <style>
@@ -519,9 +519,43 @@ if st.session_state.interview_active:
         
         /* Basic spacing for the main container */
         .main .block-container {
-            padding-bottom: 2rem;
+            padding-bottom: 8rem;
+        }
+        
+        /* Make input area sticky at bottom */
+        .stChatInputContainer {
+            position: sticky;
+            bottom: 0;
+            background-color: var(--background-color);
+            padding: 1rem 0;
+            z-index: 100;
         }
         </style>
+        
+        <script>
+        // Auto-scroll to bottom when new messages appear
+        function scrollToBottom() {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Run on page load and after a short delay (to account for dynamic content)
+        setTimeout(scrollToBottom, 100);
+        setTimeout(scrollToBottom, 500);
+        
+        // Also observe for new messages being added
+        const observer = new MutationObserver(function(mutations) {
+            scrollToBottom();
+        });
+        
+        const config = { childList: true, subtree: true };
+        const targetNode = document.querySelector('.main');
+        if (targetNode) {
+            observer.observe(targetNode, config);
+        }
+        </script>
         """,
         unsafe_allow_html=True,
     )
@@ -571,6 +605,21 @@ if st.session_state.interview_active:
         with conversation_container:
             with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
                 st.markdown(message_respondent)
+        
+        # Trigger scroll to bottom after user message
+        st.markdown(
+            """
+            <script>
+            setTimeout(function() {
+                window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, 100);
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
 
         # Generate and display assistant response
         with conversation_container:
@@ -611,6 +660,21 @@ if st.session_state.interview_active:
                         )
                     except Exception:
                         pass
+                    
+                    # Scroll to bottom after assistant response
+                    st.markdown(
+                        """
+                        <script>
+                        setTimeout(function() {
+                            window.scrollTo({
+                                top: document.body.scrollHeight,
+                                behavior: 'smooth'
+                            });
+                        }, 200);
+                        </script>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
                 for code in config.CLOSING_MESSAGES.keys():
                     if code in message_interviewer:
