@@ -2,67 +2,7 @@ import os
 import time
 import sqlite3
 import streamlit as st
-import paramiko
-import tempfile
-
-
-def format_private_key(key_str):
-    """
-    Normalize the private key string as done in the email sending code.
-    """
-    if "\n" in key_str:
-        key_str = key_str.replace("\n", "\n")
-    if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
-        header = "-----BEGIN OPENSSH PRIVATE KEY-----"
-        footer = "-----END OPENSSH PRIVATE KEY-----"
-        key_body = key_str[len(header):-len(footer)].strip()
-        lines = [key_body[i:i + 70] for i in range(0, len(key_body), 70)]
-        key_str = header + "\n" + "\n".join(lines) + "\n" + footer
-    return key_str
-
-
-def get_ssh_connection():
-    """
-    Establish an SSH connection using the LIACS SSH credentials.
-    Returns the SSH client and the temporary key file path.
-    """
-    ssh_host = "ssh.liacs.nl"
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.")
-
-    key_str = st.secrets.get("LIACS_SSH_KEY")
-    if not key_str:
-        raise ValueError("LIACS_SSH_KEY is not defined in secrets. Please set it in your secrets file.")
-    key_str = format_private_key(key_str)
-
-    with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
-        tmp_key_file.write(key_str)
-        tmp_key_path = tmp_key_file.name
-
-    try:
-        try:
-            key = paramiko.Ed25519Key.from_private_key_file(tmp_key_path)
-        except paramiko.SSHException:
-            key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ssh_host, username=ssh_username, pkey=key)
-        return ssh, tmp_key_path
-    except Exception as e:
-        os.remove(tmp_key_path)
-        raise e
-
-
-def ensure_remote_directory(ssh, remote_directory):
-    """
-    Ensures the remote directory exists by executing a mkdir command.
-    """
-    mkdir_cmd = f"mkdir -p {remote_directory}"
-    stdin, stdout, stderr = ssh.exec_command(mkdir_cmd)
-    err = stderr.read().decode().strip()
-    if err:
-        raise PermissionError(f"Failed to create remote directory {remote_directory}: {err}")
+from ssh_utils import get_ssh_connection, ensure_remote_directory
 
 
 def run_remote_sql(ssh, db_path, sql_query):
@@ -119,6 +59,20 @@ def save_interview_to_sheet(interview_id, student_id, name, company, interview_t
     """
     Inserts the interview data into the remote SQLite database.
     The database file (interviews.db) is located in the SSH directory.
+    
+    Args:
+        interview_id: Unique identifier for this interview session
+        student_id: Student identifier
+        name: Student/respondent name
+        company: Company name (may be empty string)
+        interview_type: Type of interview being conducted
+        timestamp: Timestamp of interview completion
+        transcript: Full text transcript of the interview
+        duration_minutes: Interview duration in minutes as string
+        
+    Raises:
+        ValueError: If required secrets are not configured
+        Exception: If SSH connection or database operation fails
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
@@ -126,8 +80,11 @@ def save_interview_to_sheet(interview_id, student_id, name, company, interview_t
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
 
-    ssh, tmp_key_path = get_ssh_connection()
+    ssh = None
+    tmp_key_path = None
     try:
+        ssh, tmp_key_path = get_ssh_connection()
+        
         # Ensure the remote directory exists
         ensure_remote_directory(ssh, remote_directory)
 
@@ -153,15 +110,30 @@ def save_interview_to_sheet(interview_id, student_id, name, company, interview_t
             f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');"
         )
         run_remote_sql(ssh, db_path, insert_query)
+    except Exception as e:
+        st.error(f"Failed to save interview to database: {str(e)}")
+        raise
     finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+        if ssh:
+            ssh.close()
+        if tmp_key_path and os.path.exists(tmp_key_path):
+            os.remove(tmp_key_path)
 
 
 def update_progress_sheet(student_id, name, interview_type, timestamp):
     """
     Inserts a progress update into the remote SQLite database.
     The database file (interviews.db) is located in the SSH directory.
+    
+    Args:
+        student_id: Student identifier
+        name: Student name
+        interview_type: Type of interview completed
+        timestamp: Completion timestamp
+        
+    Raises:
+        ValueError: If required secrets are not configured
+        Exception: If SSH connection or database operation fails
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
@@ -169,8 +141,10 @@ def update_progress_sheet(student_id, name, interview_type, timestamp):
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
 
-    ssh, tmp_key_path = get_ssh_connection()
+    ssh = None
+    tmp_key_path = None
     try:
+        ssh, tmp_key_path = get_ssh_connection()
         ensure_remote_directory(ssh, remote_directory)
 
         # Create the progress table if it doesn't exist
@@ -188,16 +162,31 @@ def update_progress_sheet(student_id, name, interview_type, timestamp):
             f"VALUES ('{student_id}', '{name}', '{interview_type}', '{timestamp}');"
         )
         run_remote_sql(ssh, db_path, insert_query)
+    except Exception as e:
+        st.error(f"Failed to update progress sheet: {str(e)}")
+        raise
     finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+        if ssh:
+            ssh.close()
+        if tmp_key_path and os.path.exists(tmp_key_path):
+            os.remove(tmp_key_path)
 
 
 def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None):
     """
     Retrieves the most recent transcript for a given student and interview type from the remote SQLite database.
-    Accepts an optional ssh_conn parameter. If not provided, a new connection is established.
-    Returns the transcript text, or an empty string if not found.
+    
+    Args:
+        student_id: Student identifier
+        interview_type: Type of interview to retrieve
+        ssh_conn: Optional existing SSH connection to reuse
+        
+    Returns:
+        str: The transcript summary text, or an empty string if not found
+        
+    Raises:
+        ValueError: If required secrets are not configured
+        Exception: If SSH connection or database query fails
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
@@ -207,6 +196,7 @@ def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None
 
     # Use the provided SSH connection if available, otherwise establish a new one.
     remove_after = False
+    tmp_key_path = None
     if ssh_conn is None:
         ssh, tmp_key_path = get_ssh_connection()
         remove_after = True
@@ -238,14 +228,27 @@ conn.close()
         if error:
             raise Exception(f"SQLite error while fetching transcript: {error}")
         return result
+    except Exception as e:
+        st.error(f"Failed to retrieve transcript: {str(e)}")
+        return ""  # Return empty string on error to allow interview to proceed
     finally:
-        if remove_after:
+        if remove_after and ssh:
             ssh.close()
+        if tmp_key_path and os.path.exists(tmp_key_path):
+            os.remove(tmp_key_path)
 
 
 def update_interview_summary(interview_id, summary):
     """
     Updates the interview record identified by interview_id with the given summary.
+    
+    Args:
+        interview_id: Unique identifier for the interview session
+        summary: Summary text to store
+        
+    Raises:
+        ValueError: If required secrets are not configured
+        Exception: If SSH connection or database update fails
     """
     ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
     if not ssh_username:
@@ -253,13 +256,20 @@ def update_interview_summary(interview_id, summary):
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
 
-    ssh, tmp_key_path = get_ssh_connection()
+    ssh = None
+    tmp_key_path = None
     try:
+        ssh, tmp_key_path = get_ssh_connection()
         summary_escaped = summary.replace("'", "''")
         update_query = (
             f"UPDATE interviews SET summary = '{summary_escaped}' WHERE interview_id = '{interview_id}';"
         )
         run_remote_sql(ssh, db_path, update_query)
+    except Exception as e:
+        st.error(f"Failed to update interview summary: {str(e)}")
+        raise
     finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+        if ssh:
+            ssh.close()
+        if tmp_key_path and os.path.exists(tmp_key_path):
+            os.remove(tmp_key_path)

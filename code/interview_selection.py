@@ -15,7 +15,18 @@ if "interview_matrix_notice_shown" not in st.session_state:
     st.session_state.interview_matrix_notice_shown = True
 
 def load_interview_context_map():
-    """Reads the interview context mapping from CSV."""
+    """
+    Reads the interview context mapping from CSV file.
+    
+    The CSV file maps current interview types to context interview types,
+    allowing one interview to reference data from a previous interview.
+    
+    Returns:
+        dict: Mapping of current_interview (lowercase) -> context_interview (lowercase)
+        
+    Example:
+        {"end_reflection_interview": "midterm_interview"}
+    """
     mapping = {}
     if MATRIX_FILE.exists():
         with open(MATRIX_FILE, newline="", encoding="utf-8") as csvfile:
@@ -29,8 +40,18 @@ def load_interview_context_map():
 
 def get_context_transcript(student_id: str, current_interview_type: str) -> str:
     """
+    Retrieves the summary transcript from a previous interview to provide context.
+    
     Given the current interview type and student ID, this returns the summary transcript
-    of the associated context interview if defined in the matrix.
+    of the associated context interview if defined in the matrix. This allows interviews
+    to build upon previous interviews (e.g., end reflection referencing midterm).
+    
+    Args:
+        student_id: Student identifier
+        current_interview_type: The type of interview currently being conducted
+        
+    Returns:
+        str: Summary transcript from the context interview, or empty string if not found
     """
     context_map = load_interview_context_map()
     interview_key = current_interview_type.lower()

@@ -51,6 +51,18 @@ else:
 audio_client = OpenAI(api_key=st.secrets["API_KEY"])
 
 def transcribe(audio_bytes: bytes) -> str:
+    """
+    Transcribe audio bytes using OpenAI's Whisper API.
+    
+    Args:
+        audio_bytes: Raw audio data in WAV format
+        
+    Returns:
+        str: Transcribed text from the audio
+        
+    Raises:
+        Exception: If transcription fails
+    """
     # write bytes to a temp wav
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         tmp.write(audio_bytes)
@@ -73,7 +85,12 @@ def transcribe(audio_bytes: bytes) -> str:
 
 
 def toggle_voice_mode() -> None:
-    """Toggle between text and voice input modes."""
+    """
+    Toggle between text and voice input modes.
+    
+    Updates the session state to switch the input method between
+    keyboard text input and voice recording.
+    """
     st.session_state.use_voice = not st.session_state.use_voice
 
 # ----------------------------------------------------------------------------
@@ -107,31 +124,124 @@ def _get_param(name: str, default: str = "") -> str:
         val = val[0]
     return html.unescape(val)
 
+
+# ----------------------------------------------------------------------------
+# Helper to initialize session state variables
+# ----------------------------------------------------------------------------
+def _initialize_session_state():
+    """Initialize all session state variables with their default values."""
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
+    if "interview_active" not in st.session_state:
+        st.session_state.interview_active = True
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "email_sent" not in st.session_state:
+        st.session_state.email_sent = False
+    if "start_time" not in st.session_state:
+        st.session_state.start_time = time.time()
+    if "awaiting_email_confirmation" not in st.session_state:
+        st.session_state.awaiting_email_confirmation = False
+    if "show_evaluation_only" not in st.session_state:
+        st.session_state.show_evaluation_only = False
+    if "use_voice" not in st.session_state:
+        st.session_state.use_voice = False
+    if "student_verified" not in st.session_state:
+        st.session_state.student_verified = False
+    if "verification_code" not in st.session_state:
+        st.session_state.verification_code = ""
+    if "verification_code_sent" not in st.session_state:
+        st.session_state.verification_code_sent = False
+
+
+# ----------------------------------------------------------------------------
+# Helper to complete interview and save data
+# ----------------------------------------------------------------------------
+def _complete_interview(student_number, respondent_name, company_name, config_name, 
+                        transcript_text=None, send_email_flag=False, email_address=None):
+    """
+    Complete the interview by saving to database, generating summary, and updating progress.
+    
+    Args:
+        student_number: Student ID number
+        respondent_name: Name of the respondent
+        company_name: Company name (optional)
+        config_name: Interview configuration name
+        transcript_text: Pre-built transcript text (if None, will be built from messages)
+        send_email_flag: Whether to send email notification
+        email_address: Email address to send to (if sending email)
+    """
+    duration_minutes = (time.time() - st.session_state.start_time) / 60
+    interview_id = st.session_state.session_id
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    
+    # Build transcript if not provided
+    if transcript_text is None:
+        transcript_text = "".join(
+            f"{msg['role']}: {msg['content']}\n"
+            for msg in st.session_state.messages
+            if msg["role"] in ["user", "assistant"]
+        )
+    
+    # Save to database
+    save_interview_to_sheet(
+        interview_id,
+        student_number,
+        respondent_name,
+        company_name,
+        config_name,
+        timestamp,
+        transcript_text,
+        f"{duration_minutes:.2f}",
+    )
+    
+    # Update progress sheet if student number provided
+    if student_number:
+        update_progress_sheet(student_number, respondent_name, config_name, timestamp)
+    
+    # Generate and save summary
+    summary_prompt = (
+        "Please provide a concise but detailed summary for the following interview transcript:\n\n"
+        + transcript_text
+    )
+    
+    if api == "openai":
+        if provider == "deepinfra":
+            summary_messages = [{"role": "user", "content": summary_prompt}]
+        else:
+            summary_messages = [{"role": "system", "content": summary_prompt}]
+        summary_response = client.chat.completions.create(
+            model=model,
+            messages=summary_messages,
+            max_tokens=200,
+            temperature=0.7,
+            stream=False,
+        )
+        summary_text = summary_response.choices[0].message.content.strip()
+    else:
+        summary_text = "Summary generation not implemented for this provider."
+    
+    update_interview_summary(interview_id, summary_text)
+    
+    # Send email if requested
+    if send_email_flag and email_address:
+        transcript_link, transcript_file = save_interview_data(
+            student_number=student_number,
+            company_name=company_name,
+        )
+        send_transcript_email(
+            student_number=student_number,
+            recipient_email=email_address,
+            transcript_link=transcript_link,
+            transcript_file=transcript_file,
+            name_from_form=respondent_name,
+        )
+        st.session_state.email_sent = True
+
 # ----------------------------------------------------------------------------
 # Streamlit session-state defaults
 # ----------------------------------------------------------------------------
-if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
-if "interview_active" not in st.session_state:
-    st.session_state.interview_active = True
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "email_sent" not in st.session_state:
-    st.session_state.email_sent = False
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-if "awaiting_email_confirmation" not in st.session_state:
-    st.session_state.awaiting_email_confirmation = False
-if "show_evaluation_only" not in st.session_state:
-    st.session_state.show_evaluation_only = False
-if "use_voice" not in st.session_state:
-    st.session_state.use_voice = False
-if "student_verified" not in st.session_state:
-    st.session_state.student_verified = False
-if "verification_code" not in st.session_state:
-    st.session_state.verification_code = ""
-if "verification_code_sent" not in st.session_state:
-    st.session_state.verification_code_sent = False
+_initialize_session_state()
 
 # ----------------------------------------------------------------------------
 # "student_number" **and "company"** are now optional – only the fields below are required.
@@ -139,6 +249,15 @@ if "verification_code_sent" not in st.session_state:
 required_params = ["name", "recipient_email"]
 
 def validate_query_params(params):
+    """
+    Validate that all required query parameters are present.
+    
+    Args:
+        params: Dictionary of query parameters
+        
+    Returns:
+        tuple: (is_valid: bool, missing: list of missing parameter names)
+    """
     missing = [k for k in required_params if k not in params or not params[k]]
     return len(missing) == 0, missing
 
@@ -245,71 +364,30 @@ if st.session_state.awaiting_email_confirmation:
     )
     send_email = st.checkbox("Yes, send a transcript to this email.")
     if st.button("Confirm and Quit"):
-        # ... existing quit logic unchanged ...
         st.session_state.interview_active = False
         st.session_state.awaiting_email_confirmation = False
         st.session_state.email_confirmed = True
         quit_msg = "You have cancelled the interview."
         st.session_state.messages.append({"role": "assistant", "content": quit_msg})
+        
+        # Save local transcript
         transcript_link, transcript_file = save_interview_data(
             student_number=student_number,
             company_name=company_name,
         )
         st.session_state.transcript_link = transcript_link
         st.session_state.transcript_file = transcript_file
-        if send_email:
-            send_transcript_email(
-                student_number=student_number,
-                recipient_email=email_input,
-                transcript_link=transcript_link,
-                transcript_file=transcript_file,
-                name_from_form=respondent_name,
-            )
-            st.session_state.email_sent = True
-        duration_minutes = (time.time() - st.session_state.start_time) / 60
-        interview_id = st.session_state.session_id
-        student_id = student_number
-        name = respondent_name
-        company = company_name
-        interview_type = config_name
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        transcript_text = "".join(
-            f"{msg['role']}: {msg['content']}\n"
-            for msg in st.session_state.messages
-            if msg["role"] in ["user", "assistant"]
+        
+        # Complete interview and save to database
+        _complete_interview(
+            student_number=student_number,
+            respondent_name=respondent_name,
+            company_name=company_name,
+            config_name=config_name,
+            send_email_flag=send_email,
+            email_address=email_input if send_email else None,
         )
-        save_interview_to_sheet(
-            interview_id,
-            student_id,
-            name,
-            company,
-            interview_type,
-            timestamp,
-            transcript_text,
-            f"{duration_minutes:.2f}",
-        )
-        if student_number:
-            update_progress_sheet(student_number, name, interview_type, timestamp)
-        summary_prompt = (
-            "Please provide a concise but detailed summary for the following interview transcript:\n\n"
-            + transcript_text
-        )
-        if api == "openai":
-            if provider == "deepinfra":
-                summary_messages = [{"role": "user", "content": summary_prompt}]
-            else:
-                summary_messages = [{"role": "system", "content": summary_prompt}]
-            summary_response = client.chat.completions.create(
-                model=model,
-                messages=summary_messages,
-                max_tokens=200,
-                temperature=0.7,
-                stream=False,
-            )
-            summary_text = summary_response.choices[0].message.content.strip()
-        else:
-            summary_text = "Summary generation not implemented for this provider."
-        update_interview_summary(interview_id, summary_text)
+        
         st.session_state.show_evaluation_only = True
         st.rerun()
 
@@ -317,52 +395,13 @@ if st.session_state.awaiting_email_confirmation:
 # Post-interview actions and persistence (automatic bot-closure path)
 # ----------------------------------------------------------------------------
 if not st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
-    # ... existing post-interview logic unchanged ...
-    # Save to sheet, update progress, generate summary
-    duration_minutes = (time.time() - st.session_state.start_time) / 60
-    interview_id = st.session_state.session_id
-    student_id = student_number
-    name = respondent_name
-    company = company_name
-    interview_type = config_name
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    transcript = "".join(
-        f"{msg['role']}: {msg['content']}\n"
-        for msg in st.session_state.messages
-        if msg["role"] in ["user", "assistant"]
+    # Complete interview and save all data
+    _complete_interview(
+        student_number=student_number,
+        respondent_name=respondent_name,
+        company_name=company_name,
+        config_name=config_name,
     )
-    save_interview_to_sheet(
-        interview_id,
-        student_id,
-        name,
-        company,
-        interview_type,
-        timestamp,
-        transcript,
-        f"{duration_minutes:.2f}",
-    )
-    if student_number:
-        update_progress_sheet(student_number, name, interview_type, timestamp)
-    summary_prompt = (
-        "Please provide a concise but detailed summary for the following interview transcript:\n\n"
-        + transcript
-    )
-    if api == "openai":
-        if provider == "deepinfra":
-            summary_messages = [{"role": "user", "content": summary_prompt}]
-        else:
-            summary_messages = [{"role": "system", "content": summary_prompt}]
-        summary_response = client.chat.completions.create(
-            model=model,
-            messages=summary_messages,
-            max_tokens=200,
-            temperature=0.7,
-            stream=False,
-        )
-        summary_text = summary_response.choices[0].message.content.strip()
-    else:
-        summary_text = "Summary generation not implemented for this provider."
-    update_interview_summary(interview_id, summary_text)
     st.session_state.show_evaluation_only = True
     st.rerun()
 

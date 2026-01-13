@@ -10,9 +10,19 @@ import base64
 import paramiko
 import io
 import tempfile
+from ssh_utils import format_private_key
 
 def check_if_interview_completed(directory, username):
-    """Check if interview transcript/time file exists which signals that interview was completed."""
+    """
+    Check if interview transcript/time file exists which signals that interview was completed.
+    
+    Args:
+        directory: Directory to check for completion files
+        username: Username to check completion status for
+        
+    Returns:
+        bool: True if interview completed, False otherwise
+    """
     if username != "testaccount":
         try:
             with open(os.path.join(directory, f"{username}.txt"), "r") as _:
@@ -23,9 +33,21 @@ def check_if_interview_completed(directory, username):
         return False
 
 def save_interview_data(student_number, company_name="", transcripts_directory=None, times_directory=None):
-    """Persist transcript & timing information.
-    *company_name* is now optional – when omitted, filenames do **not** contain
-    the company segment and no trailing underscore is left behind.
+    """
+    Persist transcript & timing information to local files.
+    
+    Args:
+        student_number: Student identifier (may be empty string)
+        company_name: Company name (optional, defaults to empty string)
+        transcripts_directory: Directory to save transcripts (uses config default if None)
+        times_directory: Directory to save timing data (uses config default if None)
+        
+    Returns:
+        tuple: (transcript_link, transcript_file) where transcript_link is empty string 
+               (no longer uploading to Google Drive) and transcript_file is the local file path
+               
+    Raises:
+        IOError: If file writing fails
     """
     # Use default directories from config if not provided
     if transcripts_directory is None or times_directory is None:
@@ -73,10 +95,20 @@ def send_transcript_email(
     recipient_email,
     transcript_link,
     transcript_file,
-    name_from_form=None  # NEW parameter to pass the interviewee's name
+    name_from_form=None
 ):
     """
     Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
+    
+    Args:
+        student_number: Student identifier (may be empty string)
+        recipient_email: Email address to send transcript to
+        transcript_link: Link to transcript (currently unused, kept for backwards compatibility)
+        transcript_file: Path to the transcript file to attach
+        name_from_form: Name of the interviewee for personalized greeting
+        
+    Raises:
+        Exception: If email sending fails (caught and displayed to user)
     """
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
 
@@ -161,14 +193,7 @@ print("✅ Email sent. Please wait with closing this window as we are still proc
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
             key_str = st.secrets["LIACS_SSH_KEY"]
-            if "\\n" in key_str:
-                key_str = key_str.replace("\\n", "\n")
-            if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
-                header = "-----BEGIN OPENSSH PRIVATE KEY-----"
-                footer = "-----END OPENSSH PRIVATE KEY-----"
-                key_body = key_str[len(header):-len(footer)].strip()
-                lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
-                key_str = header + "\n" + "\n".join(lines) + "\n" + footer
+            key_str = format_private_key(key_str)
             with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
                 tmp_key_file.write(key_str)
                 tmp_key_path = tmp_key_file.name
@@ -227,7 +252,16 @@ print("✅ Email sent. Please wait with closing this window as we are still proc
 
 
 def send_verification_code(student_number, code):
-    """Send a short verification code to the student's institutional email."""
+    """
+    Send a short verification code to the student's institutional email.
+    
+    Args:
+        student_number: Student identifier (used to construct email address)
+        code: The verification code to send
+        
+    Raises:
+        Exception: If email sending fails (caught and displayed to user)
+    """
     use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
     from_addr = "bs-internships@liacs.leidenuniv.nl"
     to_addr = f"{student_number}@vuw.leidenuniv.nl"
@@ -263,14 +297,7 @@ print('✅ Verification email sent.')
             ssh_host = "ssh.liacs.nl"
             ssh_username = st.secrets["LIACS_SSH_USERNAME"]
             key_str = st.secrets["LIACS_SSH_KEY"]
-            if "\n" in key_str:
-                key_str = key_str.replace("\n", "\n")
-            if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
-                header = "-----BEGIN OPENSSH PRIVATE KEY-----"
-                footer = "-----END OPENSSH PRIVATE KEY-----"
-                key_body = key_str[len(header):-len(footer)].strip()
-                lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
-                key_str = header + "\n" + "\n".join(lines) + "\n" + footer
+            key_str = format_private_key(key_str)
             with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
                 tmp_key_file.write(key_str)
                 tmp_key_path = tmp_key_file.name
