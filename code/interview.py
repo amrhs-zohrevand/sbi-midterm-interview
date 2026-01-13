@@ -408,6 +408,18 @@ if not st.session_state.interview_active and not st.session_state.awaiting_email
 # ----------------------------------------------------------------------------
 # Chat UI helpers – render prior conversation
 # ----------------------------------------------------------------------------
+# Visual hint for users to scroll if conversation is long (show at TOP)
+if len(st.session_state.messages) > 5:
+    st.markdown(
+        """
+        <div style="text-align: center; color: #666; font-size: 0.9em; margin: 0.5rem 0 1rem 0; 
+                    padding: 0.5rem; background-color: rgba(128,128,128,0.05); border-radius: 4px;">
+            👇 Scroll down to reply 👇
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 conversation_container = st.container()
 
 with conversation_container:
@@ -422,17 +434,6 @@ with conversation_container:
         ):
             with st.chat_message(message["role"], avatar=avatar):
                 st.markdown(message["content"])
-
-# Visual hint for users to scroll if conversation is long
-if len(st.session_state.messages) > 5:
-    st.markdown(
-        """
-        <div style="text-align: center; color: #666; font-size: 0.9em; margin: 1rem 0;">
-            👇 Scroll down to reply
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 # ----------------------------------------------------------------------------
 # Helper dict for LLM calls
