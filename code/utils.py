@@ -139,7 +139,8 @@ def synthesize_speech_deepinfra(text, model="hexgrad/Kokoro-82M", api_key=None, 
     """
     if not api_key:
         raise ValueError("Missing DEEPINFRA_API_KEY for speech synthesis.")
-    payload = {"input": text}
+    # Most DeepInfra TTS models expect "text" (some accept "input").
+    payload = {"text": text}
     data = json.dumps(payload).encode("utf-8")
     url = f"https://api.deepinfra.com/v1/inference/{model}"
     req = urllib.request.Request(
