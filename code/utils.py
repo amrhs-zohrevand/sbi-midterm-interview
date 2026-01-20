@@ -102,8 +102,21 @@ def _extract_audio_from_response(response_obj):
             value = response_obj.get(key)
             if isinstance(value, str) and value.startswith("http"):
                 return _fetch_audio_url(value)
+        # Audio dicts with data + mime/content type
+        for key in ("audio", "audio_data", "data", "output"):
+            value = response_obj.get(key)
+            if isinstance(value, dict):
+                mime_type = value.get("mime_type") or value.get("content_type") or ""
+                for data_key in ("data", "base64", "audio_base64", "wav_base64", "mp3_base64"):
+                    data_val = value.get(data_key)
+                    if isinstance(data_val, str):
+                        try:
+                            audio_bytes = base64.b64decode(data_val)
+                        except Exception:
+                            continue
+                        return audio_bytes, mime_type or "audio/wav"
         # Base64-based fields
-        for key in ("wav_base64", "audio_base64", "base64", "audio"):
+        for key in ("wav_base64", "audio_base64", "mp3_base64", "base64", "audio"):
             value = response_obj.get(key)
             if isinstance(value, str) and not value.startswith("http"):
                 try:
@@ -141,6 +154,9 @@ def synthesize_speech_deepinfra(text, model="hexgrad/Kokoro-82M", api_key=None, 
         raise ValueError("Missing DEEPINFRA_API_KEY for speech synthesis.")
     # Most DeepInfra TTS models expect "text" (some accept "input").
     payload = {"text": text}
+    voice = st.secrets.get("TTS_VOICE", "")
+    if voice:
+        payload["voice"] = voice
     data = json.dumps(payload).encode("utf-8")
     url = f"https://api.deepinfra.com/v1/inference/{model}"
     req = urllib.request.Request(
@@ -161,13 +177,15 @@ def synthesize_speech_deepinfra(text, model="hexgrad/Kokoro-82M", api_key=None, 
         raise RuntimeError(f"DeepInfra TTS error: {e.code} {detail}") from e
     if content_type.startswith("audio/"):
         return body, content_type
+    if content_type == "application/octet-stream":
+        return body, "audio/wav"
     try:
         response_obj = json.loads(body.decode("utf-8"))
     except json.JSONDecodeError as e:
         raise RuntimeError("Unexpected DeepInfra TTS response format.") from e
     extracted = _extract_audio_from_response(response_obj)
     if not extracted:
-        raise RuntimeError("DeepInfra TTS response missing audio data.")
+        raise RuntimeError(f"DeepInfra TTS response missing audio data. Response: {response_obj}")
     return extracted
 
 def send_transcript_email(
