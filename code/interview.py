@@ -14,6 +14,7 @@ from database import (
 from interview_selection import get_context_transcript, load_interview_context_map
 import os
 import html
+import base64
 import uuid
 import importlib.util
 
@@ -148,6 +149,7 @@ def _update_tts_audio():
         st.session_state.tts_audio_bytes = audio_bytes
         st.session_state.tts_audio_mime = mime_type
         st.session_state.tts_last_message_idx = idx
+        st.session_state.tts_autoplay_nonce += 1
     except Exception as exc:
         st.error(f"Speech output failed: {exc}")
 
@@ -218,6 +220,8 @@ def _initialize_session_state():
         st.session_state.tts_audio_mime = ""
     if "tts_last_message_idx" not in st.session_state:
         st.session_state.tts_last_message_idx = None
+    if "tts_autoplay_nonce" not in st.session_state:
+        st.session_state.tts_autoplay_nonce = 0
 
 
 # ----------------------------------------------------------------------------
@@ -660,9 +664,16 @@ if st.session_state.interview_active:
             )
 
     if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:
-        st.audio(
-            st.session_state.tts_audio_bytes,
-            format=st.session_state.tts_audio_mime or "audio/wav",
+        audio_b64 = base64.b64encode(st.session_state.tts_audio_bytes).decode("ascii")
+        mime_type = st.session_state.tts_audio_mime or "audio/wav"
+        _ = st.session_state.tts_autoplay_nonce  # force rerender on new audio
+        st.markdown(
+            f"""
+            <audio controls autoplay>
+                <source src="data:{mime_type};base64,{audio_b64}">
+            </audio>
+            """,
+            unsafe_allow_html=True,
         )
 
     # Process user input and generate responses
