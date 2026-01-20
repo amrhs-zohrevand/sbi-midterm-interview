@@ -126,17 +126,18 @@ def _get_latest_assistant_message():
 def _update_tts_audio():
     """
     Generate TTS audio for the latest assistant response if needed.
+    Returns True if new audio was generated, False otherwise.
     """
     if not st.session_state.speech_output_enabled:
-        return
+        return False
     idx, content = _get_latest_assistant_message()
     if idx is None or not content:
-        return
+        return False
     if (
         st.session_state.tts_last_message_idx == idx
         and st.session_state.tts_audio_bytes
     ):
-        return
+        return False
     tts_model = st.secrets.get("TTS_MODEL", "hexgrad/Kokoro-82M")
     tts_key = st.secrets.get("DEEPINFRA_API_KEY")
     try:
@@ -150,8 +151,10 @@ def _update_tts_audio():
         st.session_state.tts_audio_mime = mime_type
         st.session_state.tts_last_message_idx = idx
         st.session_state.tts_autoplay_nonce += 1
+        return True
     except Exception as exc:
         st.error(f"Speech output failed: {exc}")
+        return False
 
 # ----------------------------------------------------------------------------
 # Configuration loading
@@ -222,6 +225,8 @@ def _initialize_session_state():
         st.session_state.tts_last_message_idx = None
     if "tts_autoplay_nonce" not in st.session_state:
         st.session_state.tts_autoplay_nonce = 0
+    if "tts_played_nonce" not in st.session_state:
+        st.session_state.tts_played_nonce = 0
 
 
 # ----------------------------------------------------------------------------
@@ -591,7 +596,8 @@ if not st.session_state.messages:
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
     save_interview_data(student_number=student_number, company_name=company_name)
     if st.session_state.speech_output_enabled:
-        _update_tts_audio()
+        if _update_tts_audio():
+            st.rerun()  # Rerun to render audio player with new audio + autoplay
 
 # ----------------------------------------------------------------------------
 # Main chat loop with voice input
@@ -666,10 +672,19 @@ if st.session_state.interview_active:
     if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:
         audio_b64 = base64.b64encode(st.session_state.tts_audio_bytes).decode("ascii")
         mime_type = st.session_state.tts_audio_mime or "audio/wav"
-        _ = st.session_state.tts_autoplay_nonce  # force rerender on new audio
+        # Only autoplay if new audio was just generated (nonce increased)
+        should_autoplay = st.session_state.tts_autoplay_nonce > st.session_state.tts_played_nonce
+        autoplay_attr = "autoplay" if should_autoplay else ""
+        if should_autoplay:
+            st.session_state.tts_played_nonce = st.session_state.tts_autoplay_nonce
         st.markdown(
             f"""
-            <audio controls autoplay>
+            <style>
+            audio {{
+                width: 100%;
+            }}
+            </style>
+            <audio controls {autoplay_attr}>
                 <source src="data:{mime_type};base64,{audio_b64}">
             </audio>
             """,
@@ -726,7 +741,8 @@ if st.session_state.interview_active:
                     except Exception:
                         pass
                     if st.session_state.speech_output_enabled:
-                        _update_tts_audio()
+                        if _update_tts_audio():
+                            st.rerun()  # Rerun to render audio player with new audio + autoplay
 
                 for code in config.CLOSING_MESSAGES.keys():
                     if code in message_interviewer:
@@ -739,4 +755,4 @@ if st.session_state.interview_active:
                         if st.session_state.speech_output_enabled:
                             _update_tts_audio()
                         time.sleep(1)
-                        st.rerun()
+                        st.rerun()  # Rerun handles both closing flow and audio player
