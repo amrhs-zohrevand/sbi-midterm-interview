@@ -115,10 +115,18 @@ def _extract_audio_from_response(response_obj):
                         except Exception:
                             continue
                         return audio_bytes, mime_type or "audio/wav"
-        # Base64-based fields
+        # Base64-based fields or data URIs
         for key in ("wav_base64", "audio_base64", "mp3_base64", "base64", "audio"):
             value = response_obj.get(key)
             if isinstance(value, str) and not value.startswith("http"):
+                if value.startswith("data:audio/") and ";base64," in value:
+                    header, b64_data = value.split(",", 1)
+                    mime_type = header.replace("data:", "").split(";")[0]
+                    try:
+                        audio_bytes = base64.b64decode(b64_data)
+                    except Exception:
+                        continue
+                    return audio_bytes, mime_type or "audio/wav"
                 try:
                     audio_bytes = base64.b64decode(value)
                 except Exception:
