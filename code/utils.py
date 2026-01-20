@@ -4,6 +4,8 @@ import time
 import os
 import json
 import smtplib
+import urllib.request
+import urllib.error
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import base64
@@ -89,6 +91,83 @@ def save_interview_data(student_number, company_name="", transcripts_directory=N
     # Removed Google Drive upload; transcript_link is now set to an empty string.
     transcript_link = ""
     return transcript_link, transcript_file
+
+def _extract_audio_from_response(response_obj):
+    """
+    Extract audio bytes and mime type from DeepInfra TTS responses.
+    """
+    if isinstance(response_obj, dict):
+        # URL-based fields
+        for key in ("audio_url", "audio", "url", "output_url"):
+            value = response_obj.get(key)
+            if isinstance(value, str) and value.startswith("http"):
+                return _fetch_audio_url(value)
+        # Base64-based fields
+        for key in ("wav_base64", "audio_base64", "base64", "audio"):
+            value = response_obj.get(key)
+            if isinstance(value, str) and not value.startswith("http"):
+                try:
+                    audio_bytes = base64.b64decode(value)
+                except Exception:
+                    continue
+                return audio_bytes, "audio/wav"
+        # Nested structures
+        for key in ("data", "result", "results", "output"):
+            value = response_obj.get(key)
+            extracted = _extract_audio_from_response(value)
+            if extracted:
+                return extracted
+    elif isinstance(response_obj, list):
+        for item in response_obj:
+            extracted = _extract_audio_from_response(item)
+            if extracted:
+                return extracted
+    return None
+
+def _fetch_audio_url(url):
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        audio_bytes = resp.read()
+        mime_type = resp.headers.get("Content-Type", "")
+    if not mime_type:
+        mime_type = "audio/mpeg" if url.lower().endswith(".mp3") else "audio/wav"
+    return audio_bytes, mime_type
+
+def synthesize_speech_deepinfra(text, model="hexgrad/Kokoro-82M", api_key=None, timeout=60):
+    """
+    Synthesize speech using DeepInfra TTS models.
+    Returns (audio_bytes, mime_type).
+    """
+    if not api_key:
+        raise ValueError("Missing DEEPINFRA_API_KEY for speech synthesis.")
+    payload = {"input": text}
+    data = json.dumps(payload).encode("utf-8")
+    url = f"https://api.deepinfra.com/v1/inference/{model}"
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            body = resp.read()
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"DeepInfra TTS error: {e.code} {detail}") from e
+    if content_type.startswith("audio/"):
+        return body, content_type
+    try:
+        response_obj = json.loads(body.decode("utf-8"))
+    except json.JSONDecodeError as e:
+        raise RuntimeError("Unexpected DeepInfra TTS response format.") from e
+    extracted = _extract_audio_from_response(response_obj)
+    if not extracted:
+        raise RuntimeError("DeepInfra TTS response missing audio data.")
+    return extracted
 
 def send_transcript_email(
     student_number,

@@ -1,6 +1,11 @@
 import streamlit as st
 import time
-from utils import save_interview_data, send_transcript_email, send_verification_code
+from utils import (
+    save_interview_data,
+    send_transcript_email,
+    send_verification_code,
+    synthesize_speech_deepinfra,
+)
 from database import (
     save_interview_to_sheet,
     update_progress_sheet,
@@ -93,6 +98,59 @@ def toggle_voice_mode() -> None:
     """
     st.session_state.use_voice = not st.session_state.use_voice
 
+def toggle_speech_output() -> None:
+    """
+    Toggle speech output for the latest assistant reply.
+    """
+    st.session_state.speech_output_enabled = not st.session_state.speech_output_enabled
+    if st.session_state.speech_output_enabled:
+        _update_tts_audio()
+
+def _get_latest_assistant_message():
+    """
+    Return the index and content of the latest assistant message that is safe to read aloud.
+    """
+    for idx in range(len(st.session_state.messages) - 1, -1, -1):
+        msg = st.session_state.messages[idx]
+        if msg.get("role") != "assistant":
+            continue
+        content = msg.get("content", "").strip()
+        if not content:
+            continue
+        if any(code in content for code in config.CLOSING_MESSAGES.keys()):
+            continue
+        return idx, content
+    return None, ""
+
+def _update_tts_audio():
+    """
+    Generate TTS audio for the latest assistant response if needed.
+    """
+    if not st.session_state.speech_output_enabled:
+        return
+    idx, content = _get_latest_assistant_message()
+    if idx is None or not content:
+        return
+    if (
+        st.session_state.tts_last_message_idx == idx
+        and st.session_state.tts_audio_bytes
+    ):
+        return
+    tts_model = st.secrets.get("TTS_MODEL", "hexgrad/Kokoro-82M")
+    tts_key = st.secrets.get("DEEPINFRA_API_KEY")
+    try:
+        with st.spinner("Generating speech output..."):
+            audio_bytes, mime_type = synthesize_speech_deepinfra(
+                content,
+                model=tts_model,
+                api_key=tts_key,
+            )
+        st.session_state.tts_audio_bytes = audio_bytes
+        st.session_state.tts_audio_mime = mime_type
+        st.session_state.tts_last_message_idx = idx
+    except Exception as exc:
+        st.error(f"Speech output failed: {exc}")
+
 # ----------------------------------------------------------------------------
 # Configuration loading
 # ----------------------------------------------------------------------------
@@ -152,6 +210,14 @@ def _initialize_session_state():
         st.session_state.verification_code = ""
     if "verification_code_sent" not in st.session_state:
         st.session_state.verification_code_sent = False
+    if "speech_output_enabled" not in st.session_state:
+        st.session_state.speech_output_enabled = False
+    if "tts_audio_bytes" not in st.session_state:
+        st.session_state.tts_audio_bytes = None
+    if "tts_audio_mime" not in st.session_state:
+        st.session_state.tts_audio_mime = ""
+    if "tts_last_message_idx" not in st.session_state:
+        st.session_state.tts_last_message_idx = None
 
 
 # ----------------------------------------------------------------------------
@@ -520,6 +586,8 @@ if not st.session_state.messages:
             placeholder.markdown(first_reply)
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
     save_interview_data(student_number=student_number, company_name=company_name)
+    if st.session_state.speech_output_enabled:
+        _update_tts_audio()
 
 # ----------------------------------------------------------------------------
 # Main chat loop with voice input
@@ -544,6 +612,18 @@ if st.session_state.interview_active:
         """,
         unsafe_allow_html=True,
     )
+
+    speech_button_label = (
+        "Disable speech output"
+        if st.session_state.speech_output_enabled
+        else "Enable speech output"
+    )
+    st.button(speech_button_label, on_click=toggle_speech_output)
+    if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:
+        st.audio(
+            st.session_state.tts_audio_bytes,
+            format=st.session_state.tts_audio_mime or "audio/wav",
+        )
     
     if st.session_state.use_voice:
         voice_col, text_col = st.columns([0.1, 0.9])
@@ -624,6 +704,8 @@ if st.session_state.interview_active:
                         )
                     except Exception:
                         pass
+                    if st.session_state.speech_output_enabled:
+                        _update_tts_audio()
 
                 for code in config.CLOSING_MESSAGES.keys():
                     if code in message_interviewer:
@@ -633,5 +715,7 @@ if st.session_state.interview_active:
                         closing_message = config.CLOSING_MESSAGES[code]
                         st.markdown(closing_message)
                         st.session_state.messages.append({"role": "assistant", "content": closing_message})
+                        if st.session_state.speech_output_enabled:
+                            _update_tts_audio()
                         time.sleep(1)
                         st.rerun()
