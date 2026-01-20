@@ -683,6 +683,7 @@ if st.session_state.interview_active:
         autoplay_attr = "autoplay" if should_autoplay else ""
         if should_autoplay:
             st.session_state.tts_played_nonce = st.session_state.tts_autoplay_nonce
+        current_voice = st.secrets.get("TTS_VOICE", "af_heart")
         st.markdown(
             f"""
             <style>
@@ -696,6 +697,7 @@ if st.session_state.interview_active:
             """,
             unsafe_allow_html=True,
         )
+        st.caption(f"Voice: {current_voice}")
 
     # Process user input and generate responses
     if message_respondent:
