@@ -162,9 +162,12 @@ def synthesize_speech_deepinfra(text, model="hexgrad/Kokoro-82M", api_key=None, 
         raise ValueError("Missing DEEPINFRA_API_KEY for speech synthesis.")
     voice = st.secrets.get("TTS_VOICE", "af_heart")
     # Kokoro model uses: text, voice, output_format
+    # Some TTS endpoints use voice, others use speaker/voice_id.
     payload = {
         "text": text,
         "voice": voice,
+        "speaker": voice,
+        "voice_id": voice,
         "output_format": "wav",
     }
     data = json.dumps(payload).encode("utf-8")
