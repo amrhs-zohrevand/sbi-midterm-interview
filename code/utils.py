@@ -153,23 +153,39 @@ def _fetch_audio_url(url):
         mime_type = "audio/mpeg" if url.lower().endswith(".mp3") else "audio/wav"
     return audio_bytes, mime_type
 
-def synthesize_speech_deepinfra(text, model="hexgrad/Kokoro-82M", api_key=None, timeout=60):
+def synthesize_speech_deepinfra(
+    text,
+    model="hexgrad/Kokoro-82M",
+    api_key=None,
+    voice=None,
+    timeout=60,
+):
     """
     Synthesize speech using DeepInfra TTS models.
     Returns (audio_bytes, mime_type).
     """
     if not api_key:
         raise ValueError("Missing DEEPINFRA_API_KEY for speech synthesis.")
-    voice = st.secrets.get("TTS_VOICE", "af_heart")
+    resolved_voice = voice or st.secrets.get("TTS_VOICE", "af_heart")
     # Kokoro model (DeepInfra) expects text + preset voice + response format.
     # Send multiple compatible keys to maximize API compatibility.
+    voice_params = {
+        "voice": resolved_voice,
+        "preset_voice": resolved_voice,
+        "preset_voices": [resolved_voice],
+        "speaker": resolved_voice,
+        "voice_id": resolved_voice,
+    }
     payload = {
         "text": text,
         "input": text,
-        "voice": voice,
-        "preset_voice": voice,
-        "speaker": voice,
-        "voice_id": voice,
+        # Some DeepInfra models read voice settings from "parameters".
+        "parameters": {
+            **voice_params,
+            "tts_response_format": "wav",
+            "output_format": "wav",
+        },
+        **voice_params,
         "tts_response_format": "wav",
         "output_format": "wav",
     }

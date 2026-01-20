@@ -149,6 +149,7 @@ def _update_tts_audio():
                 content,
                 model=tts_model,
                 api_key=tts_key,
+                voice=tts_voice,
             )
         st.session_state.tts_audio_bytes = audio_bytes
         st.session_state.tts_audio_mime = mime_type
