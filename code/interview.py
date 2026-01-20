@@ -133,13 +133,16 @@ def _update_tts_audio():
     idx, content = _get_latest_assistant_message()
     if idx is None or not content:
         return False
+    tts_model = st.secrets.get("TTS_MODEL", "hexgrad/Kokoro-82M")
+    tts_voice = st.secrets.get("TTS_VOICE", "af_heart")
+    tts_key = st.secrets.get("DEEPINFRA_API_KEY")
+    # Cache key includes message index and voice to regenerate when voice changes
+    cache_key = f"{idx}:{tts_voice}"
     if (
-        st.session_state.tts_last_message_idx == idx
+        st.session_state.tts_cache_key == cache_key
         and st.session_state.tts_audio_bytes
     ):
         return False
-    tts_model = st.secrets.get("TTS_MODEL", "hexgrad/Kokoro-82M")
-    tts_key = st.secrets.get("DEEPINFRA_API_KEY")
     try:
         with st.spinner("Generating speech output..."):
             audio_bytes, mime_type = synthesize_speech_deepinfra(
@@ -149,6 +152,7 @@ def _update_tts_audio():
             )
         st.session_state.tts_audio_bytes = audio_bytes
         st.session_state.tts_audio_mime = mime_type
+        st.session_state.tts_cache_key = cache_key
         st.session_state.tts_last_message_idx = idx
         st.session_state.tts_autoplay_nonce += 1
         return True
@@ -223,6 +227,8 @@ def _initialize_session_state():
         st.session_state.tts_audio_mime = ""
     if "tts_last_message_idx" not in st.session_state:
         st.session_state.tts_last_message_idx = None
+    if "tts_cache_key" not in st.session_state:
+        st.session_state.tts_cache_key = ""
     if "tts_autoplay_nonce" not in st.session_state:
         st.session_state.tts_autoplay_nonce = 0
     if "tts_played_nonce" not in st.session_state:
