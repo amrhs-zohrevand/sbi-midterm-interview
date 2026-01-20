@@ -613,20 +613,8 @@ if st.session_state.interview_active:
         unsafe_allow_html=True,
     )
 
-    speech_button_label = (
-        "Disable speech output"
-        if st.session_state.speech_output_enabled
-        else "Enable speech output"
-    )
-    st.button(speech_button_label, on_click=toggle_speech_output)
-    if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:
-        st.audio(
-            st.session_state.tts_audio_bytes,
-            format=st.session_state.tts_audio_mime or "audio/wav",
-        )
-    
     if st.session_state.use_voice:
-        voice_col, text_col = st.columns([0.1, 0.9])
+        voice_col, text_col, speech_col = st.columns([0.08, 0.84, 0.08])
         with text_col:
             audio_dict = mic_recorder(
                 start_prompt="🎙️ Hold to talk",
@@ -637,6 +625,14 @@ if st.session_state.interview_active:
             )
         with voice_col:
             st.button("⌨️", on_click=toggle_voice_mode, use_container_width=True)
+        with speech_col:
+            speech_icon = "🔇" if st.session_state.speech_output_enabled else "🔊"
+            st.button(
+                speech_icon,
+                on_click=toggle_speech_output,
+                use_container_width=True,
+                help="Toggle speech output for the latest assistant reply",
+            )
         if audio_dict:
             raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
             with st.spinner("Transcribing..."):
@@ -649,11 +645,25 @@ if st.session_state.interview_active:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
     else:
-        text_col, voice_col = st.columns([0.9, 0.1])
+        text_col, voice_col, speech_col = st.columns([0.84, 0.08, 0.08])
         with text_col:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
             st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+        with speech_col:
+            speech_icon = "🔇" if st.session_state.speech_output_enabled else "🔊"
+            st.button(
+                speech_icon,
+                on_click=toggle_speech_output,
+                use_container_width=True,
+                help="Toggle speech output for the latest assistant reply",
+            )
+
+    if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:
+        st.audio(
+            st.session_state.tts_audio_bytes,
+            format=st.session_state.tts_audio_mime or "audio/wav",
+        )
 
     # Process user input and generate responses
     if message_respondent:
