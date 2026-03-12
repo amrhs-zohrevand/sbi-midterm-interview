@@ -1,5 +1,7 @@
 # Code for "Conversations at Scale: Robust AI-led Interviews with a Simple Open-Source Platform"
 
+For the day-to-day commands to start the app, run tests, open LIACS in VS Code, and inspect remote interview data, see [QUICKSTART.md](/Users/miros/Developer/sbi-midterm-interview/QUICKSTART.md).
+
 ## What it Does
 This project is designed as an AI-led interview platform specifically tailored for the Business Studies Internship program at Leiden University. It facilitates self-reflection for students by guiding them through structured interviews based on their learning objectives, progress, challenges, and future career aspirations. The platform supports the mandatory self-reflection interviews required for the internship report, including the analysis of AI's impact on business operations and industry trends.
 
@@ -62,12 +64,114 @@ For local development, you need to create configuration files from the provided 
      - `conda activate interviews`
 5. Start the platform: `streamlit run interview.py`
 
+## Quick Local Workflow
+
+### Fast start
+For day-to-day local work, the quickest path is the repo virtual environment plus the helper script at [run-local.sh](/Users/miros/Developer/sbi-midterm-interview/run-local.sh):
+
+```bash
+cd /Users/miros/Developer/sbi-midterm-interview
+./run-local.sh
+```
+
+This starts Streamlit with the app at `code/interview.py` using the repo-local `.venv`.
+
+### Fast automated checks
+Before or after a local change, run:
+
+```bash
+cd /Users/miros/Developer/sbi-midterm-interview
+./test-local.sh
+```
+
+This runs:
+- `pytest`
+- `python -m compileall code`
+
+### Manual smoke test
+After the app starts, open one of these URLs:
+
+```text
+http://localhost:8501/?name=Miros&recipient_email=miros@example.com&interview_config=midterm_interview
+http://localhost:8501/?name=Miros&recipient_email=miros@example.com&interview_config=industry_org_survey
+http://localhost:8501/?name=Miros&recipient_email=miros@example.com&interview_config=end_reflection_interview
+```
+
+Recommended smoke-test order:
+1. Start without `student_number` first, so the verification-email flow is skipped.
+2. Send one normal text reply and confirm the assistant responds.
+3. Test voice input if needed with the microphone button.
+4. Test TTS with the speaker toggle.
+5. Click `Quit` to exercise transcript save, summary generation, remote DB write, and optional email sending.
+
+### Local files written by the app
+By default the app writes local files to:
+- [data/transcripts](/Users/miros/Developer/sbi-midterm-interview/data/transcripts)
+- [data/times](/Users/miros/Developer/sbi-midterm-interview/data/times)
+
+Those paths come from [code/interview_configs/base_config.py](/Users/miros/Developer/sbi-midterm-interview/code/interview_configs/base_config.py#L65).
+
+### Dev container note
+There is a VS Code / Codespaces dev-container config at [.devcontainer/devcontainer.json](/Users/miros/Developer/sbi-midterm-interview/.devcontainer/devcontainer.json), but there is no repo Dockerfile or Docker Compose workflow for the app itself. For local use on this machine, the `.venv` path above is the simplest and most reliable option.
+
 ## Usage Guide
 1. Navigate to the Streamlit URL provided in the terminal.
 2. Open the interview with the required query parameters, at minimum `name` and `recipient_email`.
 3. Conduct the interview following the structured flow.
 4. End the interview to automatically save the transcript and timing data.
 5. An email notification will be sent if configured.
+
+## Accessing Stored Data
+
+### Remote database location
+Interview metadata and summaries are stored on the LIACS server in:
+
+```text
+/home/<LIACS_SSH_USERNAME>/BS-Interviews/Database/interviews.db
+```
+
+This path is defined in [code/database.py](/Users/miros/Developer/sbi-midterm-interview/code/database.py#L11).
+
+The main tables are:
+- `interviews`
+- `progress`
+
+### Easiest way to inspect remote data
+Use the helper script at [code/inspect_remote_data.py](/Users/miros/Developer/sbi-midterm-interview/code/inspect_remote_data.py). It reuses the SSH credentials already stored in your Streamlit secrets.
+
+Examples:
+
+```bash
+cd /Users/miros/Developer/sbi-midterm-interview
+.venv/bin/python code/inspect_remote_data.py --table interviews --limit 20
+.venv/bin/python code/inspect_remote_data.py --table progress --limit 20
+.venv/bin/python code/inspect_remote_data.py --table interviews --student-id s1234567 --limit 20
+.venv/bin/python code/inspect_remote_data.py --table interviews --student-id s1234567 --show-summary
+```
+
+### Direct SSH access
+If you prefer to inspect the database manually on the server, SSH to `ssh.liacs.nl` with the same LIACS credentials used by the app and inspect:
+
+```bash
+sqlite3 /home/<LIACS_SSH_USERNAME>/BS-Interviews/Database/interviews.db
+```
+
+Useful queries:
+
+```sql
+.tables
+SELECT interview_id, student_id, name, interview_type, timestamp
+FROM interviews
+ORDER BY timestamp DESC
+LIMIT 20;
+
+SELECT student_id, name, interview_type, completion_timestamp
+FROM progress
+ORDER BY completion_timestamp DESC
+LIMIT 20;
+```
+
+If `sqlite3` is not available on the remote host, the helper script above is the better option because it already falls back to Python-based access over SSH.
 
 # Instructions from the old repo
 
