@@ -20,8 +20,8 @@ def test_initialize_completion_state_sets_defaults_once():
 
     assert session_state.completion_email == "person@example.com"
     assert session_state.completion_send_email is True
-    assert session_state.completion_survey_usefulness == "Skip"
-    assert session_state.completion_survey_naturalness == "Skip"
+    assert session_state.completion_survey_usefulness == ""
+    assert session_state.completion_survey_naturalness == ""
     assert session_state.completion_survey_feedback == ""
 
     session_state.completion_email = "updated@example.com"
@@ -40,6 +40,7 @@ def test_initialize_completion_state_restores_blank_email_from_recipient():
 def test_normalize_survey_response_treats_skip_as_empty():
     assert normalize_survey_response("Skip") == ""
     assert normalize_survey_response("") == ""
+    assert normalize_survey_response(None) == ""
     assert normalize_survey_response("4") == "4"
 
 
@@ -67,20 +68,23 @@ def test_build_completion_responses_trims_email():
     session_state = FakeSessionState(
         completion_email="  person@example.com  ",
         completion_send_email=True,
-        completion_survey_usefulness="Skip",
-        completion_survey_naturalness="Skip",
+        completion_survey_usefulness=None,
+        completion_survey_naturalness="",
         completion_survey_feedback="",
     )
 
     responses = build_completion_responses(session_state)
 
     assert responses.email == "person@example.com"
+    assert responses.usefulness_rating == ""
+    assert responses.naturalness_rating == ""
 
 
-def test_survey_option_index_falls_back_to_skip():
-    assert survey_option_index("Skip") == 0
-    assert survey_option_index("4") == 4
-    assert survey_option_index("unexpected") == 0
+def test_survey_option_index_returns_none_for_blank_or_unknown_values():
+    assert survey_option_index("1") == 0
+    assert survey_option_index("4") == 3
+    assert survey_option_index("Skip") is None
+    assert survey_option_index("unexpected") is None
 
 
 def test_has_inline_feedback_detects_any_answer():

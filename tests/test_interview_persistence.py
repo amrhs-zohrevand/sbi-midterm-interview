@@ -70,7 +70,7 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
     assert result.email_sent is True
     assert any(call[0] == "send_email" for call in calls)
     assert any(call[0] == "update_progress" for call in calls)
-    assert any(call[0] == "update_survey" for call in calls)
+    assert ("update_survey", ("session-1", "5", "4", "Great ending flow.", "2026-03-12 10:00:00")) in calls
 
 
 def test_persist_completion_skips_optional_steps_when_not_needed():

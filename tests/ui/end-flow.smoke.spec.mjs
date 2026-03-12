@@ -8,6 +8,8 @@ async function expectCompletionDefaults(page) {
   await expect(
     page.getByRole('checkbox', { name: 'Email me a transcript of this interview' })
   ).toBeChecked();
+  await expect(page.getByText('1 = not useful, 5 = very useful')).toBeVisible();
+  await expect(page.getByText('1 = awkward, 5 = very natural')).toBeVisible();
 }
 
 
@@ -45,6 +47,14 @@ test('end-of-interview flow works in the browser', async ({ page }) => {
     )
   ).toBeVisible();
   await expectCompletionDefaults(page);
+  await page
+    .getByRole('radiogroup', { name: 'How useful was this interview?' })
+    .getByText('5', { exact: true })
+    .click();
+  await page
+    .getByRole('radiogroup', { name: 'How natural did the conversation feel?' })
+    .getByText('4', { exact: true })
+    .click();
 
   await page
     .getByRole('textbox', { name: 'Anything we should improve?' })

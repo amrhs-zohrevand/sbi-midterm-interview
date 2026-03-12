@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-INLINE_SURVEY_OPTIONS = ["Skip", "1", "2", "3", "4", "5"]
+INLINE_SURVEY_OPTIONS = ["1", "2", "3", "4", "5"]
 
 
 @dataclass(frozen=True)
@@ -22,26 +22,26 @@ def initialize_completion_state(session_state, recipient_email: str) -> None:
     if "completion_send_email" not in session_state:
         session_state.completion_send_email = True
     if "completion_survey_usefulness" not in session_state:
-        session_state.completion_survey_usefulness = "Skip"
+        session_state.completion_survey_usefulness = ""
     if "completion_survey_naturalness" not in session_state:
-        session_state.completion_survey_naturalness = "Skip"
+        session_state.completion_survey_naturalness = ""
     if "completion_survey_feedback" not in session_state:
         session_state.completion_survey_feedback = ""
 
 
-def normalize_survey_response(value: str) -> str:
+def normalize_survey_response(value) -> str:
     """Convert optional survey selections into a stored string value."""
     if not value or value == "Skip":
         return ""
     return str(value)
 
 
-def survey_option_index(value: str) -> int:
-    """Return a safe selectbox index for the inline survey options."""
+def survey_option_index(value) -> int | None:
+    """Return a safe radio index for the inline survey options."""
     try:
         return INLINE_SURVEY_OPTIONS.index(value)
     except ValueError:
-        return 0
+        return None
 
 
 def build_completion_responses(session_state) -> CompletionResponses:

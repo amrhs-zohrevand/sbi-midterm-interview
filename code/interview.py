@@ -563,20 +563,28 @@ if st.session_state.awaiting_email_confirmation:
         st.caption("Optional quick feedback")
         survey_col1, survey_col2 = st.columns(2)
         with survey_col1:
-            completion_survey_usefulness = st.selectbox(
+            st.markdown("**How useful was this interview?**")
+            st.caption("1 = not useful, 5 = very useful")
+            completion_survey_usefulness = st.radio(
                 "How useful was this interview?",
                 INLINE_SURVEY_OPTIONS,
                 index=survey_option_index(
                     st.session_state.completion_survey_usefulness
                 ),
+                horizontal=True,
+                label_visibility="collapsed",
             )
         with survey_col2:
-            completion_survey_naturalness = st.selectbox(
+            st.markdown("**How natural did the conversation feel?**")
+            st.caption("1 = awkward, 5 = very natural")
+            completion_survey_naturalness = st.radio(
                 "How natural did the conversation feel?",
                 INLINE_SURVEY_OPTIONS,
                 index=survey_option_index(
                     st.session_state.completion_survey_naturalness
                 ),
+                horizontal=True,
+                label_visibility="collapsed",
             )
         completion_survey_feedback = st.text_area(
             "Anything we should improve?",
