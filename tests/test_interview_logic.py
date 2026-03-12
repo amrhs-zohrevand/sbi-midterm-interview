@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from interview_logic import (
     compose_system_prompt,
     extract_anthropic_text,
+    extract_openai_stream_delta,
     filter_display_messages,
     find_closing_code,
     normalize_query_value,
@@ -33,6 +34,16 @@ def test_extract_anthropic_text_ignores_non_text_blocks():
         ]
     )
     assert extract_anthropic_text(response) == "Hello world"
+
+
+def test_extract_openai_stream_delta_handles_missing_choices():
+    assert extract_openai_stream_delta(SimpleNamespace(choices=[])) == ""
+    assert (
+        extract_openai_stream_delta(
+            SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content="Hi"))])
+        )
+        == "Hi"
+    )
 
 
 def test_serialize_transcript_omits_non_chat_roles():

@@ -1,16 +1,15 @@
-import streamlit as st
-
 from remote_utils import (
     close_ssh_connection,
     ensure_remote_directory,
     get_ssh_connection,
     run_remote_sql,
 )
+from secrets_utils import get_secret
 
 
 def get_remote_database_location():
     """Return the remote directory and database path for interview data."""
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
+    ssh_username = get_secret("LIACS_SSH_USERNAME")
     if not ssh_username:
         raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
 

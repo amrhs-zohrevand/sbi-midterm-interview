@@ -28,6 +28,7 @@ from interview_completion import (
 from interview_logic import (
     compose_system_prompt,
     extract_anthropic_text,
+    extract_openai_stream_delta,
     filter_display_messages,
     find_closing_code,
     normalize_query_value,
@@ -301,7 +302,7 @@ def stream_assistant_reply(message_placeholder, messages=None) -> str:
     if api == "openai":
         stream = client.chat.completions.create(**build_chat_kwargs(messages=messages))
         for chunk in stream:
-            delta = chunk.choices[0].delta.content
+            delta = extract_openai_stream_delta(chunk)
             if delta:
                 reply += delta
             if len(reply) > 5:

@@ -26,7 +26,6 @@ def test_resolve_model_selection_defaults_to_qwen_for_openrouter():
     assert selection.model == OPENROUTER_DEFAULT_MODEL
     assert selection.max_tokens == 1024
     assert selection.reasoning == {"enabled": False}
-    assert selection.verbosity is None
 
 
 def test_resolve_model_selection_uses_gpt54_reasoning_for_industry():
@@ -40,7 +39,6 @@ def test_resolve_model_selection_uses_gpt54_reasoning_for_industry():
     assert selection.model == OPENROUTER_INDUSTRY_MODEL
     assert selection.max_tokens == OPENROUTER_MIN_REASONING_MAX_TOKENS
     assert selection.reasoning == {"effort": "minimal", "exclude": True}
-    assert selection.verbosity == "low"
 
 
 def test_build_openrouter_headers_only_includes_present_values():
@@ -63,7 +61,6 @@ def test_apply_model_selection_to_openai_kwargs_adds_reasoning_fields():
         model=OPENROUTER_INDUSTRY_MODEL,
         max_tokens=OPENROUTER_MIN_REASONING_MAX_TOKENS,
         reasoning={"effort": "minimal", "exclude": True},
-        verbosity="low",
     )
 
     kwargs = apply_model_selection_to_openai_kwargs(
@@ -73,7 +70,6 @@ def test_apply_model_selection_to_openai_kwargs_adds_reasoning_fields():
 
     assert kwargs["model"] == OPENROUTER_INDUSTRY_MODEL
     assert kwargs["max_tokens"] == OPENROUTER_MIN_REASONING_MAX_TOKENS
-    assert kwargs["verbosity"] == "low"
     assert kwargs["extra_body"] == {
         "reasoning": {"effort": "minimal", "exclude": True}
     }

@@ -5,7 +5,8 @@ import shlex
 import tempfile
 
 import paramiko
-import streamlit as st
+
+from secrets_utils import get_secret
 
 
 SSH_HOST = "ssh.liacs.nl"
@@ -27,13 +28,13 @@ def format_private_key(key_str: str) -> str:
 
 def get_ssh_connection():
     """Establish an SSH connection using the LIACS SSH credentials."""
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
+    ssh_username = get_secret("LIACS_SSH_USERNAME")
     if not ssh_username:
         raise ValueError(
             "LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file."
         )
 
-    key_str = st.secrets.get("LIACS_SSH_KEY")
+    key_str = get_secret("LIACS_SSH_KEY")
     if not key_str:
         raise ValueError(
             "LIACS_SSH_KEY is not defined in secrets. Please set it in your secrets file."

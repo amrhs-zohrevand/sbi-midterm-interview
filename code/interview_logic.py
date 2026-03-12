@@ -29,6 +29,25 @@ def extract_anthropic_text(response) -> str:
     return "".join(parts).strip()
 
 
+def extract_openai_stream_delta(chunk) -> str:
+    """Return visible text from an OpenAI-compatible stream chunk."""
+    choices = getattr(chunk, "choices", None) or []
+    if not choices:
+        return ""
+
+    delta = getattr(choices[0], "delta", None)
+    if delta is None:
+        return ""
+
+    text = getattr(delta, "content", "") or ""
+    if isinstance(text, list):
+        return "".join(
+            item.get("text", "") if isinstance(item, dict) else ""
+            for item in text
+        )
+    return text
+
+
 def serialize_transcript(messages) -> str:
     """Serialize visible user/assistant messages for persistence."""
     return "".join(

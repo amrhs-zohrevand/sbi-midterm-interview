@@ -17,7 +17,6 @@ class ModelSelection:
     model: str
     max_tokens: int
     reasoning: dict | None = None
-    verbosity: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,8 +59,6 @@ def apply_model_selection_to_openai_kwargs(kwargs: dict, model_selection: ModelS
     updated = dict(kwargs)
     updated["model"] = model_selection.model
     updated["max_tokens"] = model_selection.max_tokens
-    if model_selection.verbosity:
-        updated["verbosity"] = model_selection.verbosity
     if model_selection.reasoning:
         updated["extra_body"] = {"reasoning": dict(model_selection.reasoning)}
     return updated
@@ -96,7 +93,6 @@ def resolve_model_selection(provider: str, config_name: str, secrets, default_ma
             ),
             max_tokens=max(default_max_tokens, reasoning_max_tokens),
             reasoning={"effort": reasoning_effort, "exclude": True},
-            verbosity=str(secrets.get("OPENROUTER_INDUSTRY_VERBOSITY", "low")),
         )
 
     return ModelSelection(

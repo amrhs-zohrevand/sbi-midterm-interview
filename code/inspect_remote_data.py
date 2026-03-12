@@ -50,6 +50,12 @@ def build_parser():
         help="Optional interview_type filter.",
     )
     parser.add_argument(
+        "--session-id",
+        dest="interview_id",
+        default="",
+        help="Optional interview/session id filter.",
+    )
+    parser.add_argument(
         "--show-summary",
         action="store_true",
         help="Include the summary column for interview rows.",
@@ -76,6 +82,11 @@ def build_query(args):
     params = []
     where_clauses = []
 
+    if args.interview_id:
+        if args.table != "interviews":
+            raise ValueError("--session-id can only be used with the interviews table.")
+        where_clauses.append("interview_id = ?")
+        params.append(args.interview_id)
     if args.student_id:
         where_clauses.append("student_id = ?")
         params.append(args.student_id)
