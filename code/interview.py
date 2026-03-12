@@ -1,46 +1,54 @@
-import streamlit as st
+import base64
+import html
+import importlib.util
+import os
+import tempfile
 import time
+import uuid
+
+import streamlit as st
+from openai import OpenAI
+from streamlit_mic_recorder import mic_recorder
+
+from database import (
+    save_interview_to_sheet,
+    update_interview_summary,
+    update_progress_sheet,
+)
+from interview_logic import (
+    compose_system_prompt,
+    extract_anthropic_text,
+    filter_display_messages,
+    find_closing_code,
+    normalize_query_value,
+    serialize_transcript,
+    should_accept_user_input,
+    should_finalize_interview,
+)
+from interview_selection import get_context_transcript, load_interview_context_map
 from utils import (
     save_interview_data,
     send_transcript_email,
     send_verification_code,
     synthesize_speech_deepinfra,
 )
-from database import (
-    save_interview_to_sheet,
-    update_progress_sheet,
-    update_interview_summary,
-)
-from interview_selection import get_context_transcript, load_interview_context_map
-import os
-import html
-import base64
-import uuid
-import importlib.util
 
-# Voice input imports
-import tempfile
-from streamlit_mic_recorder import mic_recorder
 
-# ----------------------------------------------------------------------------
-# API client setup
-# ----------------------------------------------------------------------------
+INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
+
+
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
 model = st.secrets.get("MODEL", "gpt-3.5-turbo")
-
-from openai import OpenAI
 
 if provider == "openai":
     api = "openai"
     client = OpenAI(api_key=st.secrets["API_KEY"])
-
 elif provider == "deepinfra":
     api = "openai"
     client = OpenAI(
         api_key=st.secrets["DEEPINFRA_API_KEY"],
         base_url="https://api.deepinfra.com/v1/openai",
     )
-
 elif provider == "anthropic" or "claude" in model.lower():
     api = "anthropic"
     import anthropic  # noqa: E402
@@ -48,101 +56,94 @@ elif provider == "anthropic" or "claude" in model.lower():
     client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 else:
     raise ValueError(
-        "Unrecognized API provider – supported: openai, deepinfra, anthropic."
+        "Unrecognized API provider; supported values are openai, deepinfra, and anthropic."
     )
 
-# ----------------------------------------------------------------------------
-# Setup OpenAI client for audio transcription (Whisper)
-# ----------------------------------------------------------------------------
-audio_client = OpenAI(api_key=st.secrets["API_KEY"])
+
+def get_audio_client():
+    """Create an OpenAI client only when voice transcription is requested."""
+    api_key = st.secrets.get("API_KEY")
+    if not api_key:
+        raise RuntimeError("Voice transcription requires API_KEY in Streamlit secrets.")
+    return OpenAI(api_key=api_key)
+
 
 def transcribe(audio_bytes: bytes) -> str:
-    """
-    Transcribe audio bytes using OpenAI's Whisper API.
-    
-    Args:
-        audio_bytes: Raw audio data in WAV format
-        
-    Returns:
-        str: Transcribed text from the audio
-        
-    Raises:
-        Exception: If transcription fails
-    """
-    # write bytes to a temp wav
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        tmp.write(audio_bytes)
-        tmp_path = tmp.name
-    # call Whisper
-    with open(tmp_path, "rb") as f:
-        resp = audio_client.audio.transcriptions.create(
-            model="whisper-1",
-            file=f,
-            response_format="text"
-        )
-    # resp may be a str (when response_format="text"), an object with .text, or a dict
-    if hasattr(resp, "text"):
-        text = resp.text
-    elif isinstance(resp, dict) and "text" in resp:
-        text = resp["text"]
-    else:
-        text = resp  # assume it's already a str
-    return text.strip()
+    """Transcribe recorded audio to text."""
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(audio_bytes)
+            tmp_path = tmp_file.name
+
+        with open(tmp_path, "rb") as audio_file:
+            response = get_audio_client().audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="text",
+            )
+
+        if hasattr(response, "text"):
+            text = response.text
+        elif isinstance(response, dict) and "text" in response:
+            text = response["text"]
+        else:
+            text = response
+
+        return text.strip()
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 def toggle_voice_mode() -> None:
-    """
-    Toggle between text and voice input modes.
-    
-    Updates the session state to switch the input method between
-    keyboard text input and voice recording.
-    """
+    """Toggle between text and voice input modes."""
     st.session_state.use_voice = not st.session_state.use_voice
 
+
 def toggle_speech_output() -> None:
-    """
-    Toggle speech output for the latest assistant reply.
-    """
+    """Toggle speech output for the latest assistant reply."""
     st.session_state.speech_output_enabled = not st.session_state.speech_output_enabled
     if st.session_state.speech_output_enabled:
         _update_tts_audio()
 
+
 def _get_latest_assistant_message():
-    """
-    Return the index and content of the latest assistant message that is safe to read aloud.
-    """
+    """Return the latest assistant message that is safe to read aloud."""
     for idx in range(len(st.session_state.messages) - 1, -1, -1):
-        msg = st.session_state.messages[idx]
-        if msg.get("role") != "assistant":
+        message = st.session_state.messages[idx]
+        if message.get("role") != "assistant":
             continue
-        content = msg.get("content", "").strip()
-        if not content:
-            continue
-        if any(code in content for code in config.CLOSING_MESSAGES.keys()):
+        content = message.get("content", "").strip()
+        if not content or find_closing_code(content, config.CLOSING_MESSAGES):
             continue
         return idx, content
     return None, ""
 
+
 def _update_tts_audio():
     """
     Generate TTS audio for the latest assistant response if needed.
+
     Returns True if new audio was generated, False otherwise.
     """
     if not st.session_state.speech_output_enabled:
         return False
+
     idx, content = _get_latest_assistant_message()
     if idx is None or not content:
         return False
+
     tts_model = st.secrets.get("TTS_MODEL", "hexgrad/Kokoro-82M")
     tts_voice = st.secrets.get("TTS_VOICE", "af_heart")
     tts_key = st.secrets.get("DEEPINFRA_API_KEY")
-    # Cache key includes message index and voice to regenerate when voice changes
     cache_key = f"{idx}:{tts_voice}"
     if (
         st.session_state.tts_cache_key == cache_key
         and st.session_state.tts_audio_bytes
     ):
         return False
+
     try:
         with st.spinner("Generating speech output..."):
             audio_bytes, mime_type = synthesize_speech_deepinfra(
@@ -161,17 +162,15 @@ def _update_tts_audio():
         st.error(f"Speech output failed: {exc}")
         return False
 
-# ----------------------------------------------------------------------------
-# Configuration loading
-# ----------------------------------------------------------------------------
-ENV = st.secrets.get("ENV", "production")
+
 query_params = st.query_params
-if "interview_config" not in query_params:
-    import config  # local default
+raw_config_name = normalize_query_value(query_params.get("interview_config"), "Default")
+if raw_config_name == "Default":
+    import config
 
     config_name = "Default"
 else:
-    config_name = st.query_params.get("interview_config", ["Default"])
+    config_name = raw_config_name
     config_path = os.path.join(
         os.path.dirname(__file__), "interview_configs", f"{config_name}.py"
     )
@@ -182,90 +181,197 @@ else:
     config = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config)
 
-# ----------------------------------------------------------------------------
-# Helper to fetch query-string parameters safely
-# ----------------------------------------------------------------------------
+
 def _get_param(name: str, default: str = "") -> str:
-    """Return the query-string parameter as a string or *default* if missing."""
-    val = query_params.get(name, default)
-    if isinstance(val, list):
-        val = val[0]
-    return html.unescape(val)
+    """Return a query parameter as a decoded string."""
+    return html.unescape(normalize_query_value(query_params.get(name), default))
 
 
-# ----------------------------------------------------------------------------
-# Helper to initialize session state variables
-# ----------------------------------------------------------------------------
-def _initialize_session_state():
-    """Initialize all session state variables with their default values."""
-    if "session_id" not in st.session_state:
-        st.session_state.session_id = str(uuid.uuid4())
-    if "interview_active" not in st.session_state:
-        st.session_state.interview_active = True
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "email_sent" not in st.session_state:
-        st.session_state.email_sent = False
-    if "start_time" not in st.session_state:
-        st.session_state.start_time = time.time()
-    if "awaiting_email_confirmation" not in st.session_state:
-        st.session_state.awaiting_email_confirmation = False
-    if "show_evaluation_only" not in st.session_state:
-        st.session_state.show_evaluation_only = False
-    if "use_voice" not in st.session_state:
-        st.session_state.use_voice = False
-    if "student_verified" not in st.session_state:
-        st.session_state.student_verified = False
-    if "verification_code" not in st.session_state:
-        st.session_state.verification_code = ""
-    if "verification_code_sent" not in st.session_state:
-        st.session_state.verification_code_sent = False
-    if "speech_output_enabled" not in st.session_state:
-        st.session_state.speech_output_enabled = False
-    if "tts_audio_bytes" not in st.session_state:
-        st.session_state.tts_audio_bytes = None
-    if "tts_audio_mime" not in st.session_state:
-        st.session_state.tts_audio_mime = ""
-    if "tts_last_message_idx" not in st.session_state:
-        st.session_state.tts_last_message_idx = None
-    if "tts_cache_key" not in st.session_state:
-        st.session_state.tts_cache_key = ""
-    if "tts_autoplay_nonce" not in st.session_state:
-        st.session_state.tts_autoplay_nonce = 0
-    if "tts_played_nonce" not in st.session_state:
-        st.session_state.tts_played_nonce = 0
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+if "interview_active" not in st.session_state:
+    st.session_state.interview_active = True
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "email_sent" not in st.session_state:
+    st.session_state.email_sent = False
+if "start_time" not in st.session_state:
+    st.session_state.start_time = time.time()
+if "awaiting_email_confirmation" not in st.session_state:
+    st.session_state.awaiting_email_confirmation = False
+if "show_evaluation_only" not in st.session_state:
+    st.session_state.show_evaluation_only = False
+if "use_voice" not in st.session_state:
+    st.session_state.use_voice = False
+if "student_verified" not in st.session_state:
+    st.session_state.student_verified = False
+if "verification_code" not in st.session_state:
+    st.session_state.verification_code = ""
+if "verification_code_sent" not in st.session_state:
+    st.session_state.verification_code_sent = False
+if "system_prompt" not in st.session_state:
+    st.session_state.system_prompt = ""
+if "completion_saved" not in st.session_state:
+    st.session_state.completion_saved = False
+if "speech_output_enabled" not in st.session_state:
+    st.session_state.speech_output_enabled = False
+if "tts_audio_bytes" not in st.session_state:
+    st.session_state.tts_audio_bytes = None
+if "tts_audio_mime" not in st.session_state:
+    st.session_state.tts_audio_mime = ""
+if "tts_last_message_idx" not in st.session_state:
+    st.session_state.tts_last_message_idx = None
+if "tts_cache_key" not in st.session_state:
+    st.session_state.tts_cache_key = ""
+if "tts_autoplay_nonce" not in st.session_state:
+    st.session_state.tts_autoplay_nonce = 0
+if "tts_played_nonce" not in st.session_state:
+    st.session_state.tts_played_nonce = 0
 
 
-# ----------------------------------------------------------------------------
-# Helper to complete interview and save data
-# ----------------------------------------------------------------------------
-def _complete_interview(student_number, respondent_name, company_name, config_name, 
-                        transcript_text=None, send_email_flag=False, email_address=None):
-    """
-    Complete the interview by saving to database, generating summary, and updating progress.
-    
-    Args:
-        student_number: Student ID number
-        respondent_name: Name of the respondent
-        company_name: Company name (optional)
-        config_name: Interview configuration name
-        transcript_text: Pre-built transcript text (if None, will be built from messages)
-        send_email_flag: Whether to send email notification
-        email_address: Email address to send to (if sending email)
-    """
+required_params = ["name", "recipient_email"]
+
+
+def validate_query_params(params):
+    missing = [
+        key for key in required_params if not normalize_query_value(params.get(key))
+    ]
+    return len(missing) == 0, missing
+
+
+def get_chat_messages():
+    """Return the current conversation in provider-compatible format."""
+    if api == "anthropic":
+        return [
+            message
+            for message in st.session_state.messages
+            if message["role"] != "system"
+        ]
+    return list(st.session_state.messages)
+
+
+def build_chat_kwargs(messages=None, stream=True):
+    """Build provider-specific chat kwargs for the current conversation state."""
+    conversation = list(messages if messages is not None else get_chat_messages())
+    kwargs = {
+        "model": model,
+        "max_tokens": config.MAX_OUTPUT_TOKENS,
+        "messages": conversation,
+        "stream": stream,
+    }
+    if config.TEMPERATURE is not None:
+        kwargs["temperature"] = config.TEMPERATURE
+    if api == "anthropic":
+        kwargs["system"] = st.session_state.system_prompt
+        kwargs["messages"] = [
+            message for message in conversation if message["role"] != "system"
+        ]
+    return kwargs
+
+
+def stream_assistant_reply(message_placeholder, messages=None) -> str:
+    """Stream the assistant response for the current provider."""
+    reply = ""
+    if api == "openai":
+        stream = client.chat.completions.create(**build_chat_kwargs(messages=messages))
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                reply += delta
+            if len(reply) > 5:
+                message_placeholder.markdown(reply + "▌")
+            if find_closing_code(reply, config.CLOSING_MESSAGES):
+                message_placeholder.empty()
+                break
+        return reply
+
+    with client.messages.stream(**build_chat_kwargs(messages=messages)) as stream:
+        for delta in stream.text_stream:
+            if delta:
+                reply += delta
+            if len(reply) > 5:
+                message_placeholder.markdown(reply + "▌")
+            if find_closing_code(reply, config.CLOSING_MESSAGES):
+                message_placeholder.empty()
+                break
+    return reply
+
+
+def persist_local_transcript():
+    """Persist the local transcript and time files for the current interview."""
+    return save_interview_data(
+        student_number=student_number,
+        company_name=company_name,
+        transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
+        times_directory=config.TIMES_DIRECTORY,
+    )
+
+
+def generate_summary(transcript_text: str) -> str:
+    """Generate a concise summary of the completed interview."""
+    if not transcript_text.strip():
+        return "No transcript available."
+
+    summary_prompt = (
+        "Please provide a concise but detailed summary for the following interview transcript:\n\n"
+        + transcript_text
+    )
+
+    if api == "openai":
+        if provider == "deepinfra":
+            summary_messages = [{"role": "user", "content": summary_prompt}]
+        else:
+            summary_messages = [
+                {
+                    "role": "system",
+                    "content": "You create concise but detailed summaries of interview transcripts.",
+                },
+                {"role": "user", "content": summary_prompt},
+            ]
+        response = client.chat.completions.create(
+            model=model,
+            messages=summary_messages,
+            max_tokens=200,
+            temperature=0.7,
+            stream=False,
+        )
+        return response.choices[0].message.content.strip()
+
+    response = client.messages.create(
+        model=model,
+        system="You create concise but detailed summaries of interview transcripts.",
+        messages=[{"role": "user", "content": summary_prompt}],
+        max_tokens=200,
+        temperature=0.7,
+    )
+    summary_text = extract_anthropic_text(response)
+    return summary_text or "Summary generation returned no text."
+
+
+def finalize_interview(send_email=False, email_input=None):
+    """Persist the finished interview and move the UI to the evaluation state."""
+    if st.session_state.completion_saved:
+        return
+
+    transcript_link, transcript_file = persist_local_transcript()
+    st.session_state.transcript_link = transcript_link
+    st.session_state.transcript_file = transcript_file
+
+    if send_email:
+        send_transcript_email(
+            student_number=student_number,
+            recipient_email=email_input or recipient_email,
+            transcript_link=transcript_link,
+            transcript_file=transcript_file,
+            name_from_form=respondent_name,
+        )
+        st.session_state.email_sent = True
+
     duration_minutes = (time.time() - st.session_state.start_time) / 60
     interview_id = st.session_state.session_id
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    
-    # Build transcript if not provided
-    if transcript_text is None:
-        transcript_text = "".join(
-            f"{msg['role']}: {msg['content']}\n"
-            for msg in st.session_state.messages
-            if msg["role"] in ["user", "assistant"]
-        )
-    
-    # Save to database
+    transcript_text = serialize_transcript(st.session_state.messages)
+
     save_interview_to_sheet(
         interview_id,
         student_number,
@@ -276,102 +382,45 @@ def _complete_interview(student_number, respondent_name, company_name, config_na
         transcript_text,
         f"{duration_minutes:.2f}",
     )
-    
-    # Update progress sheet if student number provided
     if student_number:
         update_progress_sheet(student_number, respondent_name, config_name, timestamp)
-    
-    # Generate and save summary
-    summary_prompt = (
-        "Please provide a concise but detailed summary for the following interview transcript:\n\n"
-        + transcript_text
-    )
-    
-    if api == "openai":
-        if provider == "deepinfra":
-            summary_messages = [{"role": "user", "content": summary_prompt}]
-        else:
-            summary_messages = [{"role": "system", "content": summary_prompt}]
-        summary_response = client.chat.completions.create(
-            model=model,
-            messages=summary_messages,
-            max_tokens=200,
-            temperature=0.7,
-            stream=False,
-        )
-        summary_text = summary_response.choices[0].message.content.strip()
-    else:
-        summary_text = "Summary generation not implemented for this provider."
-    
+
+    summary_text = generate_summary(transcript_text)
     update_interview_summary(interview_id, summary_text)
-    
-    # Send email if requested
-    if send_email_flag and email_address:
-        transcript_link, transcript_file = save_interview_data(
-            student_number=student_number,
-            company_name=company_name,
-        )
-        send_transcript_email(
-            student_number=student_number,
-            recipient_email=email_address,
-            transcript_link=transcript_link,
-            transcript_file=transcript_file,
-            name_from_form=respondent_name,
-        )
-        st.session_state.email_sent = True
 
-# ----------------------------------------------------------------------------
-# Streamlit session-state defaults
-# ----------------------------------------------------------------------------
-_initialize_session_state()
+    st.session_state.completion_saved = True
+    st.session_state.show_evaluation_only = True
 
-# ----------------------------------------------------------------------------
-# "student_number" **and "company"** are now optional – only the fields below are required.
-# ----------------------------------------------------------------------------
-required_params = ["name", "recipient_email"]
-
-def validate_query_params(params):
-    """
-    Validate that all required query parameters are present.
-    
-    Args:
-        params: Dictionary of query parameters
-        
-    Returns:
-        tuple: (is_valid: bool, missing: list of missing parameter names)
-    """
-    missing = [k for k in required_params if k not in params or not params[k]]
-    return len(missing) == 0, missing
 
 is_valid, missing = validate_query_params(query_params)
 if not is_valid:
     st.error(f"Missing parameters: {', '.join(missing)}")
     st.stop()
 
-# Fetch parameters -----------------------------------------------------------
 student_number = _get_param("student_number", "")
 respondent_name = _get_param("name")
 recipient_email = _get_param("recipient_email")
 company_name = _get_param("company")
 
-# ----------------------------------------------------------------------------
-# Qualtrics post-interview survey link (CONFIG-DRIVEN)
-# ----------------------------------------------------------------------------
-DEFAULT_QUALTRICS_URL = (
-    "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_agZpa5UeS9sUwLQ"
-)
-evaluation_url = getattr(
-    config, "POST_INTERVIEW_SURVEY_URL", DEFAULT_QUALTRICS_URL
-)
+if not st.session_state.system_prompt:
+    stored_system_prompt = next(
+        (
+            message["content"]
+            for message in st.session_state.messages
+            if message["role"] == "system"
+        ),
+        "",
+    )
+    st.session_state.system_prompt = stored_system_prompt
+
+DEFAULT_QUALTRICS_URL = "https://leidenuniv.eu.qualtrics.com/jfe/form/SV_agZpa5UeS9sUwLQ"
+evaluation_url = getattr(config, "POST_INTERVIEW_SURVEY_URL", DEFAULT_QUALTRICS_URL)
 evaluation_url_with_session = (
     f"{evaluation_url}?session_id={st.session_state.session_id}"
 )
 
-# ----------------------------------------------------------------------------
-# Verification step for retrieving prior transcripts
-# ----------------------------------------------------------------------------
 context_map = load_interview_context_map()
-needs_context = student_number and config_name.lower() in context_map
+needs_context = bool(student_number) and config_name.lower() in context_map
 if needs_context and not st.session_state.student_verified:
     if not st.session_state.verification_code_sent:
         code = f"{uuid.uuid4().int % 1000000:06d}"
@@ -394,9 +443,6 @@ if needs_context and not st.session_state.student_verified:
             st.error("Incorrect code. Please try again.")
     st.stop()
 
-# ----------------------------------------------------------------------------
-# EARLY EXIT if the only thing left to show is the evaluation button
-# ----------------------------------------------------------------------------
 if st.session_state.show_evaluation_only:
     st.markdown(
         f"""
@@ -413,39 +459,35 @@ if st.session_state.show_evaluation_only:
     )
     st.stop()
 
-# ----------------------------------------------------------------------------
-# Sidebar with interview details – hide student number and company when absent
-# ----------------------------------------------------------------------------
+
 st.sidebar.title("Interview Details")
 for param in required_params:
-    st.sidebar.write(
-        f"{param.replace('_', ' ').capitalize()}: {html.unescape(query_params[param])}"
-    )
+    label = param.replace("_", " ").capitalize()
+    value = html.unescape(normalize_query_value(query_params.get(param)))
+    st.sidebar.write(f"{label}: {value}")
 if company_name:
     st.sidebar.write(f"Company: {company_name}")
 if student_number:
     st.sidebar.write(f"Student number: {student_number}")
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
 
-# ----------------------------------------------------------------------------
-# Top banner with Quit button
-# ----------------------------------------------------------------------------
+
 col1, col2 = st.columns([0.85, 0.15])
 with col2:
-    if st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
+    if (
+        st.session_state.interview_active
+        and not st.session_state.awaiting_email_confirmation
+    ):
         if st.button("Quit"):
             st.session_state.awaiting_email_confirmation = True
 
-# ----------------------------------------------------------------------------
-# Quit & Completion flow – confirm email & save transcript
-# ----------------------------------------------------------------------------
+
 if st.session_state.awaiting_email_confirmation:
-    # Sticky notification at bottom to scroll up
     st.markdown(
         """
-        <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
-                    background-color: #ff6b6b; color: white; padding: 1rem 2rem; 
-                    border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+        <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+                    background-color: #ff6b6b; color: white; padding: 1rem 2rem;
+                    border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                     z-index: 9999; text-align: center; font-weight: bold; animation: pulse 2s infinite;">
             ⬆️ Scroll up to complete final confirmation before closing! ⬆️
         </div>
@@ -456,9 +498,9 @@ if st.session_state.awaiting_email_confirmation:
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-    
+
     st.subheader("Confirm Email Before Ending Interview")
     email_input = st.text_input(
         "Confirm or update your email address:", value=recipient_email
@@ -467,171 +509,109 @@ if st.session_state.awaiting_email_confirmation:
     if st.button("Confirm and Quit"):
         st.session_state.interview_active = False
         st.session_state.awaiting_email_confirmation = False
-        st.session_state.email_confirmed = True
         quit_msg = "You have cancelled the interview."
         st.session_state.messages.append({"role": "assistant", "content": quit_msg})
-        
-        # Save local transcript
-        transcript_link, transcript_file = save_interview_data(
-            student_number=student_number,
-            company_name=company_name,
-        )
-        st.session_state.transcript_link = transcript_link
-        st.session_state.transcript_file = transcript_file
-        
-        # Complete interview and save to database
-        _complete_interview(
-            student_number=student_number,
-            respondent_name=respondent_name,
-            company_name=company_name,
-            config_name=config_name,
-            send_email_flag=send_email,
-            email_address=email_input if send_email else None,
-        )
-        
-        st.session_state.show_evaluation_only = True
+        finalize_interview(send_email=send_email, email_input=email_input)
         st.rerun()
 
-# ----------------------------------------------------------------------------
-# Post-interview actions and persistence (automatic bot-closure path)
-# ----------------------------------------------------------------------------
-if not st.session_state.interview_active and not st.session_state.awaiting_email_confirmation:
-    # Complete interview and save all data
-    _complete_interview(
-        student_number=student_number,
-        respondent_name=respondent_name,
-        company_name=company_name,
-        config_name=config_name,
-    )
-    st.session_state.show_evaluation_only = True
+
+if should_finalize_interview(
+    st.session_state.interview_active,
+    st.session_state.awaiting_email_confirmation,
+    st.session_state.completion_saved,
+):
+    finalize_interview()
     st.rerun()
 
-# ----------------------------------------------------------------------------
-# Chat UI helpers – render prior conversation
-# ----------------------------------------------------------------------------
-# Visual hint for users to scroll if conversation is long (show at TOP)
+
 if len(st.session_state.messages) > 5:
     st.markdown(
         """
-        <div style="text-align: center; color: #666; font-size: 0.9em; margin: 0.5rem 0 1rem 0; 
+        <div style="text-align: center; color: #666; font-size: 0.9em; margin: 0.5rem 0 1rem 0;
                     padding: 0.5rem; background-color: rgba(128,128,128,0.05); border-radius: 4px;">
             👇 Scroll down to reply 👇
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 conversation_container = st.container()
-
 with conversation_container:
-    for message in st.session_state.messages[1:]:
+    for message in filter_display_messages(
+        st.session_state.messages, config.CLOSING_MESSAGES
+    ):
         avatar = (
             config.AVATAR_INTERVIEWER
             if message["role"] == "assistant"
             else config.AVATAR_RESPONDENT
         )
-        if not any(
-            code in message["content"] for code in config.CLOSING_MESSAGES.keys()
-        ):
-            with st.chat_message(message["role"], avatar=avatar):
-                st.markdown(message["content"])
+        with st.chat_message(message["role"], avatar=avatar):
+            st.markdown(message["content"])
 
-# ----------------------------------------------------------------------------
-# Helper dict for LLM calls
-# ----------------------------------------------------------------------------
-api_kwargs = {"stream": True}
-if api == "anthropic":
-    api_kwargs["system"] = st.secrets.get(
-        "SYSTEM_PROMPT", "Your default system prompt"
-    )
-api_kwargs.update(
-    {
-        "messages": st.session_state.messages,
-        "model": model,
-        "max_tokens": config.MAX_OUTPUT_TOKENS,
-    }
-)
-if config.TEMPERATURE is not None:
-    api_kwargs["temperature"] = config.TEMPERATURE
 
-# ----------------------------------------------------------------------------
-# Initialise conversation on first load
-# ----------------------------------------------------------------------------
 if not st.session_state.messages:
-    # ... existing init logic unchanged ...
     if student_number and st.session_state.student_verified:
         context_transcript = get_context_transcript(student_number, config_name)
     else:
         context_transcript = None
-    if provider == "deepinfra":
-        if context_transcript:
-            system_prompt = (
-                "Context Transcript Summary (provided as context for the Interview):\n\n"
-                + f"{context_transcript}\n\n"
-                + f"{config.INTERVIEW_OUTLINE}"
-            )
-        else:
-            system_prompt = config.INTERVIEW_OUTLINE
-        st.session_state.messages.append({"role": "system", "content": system_prompt})
-        st.session_state.messages.append({"role": "user", "content": "Hi"})
-    else:
-        if context_transcript:
-            system_prompt = (
-                "Context Transcript Summary (provided as context for the Interview):\n\n"
-                + f"{context_transcript}\n\n"
-                + f"{config.INTERVIEW_OUTLINE}"
-            )
-        else:
-            system_prompt = config.INTERVIEW_OUTLINE
-        st.session_state.messages.append({"role": "system", "content": system_prompt})
-        if api == "anthropic":
-            st.session_state.messages.append({"role": "user", "content": "Hi"})
+
+    base_prompt = getattr(config, "SYSTEM_PROMPT", config.INTERVIEW_OUTLINE)
+    system_prompt = compose_system_prompt(base_prompt, context_transcript)
+    st.session_state.system_prompt = system_prompt
+
+    initial_messages = [{"role": "user", "content": INITIAL_USER_PROMPT}]
     if api == "openai":
-        with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
-            stream = client.chat.completions.create(**api_kwargs)
-            first_reply = st.write_stream(stream)
+        st.session_state.messages.append({"role": "system", "content": system_prompt})
+        initial_messages = list(st.session_state.messages) + initial_messages
+
+    with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
+        placeholder = st.empty()
+        first_reply = stream_assistant_reply(placeholder, messages=initial_messages)
+
+    closing_code = find_closing_code(first_reply, config.CLOSING_MESSAGES)
+    if closing_code:
+        first_reply = config.CLOSING_MESSAGES[closing_code]
+        placeholder.markdown(first_reply)
+        st.session_state.awaiting_email_confirmation = True
+        st.session_state.interview_active = False
     else:
-        with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
-            placeholder = st.empty()
-            first_reply = ""
-            with client.messages.stream(**api_kwargs) as stream:
-                for delta in stream.text_stream:
-                    if delta:
-                        first_reply += delta
-                    placeholder.markdown(first_reply + "▌")
-            placeholder.markdown(first_reply)
+        placeholder.markdown(first_reply)
+
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
-    save_interview_data(student_number=student_number, company_name=company_name)
-    if st.session_state.speech_output_enabled:
-        if _update_tts_audio():
-            st.rerun()  # Rerun to render audio player with new audio + autoplay
+    persist_local_transcript()
+    if st.session_state.speech_output_enabled and _update_tts_audio():
+        st.rerun()
 
-# ----------------------------------------------------------------------------
-# Main chat loop with voice input
-# ----------------------------------------------------------------------------
-if st.session_state.interview_active:
+
+if should_accept_user_input(
+    st.session_state.interview_active,
+    st.session_state.awaiting_email_confirmation,
+):
     message_respondent = None
-    
-    # Decide if autoscroll should be active (only after a real user reply)
-    has_real_user_reply = any(
-        (m.get("role") == "user") and (m.get("content", "").strip().lower() not in ("hi", "hello"))
-        for m in st.session_state.messages
-    )
 
-    # Minimal CSS for message spacing
     st.markdown(
         """
         <style>
         .stChatMessage {
             margin-bottom: 1rem;
         }
+
+        .stChatMessage:last-child {
+            margin-bottom: 1.5rem;
+        }
+
+        .main .block-container {
+            padding-bottom: 2rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown("---")
+    input_container = st.container()
 
     if st.session_state.use_voice:
-        voice_col, text_col, speech_col = st.columns([0.08, 0.84, 0.08])
+        voice_col, text_col, speech_col = input_container.columns([0.08, 0.84, 0.08])
         with text_col:
             audio_dict = mic_recorder(
                 start_prompt="🎙️ Hold to talk",
@@ -651,18 +631,22 @@ if st.session_state.interview_active:
                 help="Toggle speech output for the latest assistant reply",
             )
         if audio_dict:
-            raw = audio_dict["bytes"] if isinstance(audio_dict, dict) and "bytes" in audio_dict else audio_dict
+            raw_audio = (
+                audio_dict["bytes"]
+                if isinstance(audio_dict, dict) and "bytes" in audio_dict
+                else audio_dict
+            )
             with st.spinner("Transcribing..."):
                 try:
-                    transcript = transcribe(raw)
-                except Exception as e:
-                    st.error(f"Transcription error: {e}")
+                    transcript = transcribe(raw_audio)
+                except Exception as exc:
+                    st.error(f"Transcription error: {exc}")
                     transcript = ""
                 if transcript:
                     message_respondent = transcript
                     st.markdown(f"**You said:** {transcript}")
     else:
-        text_col, voice_col, speech_col = st.columns([0.84, 0.08, 0.08])
+        text_col, voice_col, speech_col = input_container.columns([0.84, 0.08, 0.08])
         with text_col:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
@@ -679,8 +663,9 @@ if st.session_state.interview_active:
     if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:
         audio_b64 = base64.b64encode(st.session_state.tts_audio_bytes).decode("ascii")
         mime_type = st.session_state.tts_audio_mime or "audio/wav"
-        # Only autoplay if new audio was just generated (nonce increased)
-        should_autoplay = st.session_state.tts_autoplay_nonce > st.session_state.tts_played_nonce
+        should_autoplay = (
+            st.session_state.tts_autoplay_nonce > st.session_state.tts_played_nonce
+        )
         autoplay_attr = "autoplay" if should_autoplay else ""
         if should_autoplay:
             st.session_state.tts_played_nonce = st.session_state.tts_autoplay_nonce
@@ -700,68 +685,42 @@ if st.session_state.interview_active:
         )
         st.caption(f"Voice: {current_voice}")
 
-    # Process user input and generate responses
     if message_respondent:
-        # Add user message to conversation
         st.session_state.messages.append({"role": "user", "content": message_respondent})
-        
-        # Display user message in conversation area
+
         with conversation_container:
             with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
                 st.markdown(message_respondent)
 
-        # Generate and display assistant response
         with conversation_container:
             with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
-                message_placeholder = st.empty()
-                message_interviewer = ""
+                placeholder = st.empty()
+                assistant_reply = stream_assistant_reply(placeholder)
 
-                if api == "openai":
-                    stream = client.chat.completions.create(**api_kwargs)
-                    for message in stream:
-                        text_delta = message.choices[0].delta.content
-                        if text_delta is not None:
-                            message_interviewer += text_delta
-                        if len(message_interviewer) > 5:
-                            message_placeholder.markdown(message_interviewer + "▌")
-                        if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
-                            message_placeholder.empty()
-                            break
-
-                elif api == "anthropic":
-                    with client.messages.stream(**api_kwargs) as stream:
-                        for text_delta in stream.text_stream:
-                            if text_delta is not None:
-                                message_interviewer += text_delta
-                            if len(message_interviewer) > 5:
-                                message_placeholder.markdown(message_interviewer + "▌")
-                            if any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
-                                message_placeholder.empty()
-                                break
-
-                if not any(code in message_interviewer for code in config.CLOSING_MESSAGES.keys()):
-                    message_placeholder.markdown(message_interviewer)
-                    st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
-                    try:
-                        save_interview_data(
-                            student_number=student_number,
-                            company_name=company_name,
-                        )
-                    except Exception:
-                        pass
-                    if st.session_state.speech_output_enabled:
-                        if _update_tts_audio():
-                            st.rerun()  # Rerun to render audio player with new audio + autoplay
-
-                for code in config.CLOSING_MESSAGES.keys():
-                    if code in message_interviewer:
-                        st.session_state.messages.append({"role": "assistant", "content": message_interviewer})
-                        st.session_state.awaiting_email_confirmation = True
-                        st.session_state.interview_active = False
-                        closing_message = config.CLOSING_MESSAGES[code]
-                        st.markdown(closing_message)
-                        st.session_state.messages.append({"role": "assistant", "content": closing_message})
-                        if st.session_state.speech_output_enabled:
-                            _update_tts_audio()
-                        time.sleep(1)
-                        st.rerun()  # Rerun handles both closing flow and audio player
+                closing_code = find_closing_code(
+                    assistant_reply, config.CLOSING_MESSAGES
+                )
+                if not closing_code:
+                    placeholder.markdown(assistant_reply)
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": assistant_reply}
+                    )
+                    persist_local_transcript()
+                    if (
+                        st.session_state.speech_output_enabled
+                        and _update_tts_audio()
+                    ):
+                        st.rerun()
+                else:
+                    st.session_state.awaiting_email_confirmation = True
+                    st.session_state.interview_active = False
+                    closing_message = config.CLOSING_MESSAGES[closing_code]
+                    placeholder.markdown(closing_message)
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": closing_message}
+                    )
+                    persist_local_transcript()
+                    if st.session_state.speech_output_enabled and _update_tts_audio():
+                        st.rerun()
+                    time.sleep(1)
+                    st.rerun()

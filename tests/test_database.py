@@ -1,0 +1,114 @@
+import database
+
+
+def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "ensure_remote_directory",
+        lambda ssh, path: calls.append(("mkdir", path)),
+    )
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql",
+        lambda ssh, db_path, sql, params=None, fetch=None: calls.append(
+            ("sql", db_path, " ".join(sql.split()), params, fetch)
+        ),
+    )
+    cleanup = []
+    monkeypatch.setattr(
+        database,
+        "close_ssh_connection",
+        lambda ssh, key_path: cleanup.append((ssh, key_path)),
+    )
+
+    database.save_interview_to_sheet(
+        "interview-1",
+        "student-1",
+        "Miros O'Connor",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:00:00",
+        "assistant: Hello",
+        "12.50",
+    )
+
+    assert calls[0] == ("mkdir", "/remote/data")
+    assert "CREATE TABLE IF NOT EXISTS interviews" in calls[1][2]
+    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?)" in calls[2][2]
+    assert calls[2][3] == [
+        "interview-1",
+        "student-1",
+        "Miros O'Connor",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:00:00",
+        "assistant: Hello",
+        "12.50",
+    ]
+    assert cleanup == [(fake_ssh, "/tmp/key")]
+
+
+def test_get_transcript_by_student_and_type_returns_summary_text(monkeypatch):
+    fake_ssh = object()
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql",
+        lambda ssh, db_path, sql, params=None, fetch=None: ["summary text"],
+    )
+    cleanup = []
+    monkeypatch.setattr(
+        database,
+        "close_ssh_connection",
+        lambda ssh, key_path: cleanup.append((ssh, key_path)),
+    )
+
+    result = database.get_transcript_by_student_and_type(
+        "student-1", "midterm_interview"
+    )
+
+    assert result == "summary text"
+    assert cleanup == [(fake_ssh, "/tmp/key")]
+
+
+def test_update_progress_and_summary_use_parameterized_queries(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(database, "ensure_remote_directory", lambda *args: None)
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql",
+        lambda ssh, db_path, sql, params=None, fetch=None: calls.append(
+            (" ".join(sql.split()), params)
+        ),
+    )
+    monkeypatch.setattr(database, "close_ssh_connection", lambda *args: None)
+
+    database.update_progress_sheet(
+        "student-1", "Miros", "midterm_interview", "2026-03-12 10:00:00"
+    )
+    database.update_interview_summary("interview-1", "summary text")
+
+    assert any("VALUES (?, ?, ?, ?)" in sql for sql, _ in calls)
+    assert any(params == ["summary text", "interview-1"] for _, params in calls)
