@@ -5,6 +5,7 @@ from interview_completion import (
     has_inline_feedback,
     initialize_completion_state,
     normalize_survey_response,
+    survey_option_index,
 )
 
 
@@ -74,6 +75,12 @@ def test_build_completion_responses_trims_email():
     responses = build_completion_responses(session_state)
 
     assert responses.email == "person@example.com"
+
+
+def test_survey_option_index_falls_back_to_skip():
+    assert survey_option_index("Skip") == 0
+    assert survey_option_index("4") == 4
+    assert survey_option_index("unexpected") == 0
 
 
 def test_has_inline_feedback_detects_any_answer():

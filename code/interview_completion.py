@@ -36,6 +36,14 @@ def normalize_survey_response(value: str) -> str:
     return str(value)
 
 
+def survey_option_index(value: str) -> int:
+    """Return a safe selectbox index for the inline survey options."""
+    try:
+        return INLINE_SURVEY_OPTIONS.index(value)
+    except ValueError:
+        return 0
+
+
 def build_completion_responses(session_state) -> CompletionResponses:
     """Build a normalized snapshot of the current completion-form answers."""
     return CompletionResponses(

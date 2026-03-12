@@ -1,6 +1,28 @@
 import { test, expect } from '@playwright/test';
 
 
+async function expectCompletionDefaults(page) {
+  await expect(
+    page.getByRole('textbox', { name: 'Confirm or update your email address:' })
+  ).toHaveValue('miros@example.com');
+  await expect(
+    page.getByRole('checkbox', { name: 'Email me a transcript of this interview' })
+  ).toBeChecked();
+}
+
+
+test('manual finish flow prepopulates email and transcript opt-in', async ({ page }) => {
+  await page.goto(
+    '/?name=Miros&recipient_email=miros@example.com&interview_config=midterm_interview'
+  );
+
+  await page.getByRole('button', { name: 'Finish interview' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Finish Interview' })).toBeVisible();
+  await expectCompletionDefaults(page);
+});
+
+
 test('end-of-interview flow works in the browser', async ({ page }) => {
   await page.goto(
     '/?name=Miros&recipient_email=miros@example.com&interview_config=midterm_interview'
@@ -22,6 +44,7 @@ test('end-of-interview flow works in the browser', async ({ page }) => {
       'The conversation has ended. You can finish here and leave a bit of quick feedback without leaving this page.'
     )
   ).toBeVisible();
+  await expectCompletionDefaults(page);
 
   await page
     .getByRole('textbox', { name: 'Anything we should improve?' })

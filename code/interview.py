@@ -22,6 +22,7 @@ from interview_completion import (
     completion_panel_copy,
     has_inline_feedback,
     initialize_completion_state,
+    survey_option_index,
 )
 from interview_logic import (
     compose_system_prompt,
@@ -551,31 +552,35 @@ if st.session_state.awaiting_email_confirmation:
         st.rerun()
 
     with st.form("completion_form"):
-        st.text_input(
+        completion_email_input = st.text_input(
             "Confirm or update your email address:",
-            key="completion_email",
+            value=st.session_state.completion_email or recipient_email,
         )
-        st.checkbox(
+        completion_send_email = st.checkbox(
             "Email me a transcript of this interview",
-            key="completion_send_email",
+            value=bool(st.session_state.completion_send_email),
         )
         st.caption("Optional quick feedback")
         survey_col1, survey_col2 = st.columns(2)
         with survey_col1:
-            st.selectbox(
+            completion_survey_usefulness = st.selectbox(
                 "How useful was this interview?",
                 INLINE_SURVEY_OPTIONS,
-                key="completion_survey_usefulness",
+                index=survey_option_index(
+                    st.session_state.completion_survey_usefulness
+                ),
             )
         with survey_col2:
-            st.selectbox(
+            completion_survey_naturalness = st.selectbox(
                 "How natural did the conversation feel?",
                 INLINE_SURVEY_OPTIONS,
-                key="completion_survey_naturalness",
+                index=survey_option_index(
+                    st.session_state.completion_survey_naturalness
+                ),
             )
-        st.text_area(
+        completion_survey_feedback = st.text_area(
             "Anything we should improve?",
-            key="completion_survey_feedback",
+            value=st.session_state.completion_survey_feedback,
             height=120,
         )
         finish_submitted = st.form_submit_button(
@@ -584,6 +589,17 @@ if st.session_state.awaiting_email_confirmation:
         )
 
     if finish_submitted:
+        st.session_state.completion_email = (
+            completion_email_input.strip() or recipient_email
+        )
+        st.session_state.completion_send_email = bool(completion_send_email)
+        st.session_state.completion_survey_usefulness = (
+            completion_survey_usefulness
+        )
+        st.session_state.completion_survey_naturalness = (
+            completion_survey_naturalness
+        )
+        st.session_state.completion_survey_feedback = completion_survey_feedback
         if st.session_state.interview_active:
             st.session_state.interview_active = False
             quit_msg = "You have cancelled the interview."
