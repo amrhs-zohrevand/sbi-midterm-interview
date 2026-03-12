@@ -35,6 +35,10 @@ from interview_logic import (
     should_finalize_interview,
 )
 from interview_persistence import CompletionContext, persist_completion
+from interview_provider import (
+    apply_model_selection_to_openai_kwargs,
+    create_provider_runtime,
+)
 from interview_selection import get_context_transcript, load_interview_context_map
 from interview_smoke import (
     SMOKE_TEST_MODEL,
@@ -53,34 +57,6 @@ from utils import (
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
 
 SMOKE_TEST_MODE = smoke_test_mode_enabled()
-
-if SMOKE_TEST_MODE:
-    provider = "smoke"
-    model = SMOKE_TEST_MODEL
-    api = "smoke"
-    client = None
-else:
-    provider = st.secrets.get("API_PROVIDER", "openai").lower()
-    model = st.secrets.get("MODEL", "gpt-3.5-turbo")
-
-    if provider == "openai":
-        api = "openai"
-        client = OpenAI(api_key=st.secrets["API_KEY"])
-    elif provider == "deepinfra":
-        api = "openai"
-        client = OpenAI(
-            api_key=st.secrets["DEEPINFRA_API_KEY"],
-            base_url="https://api.deepinfra.com/v1/openai",
-        )
-    elif provider == "anthropic" or "claude" in model.lower():
-        api = "anthropic"
-        import anthropic  # noqa: E402
-
-        client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
-    else:
-        raise ValueError(
-            "Unrecognized API provider; supported values are openai, deepinfra, and anthropic."
-        )
 
 
 def get_audio_client():
@@ -205,6 +181,25 @@ else:
     spec.loader.exec_module(config)
 
 
+if SMOKE_TEST_MODE:
+    provider = "smoke"
+    model = SMOKE_TEST_MODEL
+    api = "smoke"
+    client = None
+    model_selection = None
+else:
+    provider_runtime = create_provider_runtime(
+        st.secrets,
+        config_name,
+        config.MAX_OUTPUT_TOKENS,
+    )
+    provider = provider_runtime.provider
+    model = provider_runtime.model_selection.model
+    api = provider_runtime.api
+    client = provider_runtime.client
+    model_selection = provider_runtime.model_selection
+
+
 def _get_param(name: str, default: str = "") -> str:
     """Return a query parameter as a decoded string."""
     return html.unescape(normalize_query_value(query_params.get(name), default))
@@ -284,6 +279,8 @@ def build_chat_kwargs(messages=None, stream=True):
     }
     if config.TEMPERATURE is not None:
         kwargs["temperature"] = config.TEMPERATURE
+    if model_selection is not None and api == "openai":
+        kwargs = apply_model_selection_to_openai_kwargs(kwargs, model_selection)
     if api == "anthropic":
         kwargs["system"] = st.session_state.system_prompt
         kwargs["messages"] = [
