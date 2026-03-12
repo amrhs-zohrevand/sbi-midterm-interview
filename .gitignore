@@ -171,3 +171,8 @@ cython_debug/
 
 # User data and runtime files
 data/
+
+# Local JS tooling for browser smoke tests
+node_modules/
+playwright-report/
+test-results/

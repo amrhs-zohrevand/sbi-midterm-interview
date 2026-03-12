@@ -29,11 +29,18 @@ from interview_logic import (
     filter_display_messages,
     find_closing_code,
     normalize_query_value,
-    serialize_transcript,
     should_accept_user_input,
     should_finalize_interview,
 )
+from interview_persistence import CompletionContext, persist_completion
 from interview_selection import get_context_transcript, load_interview_context_map
+from interview_smoke import (
+    SMOKE_TEST_MODEL,
+    next_smoke_reply,
+    smoke_generate_summary,
+    smoke_noop,
+    smoke_test_mode_enabled,
+)
 from utils import (
     save_interview_data,
     send_transcript_email,
@@ -43,28 +50,35 @@ from utils import (
 
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
 
+SMOKE_TEST_MODE = smoke_test_mode_enabled()
 
-provider = st.secrets.get("API_PROVIDER", "openai").lower()
-model = st.secrets.get("MODEL", "gpt-3.5-turbo")
-
-if provider == "openai":
-    api = "openai"
-    client = OpenAI(api_key=st.secrets["API_KEY"])
-elif provider == "deepinfra":
-    api = "openai"
-    client = OpenAI(
-        api_key=st.secrets["DEEPINFRA_API_KEY"],
-        base_url="https://api.deepinfra.com/v1/openai",
-    )
-elif provider == "anthropic" or "claude" in model.lower():
-    api = "anthropic"
-    import anthropic  # noqa: E402
-
-    client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+if SMOKE_TEST_MODE:
+    provider = "smoke"
+    model = SMOKE_TEST_MODEL
+    api = "smoke"
+    client = None
 else:
-    raise ValueError(
-        "Unrecognized API provider; supported values are openai, deepinfra, and anthropic."
-    )
+    provider = st.secrets.get("API_PROVIDER", "openai").lower()
+    model = st.secrets.get("MODEL", "gpt-3.5-turbo")
+
+    if provider == "openai":
+        api = "openai"
+        client = OpenAI(api_key=st.secrets["API_KEY"])
+    elif provider == "deepinfra":
+        api = "openai"
+        client = OpenAI(
+            api_key=st.secrets["DEEPINFRA_API_KEY"],
+            base_url="https://api.deepinfra.com/v1/openai",
+        )
+    elif provider == "anthropic" or "claude" in model.lower():
+        api = "anthropic"
+        import anthropic  # noqa: E402
+
+        client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+    else:
+        raise ValueError(
+            "Unrecognized API provider; supported values are openai, deepinfra, and anthropic."
+        )
 
 
 def get_audio_client():
@@ -278,6 +292,12 @@ def build_chat_kwargs(messages=None, stream=True):
 
 def stream_assistant_reply(message_placeholder, messages=None) -> str:
     """Stream the assistant response for the current provider."""
+    if SMOKE_TEST_MODE:
+        reply = next_smoke_reply(messages if messages is not None else get_chat_messages())
+        if len(reply) > 5:
+            message_placeholder.markdown(reply + "▌")
+        return reply
+
     reply = ""
     if api == "openai":
         stream = client.chat.completions.create(**build_chat_kwargs(messages=messages))
@@ -318,6 +338,8 @@ def generate_summary(transcript_text: str) -> str:
     """Generate a concise summary of the completed interview."""
     if not transcript_text.strip():
         return "No transcript available."
+    if SMOKE_TEST_MODE:
+        return smoke_generate_summary(transcript_text)
 
     summary_prompt = (
         "Please provide a concise but detailed summary for the following interview transcript:\n\n"
@@ -360,50 +382,33 @@ def finalize_interview(send_email=False, email_input=None):
     if st.session_state.completion_saved:
         return
 
-    transcript_link, transcript_file = persist_local_transcript()
-    st.session_state.transcript_link = transcript_link
-    st.session_state.transcript_file = transcript_file
-
-    if send_email:
-        send_transcript_email(
-            student_number=student_number,
-            recipient_email=email_input or recipient_email,
-            transcript_link=transcript_link,
-            transcript_file=transcript_file,
-            name_from_form=respondent_name,
-        )
-        st.session_state.email_sent = True
-
-    duration_minutes = (time.time() - st.session_state.start_time) / 60
-    interview_id = st.session_state.session_id
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    transcript_text = serialize_transcript(st.session_state.messages)
-
-    save_interview_to_sheet(
-        interview_id,
-        student_number,
-        respondent_name,
-        company_name,
-        config_name,
-        timestamp,
-        transcript_text,
-        f"{duration_minutes:.2f}",
-    )
-    if student_number:
-        update_progress_sheet(student_number, respondent_name, config_name, timestamp)
-
-    summary_text = generate_summary(transcript_text)
-    update_interview_summary(interview_id, summary_text)
-
     completion_responses = build_completion_responses(st.session_state)
-    if has_inline_feedback(completion_responses):
-        update_interview_survey(
-            interview_id,
-            completion_responses.usefulness_rating,
-            completion_responses.naturalness_rating,
-            completion_responses.feedback,
-            timestamp,
-        )
+    completion_context = CompletionContext(
+        interview_id=st.session_state.session_id,
+        student_number=student_number,
+        respondent_name=respondent_name,
+        company_name=company_name,
+        config_name=config_name,
+        recipient_email=recipient_email,
+        start_time=st.session_state.start_time,
+        messages=list(st.session_state.messages),
+        completion_responses=completion_responses,
+    )
+    completion_result = persist_completion(
+        completion_context,
+        persist_local_transcript=persist_local_transcript,
+        send_transcript_email=smoke_noop if SMOKE_TEST_MODE else send_transcript_email,
+        save_interview_to_sheet=smoke_noop if SMOKE_TEST_MODE else save_interview_to_sheet,
+        update_progress_sheet=smoke_noop if SMOKE_TEST_MODE else update_progress_sheet,
+        generate_summary=generate_summary,
+        update_interview_summary=smoke_noop
+        if SMOKE_TEST_MODE
+        else update_interview_summary,
+        update_interview_survey=smoke_noop if SMOKE_TEST_MODE else update_interview_survey,
+    )
+    st.session_state.transcript_link = completion_result.transcript_link
+    st.session_state.transcript_file = completion_result.transcript_file
+    st.session_state.email_sent = completion_result.email_sent
 
     st.session_state.completion_saved = True
     st.session_state.show_evaluation_only = True
@@ -465,6 +470,8 @@ if needs_context and not st.session_state.student_verified:
 if st.session_state.show_evaluation_only:
     survey_saved = has_inline_feedback(build_completion_responses(st.session_state))
     st.success("Your interview has been saved.")
+    if SMOKE_TEST_MODE:
+        st.caption("Smoke test mode is enabled: no external model, email, or remote database calls were made.")
     if survey_saved:
         st.caption("Your quick in-app feedback was saved too. Thank you.")
     st.markdown(
@@ -663,7 +670,12 @@ if should_accept_user_input(
                 key="mic_recorder",
             )
         with voice_col:
-            st.button("⌨️", on_click=toggle_voice_mode, use_container_width=True)
+            st.button(
+                "⌨️",
+                on_click=toggle_voice_mode,
+                use_container_width=True,
+                disabled=SMOKE_TEST_MODE,
+            )
         with speech_col:
             speech_icon = "🔇" if st.session_state.speech_output_enabled else "🔊"
             st.button(
@@ -671,6 +683,7 @@ if should_accept_user_input(
                 on_click=toggle_speech_output,
                 use_container_width=True,
                 help="Toggle speech output for the latest assistant reply",
+                disabled=SMOKE_TEST_MODE,
             )
         if audio_dict:
             raw_audio = (
@@ -692,7 +705,12 @@ if should_accept_user_input(
         with text_col:
             message_respondent = st.chat_input("Your message here")
         with voice_col:
-            st.button("🎤", on_click=toggle_voice_mode, use_container_width=True)
+            st.button(
+                "🎤",
+                on_click=toggle_voice_mode,
+                use_container_width=True,
+                disabled=SMOKE_TEST_MODE,
+            )
         with speech_col:
             speech_icon = "🔇" if st.session_state.speech_output_enabled else "🔊"
             st.button(
@@ -700,6 +718,7 @@ if should_accept_user_input(
                 on_click=toggle_speech_output,
                 use_container_width=True,
                 help="Toggle speech output for the latest assistant reply",
+                disabled=SMOKE_TEST_MODE,
             )
 
     if st.session_state.speech_output_enabled and st.session_state.tts_audio_bytes:

@@ -88,6 +88,16 @@ This runs:
 - `pytest`
 - `python -m compileall code`
 
+### Browser smoke test
+To run the end-of-interview flow in a real browser without calling external model APIs or the production database, run:
+
+```bash
+cd /Users/miros/Developer/sbi-midterm-interview
+./test-ui-smoke.sh
+```
+
+This starts the app in local smoke-test mode and runs the Playwright spec at [tests/ui/end-flow.smoke.spec.mjs](/Users/miros/Developer/sbi-midterm-interview/tests/ui/end-flow.smoke.spec.mjs).
+
 ### Manual smoke test
 After the app starts, open one of these URLs:
 

@@ -28,6 +28,15 @@ This runs:
 - `pytest`
 - `python -m compileall code`
 
+## Run The Browser Smoke Test
+
+```bash
+cd /Users/miros/Developer/sbi-midterm-interview
+./test-ui-smoke.sh
+```
+
+This runs a real Playwright browser test for the end-of-interview flow in local smoke-test mode, so it does not call external model APIs or write to the remote production database.
+
 ## Best Local Smoke Test
 
 1. Start without `student_number` first.
