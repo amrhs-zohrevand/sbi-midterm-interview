@@ -166,8 +166,8 @@ cython_debug/
 
 # Streamlit configuration and secrets
 # Note: For Streamlit Cloud deployments, use the cloud secrets management interface
-.streamlit/secrets.toml
-.streamlit/config.toml
+**/.streamlit/secrets.toml
+**/.streamlit/config.toml
 
 # User data and runtime files
 data/
