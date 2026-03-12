@@ -142,16 +142,26 @@ def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypa
         "interview-1",
         "5",
         "4",
+        "6",
+        "7",
         "Much smoother at the end now.",
         "2026-03-12 10:00:00",
     )
 
     assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_usefulness TEXT" in sql
+        "ALTER TABLE interviews ADD COLUMN survey_helpfulness TEXT" in sql
         for sql, _, _ in calls
     )
     assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_naturalness TEXT" in sql
+        "ALTER TABLE interviews ADD COLUMN survey_connection TEXT" in sql
+        for sql, _, _ in calls
+    )
+    assert any(
+        "ALTER TABLE interviews ADD COLUMN survey_understanding TEXT" in sql
+        for sql, _, _ in calls
+    )
+    assert any(
+        "ALTER TABLE interviews ADD COLUMN survey_validation TEXT" in sql
         for sql, _, _ in calls
     )
     assert any(
@@ -163,6 +173,8 @@ def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypa
         == [
             "5",
             "4",
+            "6",
+            "7",
             "Much smoother at the end now.",
             "2026-03-12 10:00:00",
             "interview-1",

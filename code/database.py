@@ -52,6 +52,10 @@ def save_interview_to_sheet(
             summary TEXT,
             survey_usefulness TEXT,
             survey_naturalness TEXT,
+            survey_helpfulness TEXT,
+            survey_connection TEXT,
+            survey_understanding TEXT,
+            survey_validation TEXT,
             survey_feedback TEXT,
             survey_timestamp TEXT
         )
@@ -183,8 +187,10 @@ def update_interview_summary(interview_id, summary):
 
 def update_interview_survey(
     interview_id,
-    usefulness_rating,
-    naturalness_rating,
+    helpfulness_rating,
+    connection_rating,
+    understanding_rating,
+    validation_rating,
     feedback,
     survey_timestamp,
 ):
@@ -201,8 +207,10 @@ def update_interview_survey(
         ) or []
         existing_column_names = {row[1] for row in existing_columns}
         required_columns = {
-            "survey_usefulness": "TEXT",
-            "survey_naturalness": "TEXT",
+            "survey_helpfulness": "TEXT",
+            "survey_connection": "TEXT",
+            "survey_understanding": "TEXT",
+            "survey_validation": "TEXT",
             "survey_feedback": "TEXT",
             "survey_timestamp": "TEXT",
         }
@@ -216,8 +224,10 @@ def update_interview_survey(
 
         update_query = """
         UPDATE interviews
-        SET survey_usefulness = ?,
-            survey_naturalness = ?,
+        SET survey_helpfulness = ?,
+            survey_connection = ?,
+            survey_understanding = ?,
+            survey_validation = ?,
             survey_feedback = ?,
             survey_timestamp = ?
         WHERE interview_id = ?
@@ -227,8 +237,10 @@ def update_interview_survey(
             db_path,
             update_query,
             [
-                usefulness_rating,
-                naturalness_rating,
+                helpfulness_rating,
+                connection_rating,
+                understanding_rating,
+                validation_rating,
                 feedback,
                 survey_timestamp,
                 interview_id,

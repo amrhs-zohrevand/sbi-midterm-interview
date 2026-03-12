@@ -88,8 +88,10 @@ def persist_completion(
     if has_inline_feedback(context.completion_responses):
         update_interview_survey(
             context.interview_id,
-            context.completion_responses.usefulness_rating,
-            context.completion_responses.naturalness_rating,
+            context.completion_responses.helpfulness_rating,
+            context.completion_responses.connection_rating,
+            context.completion_responses.understanding_rating,
+            context.completion_responses.validation_rating,
             context.completion_responses.feedback,
             timestamp,
         )

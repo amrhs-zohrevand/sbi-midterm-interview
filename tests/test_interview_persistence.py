@@ -43,8 +43,10 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
         completion_responses=CompletionResponses(
             email="person@example.com",
             send_email=True,
-            usefulness_rating="5",
-            naturalness_rating="4",
+            helpfulness_rating="5",
+            connection_rating="4",
+            understanding_rating="6",
+            validation_rating="7",
             feedback="Great ending flow.",
         ),
     )
@@ -70,7 +72,18 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
     assert result.email_sent is True
     assert any(call[0] == "send_email" for call in calls)
     assert any(call[0] == "update_progress" for call in calls)
-    assert ("update_survey", ("session-1", "5", "4", "Great ending flow.", "2026-03-12 10:00:00")) in calls
+    assert (
+        "update_survey",
+        (
+            "session-1",
+            "5",
+            "4",
+            "6",
+            "7",
+            "Great ending flow.",
+            "2026-03-12 10:00:00",
+        ),
+    ) in calls
 
 
 def test_persist_completion_skips_optional_steps_when_not_needed():
@@ -91,8 +104,10 @@ def test_persist_completion_skips_optional_steps_when_not_needed():
         completion_responses=CompletionResponses(
             email="person@example.com",
             send_email=False,
-            usefulness_rating="",
-            naturalness_rating="",
+            helpfulness_rating="",
+            connection_rating="",
+            understanding_rating="",
+            validation_rating="",
             feedback="",
         ),
     )

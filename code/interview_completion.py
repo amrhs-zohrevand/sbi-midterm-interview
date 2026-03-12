@@ -1,15 +1,20 @@
 from dataclasses import dataclass
 
 
-INLINE_SURVEY_OPTIONS = ["1", "2", "3", "4", "5"]
+INLINE_SURVEY_OPTIONS = ["1", "2", "3", "4", "5", "6", "7"]
+INLINE_SURVEY_LEGEND = (
+    "Rate each statement from 1 to 7 (1 = not at all, 7 = extremely)."
+)
 
 
 @dataclass(frozen=True)
 class CompletionResponses:
     email: str
     send_email: bool
-    usefulness_rating: str
-    naturalness_rating: str
+    helpfulness_rating: str
+    connection_rating: str
+    understanding_rating: str
+    validation_rating: str
     feedback: str
 
 
@@ -21,10 +26,14 @@ def initialize_completion_state(session_state, recipient_email: str) -> None:
         session_state.completion_email = recipient_email
     if "completion_send_email" not in session_state:
         session_state.completion_send_email = True
-    if "completion_survey_usefulness" not in session_state:
-        session_state.completion_survey_usefulness = ""
-    if "completion_survey_naturalness" not in session_state:
-        session_state.completion_survey_naturalness = ""
+    if "completion_survey_helpfulness" not in session_state:
+        session_state.completion_survey_helpfulness = ""
+    if "completion_survey_connection" not in session_state:
+        session_state.completion_survey_connection = ""
+    if "completion_survey_understanding" not in session_state:
+        session_state.completion_survey_understanding = ""
+    if "completion_survey_validation" not in session_state:
+        session_state.completion_survey_validation = ""
     if "completion_survey_feedback" not in session_state:
         session_state.completion_survey_feedback = ""
 
@@ -49,11 +58,17 @@ def build_completion_responses(session_state) -> CompletionResponses:
     return CompletionResponses(
         email=session_state.completion_email.strip(),
         send_email=bool(session_state.completion_send_email),
-        usefulness_rating=normalize_survey_response(
-            session_state.completion_survey_usefulness
+        helpfulness_rating=normalize_survey_response(
+            session_state.completion_survey_helpfulness
         ),
-        naturalness_rating=normalize_survey_response(
-            session_state.completion_survey_naturalness
+        connection_rating=normalize_survey_response(
+            session_state.completion_survey_connection
+        ),
+        understanding_rating=normalize_survey_response(
+            session_state.completion_survey_understanding
+        ),
+        validation_rating=normalize_survey_response(
+            session_state.completion_survey_validation
         ),
         feedback=session_state.completion_survey_feedback.strip(),
     )
@@ -62,8 +77,10 @@ def build_completion_responses(session_state) -> CompletionResponses:
 def has_inline_feedback(responses: CompletionResponses) -> bool:
     """Return whether the respondent supplied any inline survey feedback."""
     return bool(
-        responses.usefulness_rating
-        or responses.naturalness_rating
+        responses.helpfulness_rating
+        or responses.connection_rating
+        or responses.understanding_rating
+        or responses.validation_rating
         or responses.feedback
     )
 

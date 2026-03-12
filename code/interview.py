@@ -17,6 +17,7 @@ from database import (
     update_progress_sheet,
 )
 from interview_completion import (
+    INLINE_SURVEY_LEGEND,
     INLINE_SURVEY_OPTIONS,
     build_completion_responses,
     completion_panel_copy,
@@ -561,31 +562,31 @@ if st.session_state.awaiting_email_confirmation:
             value=bool(st.session_state.completion_send_email),
         )
         st.caption("Optional quick feedback")
-        survey_col1, survey_col2 = st.columns(2)
-        with survey_col1:
-            st.markdown("**How useful was this interview?**")
-            st.caption("1 = not useful, 5 = very useful")
-            completion_survey_usefulness = st.radio(
-                "How useful was this interview?",
-                INLINE_SURVEY_OPTIONS,
-                index=survey_option_index(
-                    st.session_state.completion_survey_usefulness
-                ),
-                horizontal=True,
-                label_visibility="collapsed",
-            )
-        with survey_col2:
-            st.markdown("**How natural did the conversation feel?**")
-            st.caption("1 = awkward, 5 = very natural")
-            completion_survey_naturalness = st.radio(
-                "How natural did the conversation feel?",
-                INLINE_SURVEY_OPTIONS,
-                index=survey_option_index(
-                    st.session_state.completion_survey_naturalness
-                ),
-                horizontal=True,
-                label_visibility="collapsed",
-            )
+        st.caption(INLINE_SURVEY_LEGEND)
+        completion_survey_helpfulness = st.radio(
+            "Compared with a human interviewer, this AI felt more helpful.",
+            INLINE_SURVEY_OPTIONS,
+            index=survey_option_index(st.session_state.completion_survey_helpfulness),
+            horizontal=True,
+        )
+        completion_survey_connection = st.radio(
+            "How connected did you feel to the interviewer?",
+            INLINE_SURVEY_OPTIONS,
+            index=survey_option_index(st.session_state.completion_survey_connection),
+            horizontal=True,
+        )
+        completion_survey_understanding = st.radio(
+            "The interviewer understood what I was thinking and feeling.",
+            INLINE_SURVEY_OPTIONS,
+            index=survey_option_index(st.session_state.completion_survey_understanding),
+            horizontal=True,
+        )
+        completion_survey_validation = st.radio(
+            "The interaction made me feel validated.",
+            INLINE_SURVEY_OPTIONS,
+            index=survey_option_index(st.session_state.completion_survey_validation),
+            horizontal=True,
+        )
         completion_survey_feedback = st.text_area(
             "Anything we should improve?",
             value=st.session_state.completion_survey_feedback,
@@ -601,12 +602,12 @@ if st.session_state.awaiting_email_confirmation:
             completion_email_input.strip() or recipient_email
         )
         st.session_state.completion_send_email = bool(completion_send_email)
-        st.session_state.completion_survey_usefulness = (
-            completion_survey_usefulness
+        st.session_state.completion_survey_helpfulness = completion_survey_helpfulness
+        st.session_state.completion_survey_connection = completion_survey_connection
+        st.session_state.completion_survey_understanding = (
+            completion_survey_understanding
         )
-        st.session_state.completion_survey_naturalness = (
-            completion_survey_naturalness
-        )
+        st.session_state.completion_survey_validation = completion_survey_validation
         st.session_state.completion_survey_feedback = completion_survey_feedback
         if st.session_state.interview_active:
             st.session_state.interview_active = False

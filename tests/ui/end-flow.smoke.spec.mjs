@@ -8,8 +8,9 @@ async function expectCompletionDefaults(page) {
   await expect(
     page.getByRole('checkbox', { name: 'Email me a transcript of this interview' })
   ).toBeChecked();
-  await expect(page.getByText('1 = not useful, 5 = very useful')).toBeVisible();
-  await expect(page.getByText('1 = awkward, 5 = very natural')).toBeVisible();
+  await expect(
+    page.getByText('Rate each statement from 1 to 7 (1 = not at all, 7 = extremely).')
+  ).toHaveCount(1);
 }
 
 
@@ -48,11 +49,19 @@ test('end-of-interview flow works in the browser', async ({ page }) => {
   ).toBeVisible();
   await expectCompletionDefaults(page);
   await page
-    .getByRole('radiogroup', { name: 'How useful was this interview?' })
+    .getByRole('radiogroup', { name: 'Compared with a human interviewer, this AI felt more helpful.' })
+    .getByText('6', { exact: true })
+    .click();
+  await page
+    .getByRole('radiogroup', { name: 'How connected did you feel to the interviewer?' })
     .getByText('5', { exact: true })
     .click();
   await page
-    .getByRole('radiogroup', { name: 'How natural did the conversation feel?' })
+    .getByRole('radiogroup', { name: 'The interviewer understood what I was thinking and feeling.' })
+    .getByText('6', { exact: true })
+    .click();
+  await page
+    .getByRole('radiogroup', { name: 'The interaction made me feel validated.' })
     .getByText('4', { exact: true })
     .click();
 
