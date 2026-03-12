@@ -18,7 +18,7 @@ def test_initialize_completion_state_sets_defaults_once():
     initialize_completion_state(session_state, "person@example.com")
 
     assert session_state.completion_email == "person@example.com"
-    assert session_state.completion_send_email is False
+    assert session_state.completion_send_email is True
     assert session_state.completion_survey_usefulness == "Skip"
     assert session_state.completion_survey_naturalness == "Skip"
     assert session_state.completion_survey_feedback == ""
@@ -26,6 +26,14 @@ def test_initialize_completion_state_sets_defaults_once():
     session_state.completion_email = "updated@example.com"
     initialize_completion_state(session_state, "new@example.com")
     assert session_state.completion_email == "updated@example.com"
+
+
+def test_initialize_completion_state_restores_blank_email_from_recipient():
+    session_state = FakeSessionState(completion_email="   ")
+
+    initialize_completion_state(session_state, "person@example.com")
+
+    assert session_state.completion_email == "person@example.com"
 
 
 def test_normalize_survey_response_treats_skip_as_empty():
@@ -52,6 +60,20 @@ def test_build_completion_responses_normalizes_state_values():
         naturalness_rating="",
         feedback="Nice flow.",
     )
+
+
+def test_build_completion_responses_trims_email():
+    session_state = FakeSessionState(
+        completion_email="  person@example.com  ",
+        completion_send_email=True,
+        completion_survey_usefulness="Skip",
+        completion_survey_naturalness="Skip",
+        completion_survey_feedback="",
+    )
+
+    responses = build_completion_responses(session_state)
+
+    assert responses.email == "person@example.com"
 
 
 def test_has_inline_feedback_detects_any_answer():

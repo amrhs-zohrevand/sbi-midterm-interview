@@ -15,10 +15,12 @@ class CompletionResponses:
 
 def initialize_completion_state(session_state, recipient_email: str) -> None:
     """Populate completion-related session state with stable defaults."""
-    if "completion_email" not in session_state:
+    if "completion_email" not in session_state or not str(
+        session_state.completion_email
+    ).strip():
         session_state.completion_email = recipient_email
     if "completion_send_email" not in session_state:
-        session_state.completion_send_email = False
+        session_state.completion_send_email = True
     if "completion_survey_usefulness" not in session_state:
         session_state.completion_survey_usefulness = "Skip"
     if "completion_survey_naturalness" not in session_state:
@@ -37,7 +39,7 @@ def normalize_survey_response(value: str) -> str:
 def build_completion_responses(session_state) -> CompletionResponses:
     """Build a normalized snapshot of the current completion-form answers."""
     return CompletionResponses(
-        email=session_state.completion_email,
+        email=session_state.completion_email.strip(),
         send_email=bool(session_state.completion_send_email),
         usefulness_rating=normalize_survey_response(
             session_state.completion_survey_usefulness
