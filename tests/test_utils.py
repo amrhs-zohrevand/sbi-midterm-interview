@@ -1,3 +1,5 @@
+import base64
+import json
 from pathlib import Path
 
 import utils
@@ -171,3 +173,50 @@ def test_send_verification_code_gmail_path_sends_to_expected_address(
     assert fake_st.success_messages == [
         "Verification email sent to s12345@vuw.leidenuniv.nl"
     ]
+
+
+def test_extract_audio_from_response_reads_nested_base64_audio():
+    encoded_audio = base64.b64encode(b"wav-bytes").decode("ascii")
+    response = {
+        "result": {
+            "audio": {
+                "base64": encoded_audio,
+                "mime_type": "audio/wav",
+            }
+        }
+    }
+
+    assert utils._extract_audio_from_response(response) == (b"wav-bytes", "audio/wav")
+
+
+def test_synthesize_speech_deepinfra_decodes_json_audio_payload(monkeypatch):
+    payload = {
+        "audio": {
+            "base64": base64.b64encode(b"audio-data").decode("ascii"),
+            "mime_type": "audio/wav",
+        }
+    }
+
+    class FakeResponse:
+        def __init__(self):
+            self.headers = {"Content-Type": "application/json"}
+
+        def read(self):
+            return json.dumps(payload).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(utils.urllib.request, "urlopen", lambda *args, **kwargs: FakeResponse())
+
+    audio_bytes, mime_type = utils.synthesize_speech_deepinfra(
+        "Hello world",
+        api_key="secret",
+        voice="af_heart",
+    )
+
+    assert audio_bytes == b"audio-data"
+    assert mime_type == "audio/wav"
