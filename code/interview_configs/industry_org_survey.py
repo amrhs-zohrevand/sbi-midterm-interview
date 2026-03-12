@@ -35,10 +35,10 @@ What kind of AI system has their company adopted? Understand whether it is a gen
 How has AI changed the way they work day to day?
 What challenges or limitations have they run into?
 Do you think the system your company adopted creates value? In what ways?
-How do you think your company’s AI usage is different from that of competitors in your industry? 
+How do you think your company’s AI usage is different from that of competitors in your industry?
 (b) How they experience AI-generated content
 When they receive work from a colleague that was generated or heavily assisted by AI, what is that like for them?
-Ask for a concrete moment: “Can you think of a recent situation where you were unsure whether something was produced by a person or by AI? What happened?” 
+Ask for a concrete moment: “Can you think of a recent situation where you were unsure whether something was produced by a person or by AI? What happened?”
 If not yet mentioned: has anything unexpected happened in their experience with AI?
 (c) Attribution, credit, control, and portability
 When AI contributes to a piece of work, how is it usually treated or described in their workplace?
