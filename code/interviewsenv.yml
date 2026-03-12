@@ -6,15 +6,10 @@ dependencies:
   - python=3.11
   - pip
   - pip:
-    - streamlit==1.38.0
-    - openai==1.57.3
-    - anthropic==0.34.2
-    - google-api-python-client
-    - google-auth
-    - google-auth-httplib2
-    - google-auth-oauthlib
-    - secure-smtplib
-    - paramiko
-    - cryptography
-    - deepinfra
-    - streamlit-mic-recorder
+      - streamlit==1.38.0
+      - openai==1.57.3
+      - anthropic==0.34.2
+      - pytest
+      - paramiko
+      - cryptography
+      - streamlit-mic-recorder
