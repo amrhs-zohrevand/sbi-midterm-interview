@@ -12,6 +12,7 @@ from streamlit_mic_recorder import mic_recorder
 
 from database import (
     save_interview_to_sheet,
+    update_interview_survey,
     update_interview_summary,
     update_progress_sheet,
 )
@@ -35,6 +36,7 @@ from utils import (
 
 
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
+INLINE_SURVEY_OPTIONS = ["Skip", "1", "2", "3", "4", "5"]
 
 
 provider = st.secrets.get("API_PROVIDER", "openai").lower()
@@ -388,6 +390,26 @@ def finalize_interview(send_email=False, email_input=None):
     summary_text = generate_summary(transcript_text)
     update_interview_summary(interview_id, summary_text)
 
+    survey_usefulness = (
+        ""
+        if st.session_state.completion_survey_usefulness == "Skip"
+        else st.session_state.completion_survey_usefulness
+    )
+    survey_naturalness = (
+        ""
+        if st.session_state.completion_survey_naturalness == "Skip"
+        else st.session_state.completion_survey_naturalness
+    )
+    survey_feedback = st.session_state.completion_survey_feedback.strip()
+    if survey_usefulness or survey_naturalness or survey_feedback:
+        update_interview_survey(
+            interview_id,
+            survey_usefulness,
+            survey_naturalness,
+            survey_feedback,
+            timestamp,
+        )
+
     st.session_state.completion_saved = True
     st.session_state.show_evaluation_only = True
 
@@ -401,6 +423,17 @@ student_number = _get_param("student_number", "")
 respondent_name = _get_param("name")
 recipient_email = _get_param("recipient_email")
 company_name = _get_param("company")
+
+if "completion_email" not in st.session_state:
+    st.session_state.completion_email = recipient_email
+if "completion_send_email" not in st.session_state:
+    st.session_state.completion_send_email = False
+if "completion_survey_usefulness" not in st.session_state:
+    st.session_state.completion_survey_usefulness = "Skip"
+if "completion_survey_naturalness" not in st.session_state:
+    st.session_state.completion_survey_naturalness = "Skip"
+if "completion_survey_feedback" not in st.session_state:
+    st.session_state.completion_survey_feedback = ""
 
 if not st.session_state.system_prompt:
     stored_system_prompt = next(
@@ -444,14 +477,27 @@ if needs_context and not st.session_state.student_verified:
     st.stop()
 
 if st.session_state.show_evaluation_only:
+    survey_saved = any(
+        [
+            st.session_state.completion_survey_usefulness != "Skip",
+            st.session_state.completion_survey_naturalness != "Skip",
+            st.session_state.completion_survey_feedback.strip(),
+        ]
+    )
+    st.success("Your interview has been saved.")
+    if survey_saved:
+        st.caption("Your quick in-app feedback was saved too. Thank you.")
     st.markdown(
         f"""
-        <div style="display: flex; justify-content: center; align-items: center; margin-top: 2em;">
+        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; margin-top: 2em; gap: 1rem;">
+            <div style="max-width: 640px; text-align: center; color: #444;">
+                If you would like to complete the longer follow-up survey as well, you can continue below.
+            </div>
             <a href="{evaluation_url_with_session}" target="_blank"
                style="text-decoration: none; background-color: #4CAF50; color: white;
                       padding: 15px 32px; text-align: center; font-size: 16px;
                       border-radius: 8px;">
-               Click here to evaluate the interview
+               Open the full follow-up survey
             </a>
         </div>
         """,
@@ -470,49 +516,6 @@ if company_name:
 if student_number:
     st.sidebar.write(f"Student number: {student_number}")
 st.sidebar.write(f"Session ID: {st.session_state.session_id}")
-
-
-col1, col2 = st.columns([0.85, 0.15])
-with col2:
-    if (
-        st.session_state.interview_active
-        and not st.session_state.awaiting_email_confirmation
-    ):
-        if st.button("Quit"):
-            st.session_state.awaiting_email_confirmation = True
-
-
-if st.session_state.awaiting_email_confirmation:
-    st.markdown(
-        """
-        <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-                    background-color: #ff6b6b; color: white; padding: 1rem 2rem;
-                    border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    z-index: 9999; text-align: center; font-weight: bold; animation: pulse 2s infinite;">
-            ⬆️ Scroll up to complete final confirmation before closing! ⬆️
-        </div>
-        <style>
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.subheader("Confirm Email Before Ending Interview")
-    email_input = st.text_input(
-        "Confirm or update your email address:", value=recipient_email
-    )
-    send_email = st.checkbox("Yes, send a transcript to this email.")
-    if st.button("Confirm and Quit"):
-        st.session_state.interview_active = False
-        st.session_state.awaiting_email_confirmation = False
-        quit_msg = "You have cancelled the interview."
-        st.session_state.messages.append({"role": "assistant", "content": quit_msg})
-        finalize_interview(send_email=send_email, email_input=email_input)
-        st.rerun()
 
 
 if should_finalize_interview(
@@ -547,6 +550,69 @@ with conversation_container:
         )
         with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
+
+
+if st.session_state.awaiting_email_confirmation:
+    st.markdown("---")
+    if st.session_state.interview_active:
+        st.subheader("Finish Interview")
+        st.write(
+            "You can wrap up here, or continue the conversation if you clicked the finish button by accident."
+        )
+        if st.button("Continue Interview", key="continue_interview"):
+            st.session_state.awaiting_email_confirmation = False
+            st.rerun()
+    else:
+        st.subheader("Before You Go")
+        st.write(
+            "The conversation has ended. You can finish here and leave a bit of quick feedback without leaving this page."
+        )
+
+    with st.form("completion_form"):
+        st.text_input(
+            "Confirm or update your email address:",
+            key="completion_email",
+        )
+        st.checkbox(
+            "Email me a transcript of this interview",
+            key="completion_send_email",
+        )
+        st.caption("Optional quick feedback")
+        survey_col1, survey_col2 = st.columns(2)
+        with survey_col1:
+            st.selectbox(
+                "How useful was this interview?",
+                INLINE_SURVEY_OPTIONS,
+                key="completion_survey_usefulness",
+            )
+        with survey_col2:
+            st.selectbox(
+                "How natural did the conversation feel?",
+                INLINE_SURVEY_OPTIONS,
+                key="completion_survey_naturalness",
+            )
+        st.text_area(
+            "Anything we should improve?",
+            key="completion_survey_feedback",
+            height=120,
+        )
+        finish_submitted = st.form_submit_button(
+            "Save and Finish",
+            use_container_width=True,
+        )
+
+    if finish_submitted:
+        if st.session_state.interview_active:
+            st.session_state.interview_active = False
+            quit_msg = "You have cancelled the interview."
+            st.session_state.messages.append({"role": "assistant", "content": quit_msg})
+        st.session_state.awaiting_email_confirmation = False
+        with st.spinner("Saving your interview..."):
+            finalize_interview(
+                send_email=st.session_state.completion_send_email,
+                email_input=st.session_state.completion_email,
+            )
+        st.rerun()
 
 
 if not st.session_state.messages:
@@ -724,3 +790,7 @@ if should_accept_user_input(
                         st.rerun()
                     time.sleep(1)
                     st.rerun()
+
+    if st.button("Finish interview", key="finish_interview_bottom", use_container_width=True):
+        st.session_state.awaiting_email_confirmation = True
+        st.rerun()

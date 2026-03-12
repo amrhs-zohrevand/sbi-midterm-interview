@@ -49,7 +49,11 @@ def save_interview_to_sheet(
             timestamp TEXT,
             transcript TEXT,
             duration_minutes TEXT,
-            summary TEXT
+            summary TEXT,
+            survey_usefulness TEXT,
+            survey_naturalness TEXT,
+            survey_feedback TEXT,
+            survey_timestamp TEXT
         )
         """
         run_remote_sql(ssh, db_path, create_table_query)
@@ -173,5 +177,62 @@ def update_interview_summary(interview_id, summary):
         WHERE interview_id = ?
         """
         run_remote_sql(ssh, db_path, update_query, [summary, interview_id])
+    finally:
+        close_ssh_connection(ssh, tmp_key_path)
+
+
+def update_interview_survey(
+    interview_id,
+    usefulness_rating,
+    naturalness_rating,
+    feedback,
+    survey_timestamp,
+):
+    """Update the stored inline survey responses for a completed interview."""
+    _, db_path = get_remote_database_location()
+
+    ssh, tmp_key_path = get_ssh_connection()
+    try:
+        existing_columns = run_remote_sql(
+            ssh,
+            db_path,
+            "PRAGMA table_info(interviews)",
+            fetch="all",
+        ) or []
+        existing_column_names = {row[1] for row in existing_columns}
+        required_columns = {
+            "survey_usefulness": "TEXT",
+            "survey_naturalness": "TEXT",
+            "survey_feedback": "TEXT",
+            "survey_timestamp": "TEXT",
+        }
+        for column_name, column_type in required_columns.items():
+            if column_name not in existing_column_names:
+                run_remote_sql(
+                    ssh,
+                    db_path,
+                    f"ALTER TABLE interviews ADD COLUMN {column_name} {column_type}",
+                )
+
+        update_query = """
+        UPDATE interviews
+        SET survey_usefulness = ?,
+            survey_naturalness = ?,
+            survey_feedback = ?,
+            survey_timestamp = ?
+        WHERE interview_id = ?
+        """
+        run_remote_sql(
+            ssh,
+            db_path,
+            update_query,
+            [
+                usefulness_rating,
+                naturalness_rating,
+                feedback,
+                survey_timestamp,
+                interview_id,
+            ],
+        )
     finally:
         close_ssh_connection(ssh, tmp_key_path)
