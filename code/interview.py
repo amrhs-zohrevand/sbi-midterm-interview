@@ -1,11 +1,9 @@
 import base64
 import html
 import importlib.util
-import logging
 import os
 import re
 import tempfile
-import threading
 import time
 import uuid
 
@@ -14,8 +12,10 @@ from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder
 
 from database import (
-    save_completion_to_sheet,
+    save_interview_to_sheet,
+    update_interview_survey,
     update_interview_summary,
+    update_progress_sheet,
 )
 from interview_completion import (
     INLINE_SURVEY_LEGEND,
@@ -36,11 +36,7 @@ from interview_logic import (
     should_accept_user_input,
     should_finalize_interview,
 )
-from interview_persistence import (
-    CompletionContext,
-    persist_completion,
-    run_completion_followups,
-)
+from interview_persistence import CompletionContext, persist_completion
 from interview_provider import (
     apply_model_selection_to_openai_kwargs,
     create_provider_runtime,
@@ -62,7 +58,6 @@ from utils import (
 
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
 TYPING_CHARACTERS_PER_SECOND = 18
-logger = logging.getLogger(__name__)
 
 SMOKE_TEST_MODE = smoke_test_mode_enabled()
 
@@ -418,37 +413,6 @@ def generate_summary(transcript_text: str) -> str:
     return summary_text or "Summary generation returned no text."
 
 
-def launch_completion_followups(
-    completion_context: CompletionContext, completion_result
-) -> None:
-    """Run non-critical completion work in the background."""
-
-    def worker() -> None:
-        try:
-            run_completion_followups(
-                completion_context,
-                completion_result,
-                send_transcript_email=smoke_noop
-                if SMOKE_TEST_MODE
-                else send_transcript_email,
-                generate_summary=generate_summary,
-                update_interview_summary=smoke_noop
-                if SMOKE_TEST_MODE
-                else update_interview_summary,
-            )
-        except Exception:
-            logger.exception(
-                "Completion follow-up work failed for interview %s",
-                completion_context.interview_id,
-            )
-
-    threading.Thread(
-        target=worker,
-        name=f"completion-followups-{completion_context.interview_id}",
-        daemon=True,
-    ).start()
-
-
 def finalize_interview(send_email=False, email_input=None):
     """Persist the finished interview and move the UI to the evaluation state."""
     if st.session_state.completion_saved:
@@ -469,9 +433,14 @@ def finalize_interview(send_email=False, email_input=None):
     completion_result = persist_completion(
         completion_context,
         persist_local_transcript=persist_local_transcript,
-        save_completion_to_sheet=smoke_noop
+        send_transcript_email=smoke_noop if SMOKE_TEST_MODE else send_transcript_email,
+        save_interview_to_sheet=smoke_noop if SMOKE_TEST_MODE else save_interview_to_sheet,
+        update_progress_sheet=smoke_noop if SMOKE_TEST_MODE else update_progress_sheet,
+        generate_summary=generate_summary,
+        update_interview_summary=smoke_noop
         if SMOKE_TEST_MODE
-        else save_completion_to_sheet,
+        else update_interview_summary,
+        update_interview_survey=smoke_noop if SMOKE_TEST_MODE else update_interview_survey,
     )
     st.session_state.transcript_link = completion_result.transcript_link
     st.session_state.transcript_file = completion_result.transcript_file
@@ -479,7 +448,6 @@ def finalize_interview(send_email=False, email_input=None):
 
     st.session_state.completion_saved = True
     st.session_state.show_evaluation_only = True
-    launch_completion_followups(completion_context, completion_result)
 
 
 is_valid, missing = validate_query_params(query_params)
