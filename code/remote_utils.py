@@ -99,14 +99,23 @@ def run_remote_python(ssh, python_code: str) -> str:
     return output
 
 
-def run_remote_sql(ssh, db_path: str, sql_query: str, params=None, fetch: str | None = None):
-    """Execute a parameterized SQLite query on the remote host."""
-    payload = {
-        "db_path": db_path,
-        "sql_query": sql_query,
-        "params": params or [],
-        "fetch": fetch,
-    }
+def _build_sql_batch_payload(db_path: str, operations):
+    """Build the JSON payload for a batch of remote SQLite statements."""
+    serialized_operations = []
+    for operation in operations:
+        serialized_operations.append(
+            {
+                "sql_query": operation["sql_query"],
+                "params": operation.get("params") or [],
+                "fetch": operation.get("fetch"),
+            }
+        )
+    return {"db_path": db_path, "operations": serialized_operations}
+
+
+def run_remote_sql_batch(ssh, db_path: str, operations):
+    """Execute multiple parameterized SQLite queries on the remote host."""
+    payload = _build_sql_batch_payload(db_path, operations)
     encoded_payload = base64.b64encode(json.dumps(payload).encode()).decode()
     python_code = f"""
 import base64
@@ -115,18 +124,37 @@ import sqlite3
 
 payload = json.loads(base64.b64decode({encoded_payload!r}).decode())
 conn = sqlite3.connect(payload["db_path"])
-cursor = conn.cursor()
-cursor.execute(payload["sql_query"], payload["params"])
+results = []
 
-if payload["fetch"] == "one":
-    print(json.dumps(cursor.fetchone()))
-elif payload["fetch"] == "all":
-    print(json.dumps(cursor.fetchall()))
+try:
+    cursor = conn.cursor()
+    for operation in payload["operations"]:
+        cursor.execute(operation["sql_query"], operation["params"])
+        fetch = operation.get("fetch")
+        if fetch == "one":
+            results.append(cursor.fetchone())
+        elif fetch == "all":
+            results.append(cursor.fetchall())
+        else:
+            results.append(None)
+    conn.commit()
+except Exception:
+    conn.rollback()
+    raise
+finally:
+    conn.close()
 
-conn.commit()
-conn.close()
+print(json.dumps(results))
 """
     output = run_remote_python(ssh, python_code.strip())
-    if fetch:
-        return json.loads(output) if output else None
-    return None
+    return json.loads(output) if output else []
+
+
+def run_remote_sql(ssh, db_path: str, sql_query: str, params=None, fetch: str | None = None):
+    """Execute a parameterized SQLite query on the remote host."""
+    results = run_remote_sql_batch(
+        ssh,
+        db_path,
+        [{"sql_query": sql_query, "params": params or [], "fetch": fetch}],
+    )
+    return results[0] if results else None

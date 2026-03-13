@@ -114,6 +114,76 @@ def test_update_progress_and_summary_use_parameterized_queries(monkeypatch):
     assert any(params == ["summary text", "interview-1"] for _, params in calls)
 
 
+def test_save_completion_to_sheet_batches_completion_persistence(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "ensure_remote_directory",
+        lambda ssh, path: calls.append(("mkdir", path)),
+    )
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.append(("batch", db_path, operations)),
+    )
+    cleanup = []
+    monkeypatch.setattr(
+        database,
+        "close_ssh_connection",
+        lambda ssh, key_path: cleanup.append((ssh, key_path)),
+    )
+
+    database.save_completion_to_sheet(
+        "interview-1",
+        "student-1",
+        "Miros O'Connor",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:00:00",
+        "assistant: Hello",
+        "12.50",
+        helpfulness_rating="5",
+        connection_rating="4",
+        understanding_rating="6",
+        validation_rating="7",
+        feedback="Much smoother at the end now.",
+        survey_timestamp="2026-03-12 10:00:00",
+    )
+
+    assert calls[0] == ("mkdir", "/remote/data")
+    assert calls[1][0] == "batch"
+    operations = calls[1][2]
+    assert "CREATE TABLE IF NOT EXISTS interviews" in operations[0]["sql_query"]
+    assert "INSERT INTO interviews" in operations[1]["sql_query"]
+    assert operations[1]["params"] == [
+        "interview-1",
+        "student-1",
+        "Miros O'Connor",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:00:00",
+        "assistant: Hello",
+        "12.50",
+        "5",
+        "4",
+        "6",
+        "7",
+        "Much smoother at the end now.",
+        "2026-03-12 10:00:00",
+    ]
+    assert "CREATE TABLE IF NOT EXISTS progress" in operations[2]["sql_query"]
+    assert "INSERT INTO progress" in operations[3]["sql_query"]
+    assert cleanup == [(fake_ssh, "/tmp/key")]
+
+
 def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypatch):
     calls = []
     fake_ssh = object()

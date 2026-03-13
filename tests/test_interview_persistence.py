@@ -1,32 +1,21 @@
 from interview_completion import CompletionResponses
-from interview_persistence import CompletionContext, persist_completion
+from interview_persistence import (
+    CompletionContext,
+    CompletionResult,
+    persist_completion,
+    run_completion_followups,
+)
 
 
-def test_persist_completion_runs_full_pipeline_and_returns_result():
+def test_persist_completion_runs_foreground_pipeline_and_returns_result():
     calls = []
 
     def persist_local_transcript():
         calls.append(("persist_local",))
         return ("local-link", "/tmp/transcript.txt")
 
-    def send_transcript_email(**kwargs):
-        calls.append(("send_email", kwargs))
-
-    def save_interview_to_sheet(*args):
-        calls.append(("save_interview", args))
-
-    def update_progress_sheet(*args):
-        calls.append(("update_progress", args))
-
-    def generate_summary(transcript_text):
-        calls.append(("generate_summary", transcript_text))
-        return "summary text"
-
-    def update_interview_summary(*args):
-        calls.append(("update_summary", args))
-
-    def update_interview_survey(*args):
-        calls.append(("update_survey", args))
+    def save_completion_to_sheet(*args, **kwargs):
+        calls.append(("save_completion", args, kwargs))
 
     context = CompletionContext(
         interview_id="session-1",
@@ -54,12 +43,7 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
     result = persist_completion(
         context,
         persist_local_transcript=persist_local_transcript,
-        send_transcript_email=send_transcript_email,
-        save_interview_to_sheet=save_interview_to_sheet,
-        update_progress_sheet=update_progress_sheet,
-        generate_summary=generate_summary,
-        update_interview_summary=update_interview_summary,
-        update_interview_survey=update_interview_survey,
+        save_completion_to_sheet=save_completion_to_sheet,
         now_fn=lambda: 120.0,
         timestamp_fn=lambda: "2026-03-12 10:00:00",
     )
@@ -68,25 +52,32 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
     assert result.transcript_file == "/tmp/transcript.txt"
     assert result.transcript_text == "assistant: Hello\nuser: Hi\n"
     assert result.duration_minutes == "2.00"
-    assert result.summary_text == "summary text"
-    assert result.email_sent is True
-    assert any(call[0] == "send_email" for call in calls)
-    assert any(call[0] == "update_progress" for call in calls)
+    assert result.summary_text == ""
+    assert result.email_sent is False
     assert (
-        "update_survey",
+        "save_completion",
         (
             "session-1",
-            "5",
-            "4",
-            "6",
-            "7",
-            "Great ending flow.",
+            "s123",
+            "Miros",
+            "ACME",
+            "midterm_interview",
             "2026-03-12 10:00:00",
+            "assistant: Hello\nuser: Hi\n",
+            "2.00",
         ),
+        {
+            "helpfulness_rating": "5",
+            "connection_rating": "4",
+            "understanding_rating": "6",
+            "validation_rating": "7",
+            "feedback": "Great ending flow.",
+            "survey_timestamp": "2026-03-12 10:00:00",
+        },
     ) in calls
 
 
-def test_persist_completion_skips_optional_steps_when_not_needed():
+def test_persist_completion_skips_optional_fields_on_foreground_save():
     calls = []
 
     context = CompletionContext(
@@ -115,17 +106,125 @@ def test_persist_completion_skips_optional_steps_when_not_needed():
     result = persist_completion(
         context,
         persist_local_transcript=lambda: ("", "/tmp/transcript.txt"),
-        send_transcript_email=lambda **kwargs: calls.append(("send_email", kwargs)),
-        save_interview_to_sheet=lambda *args: calls.append(("save_interview", args)),
-        update_progress_sheet=lambda *args: calls.append(("update_progress", args)),
-        generate_summary=lambda transcript_text: "summary text",
-        update_interview_summary=lambda *args: calls.append(("update_summary", args)),
-        update_interview_survey=lambda *args: calls.append(("update_survey", args)),
+        save_completion_to_sheet=lambda *args, **kwargs: calls.append(
+            ("save_completion", args, kwargs)
+        ),
         now_fn=lambda: 120.0,
         timestamp_fn=lambda: "2026-03-12 10:00:00",
     )
 
     assert result.email_sent is False
+    assert result.summary_text == ""
+    assert calls == [
+        (
+            "save_completion",
+            (
+                "session-2",
+                "",
+                "Miros",
+                "",
+                "midterm_interview",
+                "2026-03-12 10:00:00",
+                "assistant: Hello\nuser: Hi\n",
+                "1.00",
+            ),
+            {},
+        )
+    ]
+
+
+def test_run_completion_followups_sends_email_and_updates_summary():
+    calls = []
+
+    context = CompletionContext(
+        interview_id="session-1",
+        student_number="s123",
+        respondent_name="Miros",
+        company_name="ACME",
+        config_name="midterm_interview",
+        recipient_email="person@example.com",
+        start_time=0.0,
+        messages=[],
+        completion_responses=CompletionResponses(
+            email="person@example.com",
+            send_email=True,
+            helpfulness_rating="5",
+            connection_rating="4",
+            understanding_rating="6",
+            validation_rating="7",
+            feedback="Great ending flow.",
+        ),
+    )
+    completion_result = CompletionResult(
+        transcript_link="local-link",
+        transcript_file="/tmp/transcript.txt",
+        transcript_text="assistant: Hello\nuser: Hi\n",
+        timestamp="2026-03-12 10:00:00",
+        duration_minutes="2.00",
+    )
+
+    run_completion_followups(
+        context,
+        completion_result,
+        send_transcript_email=lambda **kwargs: calls.append(("send_email", kwargs)),
+        generate_summary=lambda transcript_text: calls.append(
+            ("generate_summary", transcript_text)
+        )
+        or "summary text",
+        update_interview_summary=lambda *args: calls.append(("update_summary", args)),
+    )
+
+    assert calls[0] == (
+        "send_email",
+        {
+            "student_number": "s123",
+            "recipient_email": "person@example.com",
+            "transcript_link": "local-link",
+            "transcript_file": "/tmp/transcript.txt",
+            "name_from_form": "Miros",
+        },
+    )
+    assert ("generate_summary", "assistant: Hello\nuser: Hi\n") in calls
+    assert ("update_summary", ("session-1", "summary text")) in calls
+
+
+def test_run_completion_followups_skips_optional_email_when_disabled():
+    calls = []
+
+    context = CompletionContext(
+        interview_id="session-2",
+        student_number="",
+        respondent_name="Miros",
+        company_name="",
+        config_name="midterm_interview",
+        recipient_email="person@example.com",
+        start_time=0.0,
+        messages=[],
+        completion_responses=CompletionResponses(
+            email="person@example.com",
+            send_email=False,
+            helpfulness_rating="",
+            connection_rating="",
+            understanding_rating="",
+            validation_rating="",
+            feedback="",
+        ),
+    )
+    completion_result = CompletionResult(
+        transcript_link="local-link",
+        transcript_file="/tmp/transcript.txt",
+        transcript_text="assistant: Hello\nuser: Hi\n",
+        timestamp="2026-03-12 10:00:00",
+        duration_minutes="2.00",
+    )
+
+    run_completion_followups(
+        context,
+        completion_result,
+        send_transcript_email=lambda **kwargs: calls.append(("send_email", kwargs)),
+        generate_summary=lambda transcript_text: "summary text",
+        update_interview_summary=lambda *args: calls.append(("update_summary", args)),
+    )
+
     assert all(call[0] != "send_email" for call in calls)
-    assert all(call[0] != "update_progress" for call in calls)
-    assert all(call[0] != "update_survey" for call in calls)
+    assert calls == [("update_summary", ("session-2", "summary text"))]
