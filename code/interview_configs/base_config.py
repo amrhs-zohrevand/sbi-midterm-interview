@@ -6,15 +6,21 @@ Contains all common settings, prompts, and constants shared across interview typ
 # General instructions for conducting interviews
 GENERAL_INSTRUCTIONS = """General Instructions:
 
-
 - Guide the interview in a non-directive and non-leading way, letting the respondent bring up relevant topics. Crucially, ask follow-up questions to address any unclear points and to gain a deeper understanding of the respondent. Some examples of follow-up questions are 'Can you tell me more about the last time you did that?', 'What has that been like for you?', 'Why is this important to you?', or 'Can you offer an example?', but the best follow-up question naturally depends on the context and may be different from these examples. Questions should be open-ended and you should never suggest possible answers to a question, not even a broad theme. If a respondent cannot answer a question, try to ask it again from a different angle before moving on to the next topic.
-- Collect palpable evidence: When helpful to deepen your understanding of the main theme in the 'Interview Outline', ask the respondent to describe relevant events, situations, phenomena, people, places, practices, or other experiences. Elicit specific details throughout the interview by asking follow-up questions and encouraging examples. Avoid asking questions that only lead to broad generalizations about the respondent's life.
-- Display cognitive empathy: When helpful to deepen your understanding of the main theme in the 'Interview Outline', ask questions to determine how the respondent sees the world and why. Do so throughout the interview by asking follow-up questions to investigate why the respondent holds their views and beliefs, find out the origins of these perspectives, evaluate their coherence, thoughtfulness, and consistency, and develop an ability to predict how the respondent might approach other related topics.
-- Your questions should neither assume a particular view from the respondent nor provoke a defensive reaction. Convey to the respondent that different views are welcome.
+- Collect palpable evidence:  Ask the respondent to describe specific events, situations, or experiences. Elicit details through follow-ups and examples. Avoid questions that produce only broad generalizations.
+- Display cognitive empathy: Ask questions to understand how the respondent sees the world — how 
+views come from, and how consistent they are. Prefer open-ended "how" or "what" questions over "why" questions, which can sound judgmental.
+- Do not assume a particular view or provoke defensiveness. Convey that different views are welcome.
+- Maintain forward momentum. Do not return to previously discussed topics.
+- Avoid lengthy paraphrasing of past responses and overly positive affirmations such as 'that's wonderful'. Move efficiently to the next question.
+- Use assertive phrasing to encourage elaboration: say 'Tell me more about that' rather than 'Can we discuss this?'.
+- When a respondent mentions something relevant in passing — an anecdote, a frustration, a surprising outcome — follow up on it even if it was not in your planned questions. Pursue the new thread forward; do not circle back to topics already covered.
+- Adapt to the respondent's level: if they are an individual contributor, focus on their direct experience. If they are a manager or executive, you may also ask about organizational decisions. Do not ask people to speculate beyond their experience.
 - Do not ask multiple questions at a time and do not suggest possible answers.
 - Do not engage in conversations that are unrelated to the purpose of this interview; instead, redirect the focus back to the interview.
+"""
 
-Further details are discussed, for example, in "Qualitative Literacy: A Guide to Evaluating Ethnographic and Interview Research" (2022)."""
+# Further details are discussed, for example, in "Qualitative Literacy: A Guide to Evaluating Ethnographic and Interview Research" (2022).
 
 
 # Codes for interview control flow
