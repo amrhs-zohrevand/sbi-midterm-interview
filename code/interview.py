@@ -2,6 +2,7 @@ import base64
 import html
 import importlib.util
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -56,6 +57,11 @@ from utils import (
 )
 
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
+REFERENCE_TYPING_TEXT_LENGTH = 270
+REFERENCE_TYPING_DURATION_SECONDS = 15
+TYPING_CHARACTERS_PER_SECOND = (
+    REFERENCE_TYPING_TEXT_LENGTH / REFERENCE_TYPING_DURATION_SECONDS
+)
 
 SMOKE_TEST_MODE = smoke_test_mode_enabled()
 
@@ -290,38 +296,72 @@ def build_chat_kwargs(messages=None, stream=True):
     return kwargs
 
 
-def stream_assistant_reply(message_placeholder, messages=None) -> str:
-    """Stream the assistant response for the current provider."""
-    if SMOKE_TEST_MODE:
-        reply = next_smoke_reply(messages if messages is not None else get_chat_messages())
-        if len(reply) > 5:
-            message_placeholder.markdown(reply + "▌")
-        return reply
+def _iter_paced_text(text: str):
+    """Yield text in small chunks so Streamlit can render it at a steady pace."""
+    for chunk in re.findall(r"\S+\s*|\s+", text):
+        if not chunk:
+            continue
+        yield chunk
+        time.sleep(max(len(chunk) / TYPING_CHARACTERS_PER_SECOND, 0.05))
 
-    reply = ""
+
+def _iter_provider_reply_chunks(messages=None):
+    """Yield provider response text chunks for the current conversation."""
+    if SMOKE_TEST_MODE:
+        yield next_smoke_reply(messages if messages is not None else get_chat_messages())
+        return
+
     if api == "openai":
         stream = client.chat.completions.create(**build_chat_kwargs(messages=messages))
         for chunk in stream:
             delta = extract_openai_stream_delta(chunk)
             if delta:
-                reply += delta
-            if len(reply) > 5:
-                message_placeholder.markdown(reply + "▌")
-            if find_closing_code(reply, config.CLOSING_MESSAGES):
-                message_placeholder.empty()
-                break
-        return reply
+                yield delta
+        return
 
     with client.messages.stream(**build_chat_kwargs(messages=messages)) as stream:
         for delta in stream.text_stream:
             if delta:
-                reply += delta
-            if len(reply) > 5:
-                message_placeholder.markdown(reply + "▌")
-            if find_closing_code(reply, config.CLOSING_MESSAGES):
-                message_placeholder.empty()
-                break
-    return reply
+                yield delta
+
+
+def stream_assistant_reply(message_placeholder, messages=None) -> tuple[str, str | None]:
+    """Stream the assistant response with Streamlit's native write_stream."""
+    max_closing_code_length = max(
+        (len(code) for code in config.CLOSING_MESSAGES),
+        default=0,
+    )
+    state = {"raw_reply": "", "closing_code": None}
+
+    def paced_stream():
+        displayed_length = 0
+        holdback = max(max_closing_code_length - 1, 0)
+
+        for delta in _iter_provider_reply_chunks(messages=messages):
+            state["raw_reply"] += delta
+            closing_code = find_closing_code(state["raw_reply"], config.CLOSING_MESSAGES)
+            if closing_code:
+                state["closing_code"] = closing_code
+                visible_reply = state["raw_reply"].split(closing_code, 1)[0]
+                remaining_text = visible_reply[displayed_length:]
+                if remaining_text:
+                    yield from _iter_paced_text(remaining_text)
+                return
+
+            safe_length = max(len(state["raw_reply"]) - holdback, 0)
+            if safe_length > displayed_length:
+                next_chunk = state["raw_reply"][displayed_length:safe_length]
+                yield from _iter_paced_text(next_chunk)
+                displayed_length = safe_length
+
+        trailing_text = state["raw_reply"][displayed_length:]
+        if trailing_text:
+            yield from _iter_paced_text(trailing_text)
+
+    with message_placeholder.container():
+        visible_reply = st.write_stream(paced_stream())
+
+    return visible_reply or "", state["closing_code"]
 
 
 def persist_local_transcript():
@@ -638,16 +678,16 @@ if not st.session_state.messages:
 
     with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
         placeholder = st.empty()
-        first_reply = stream_assistant_reply(placeholder, messages=initial_messages)
+        first_reply, closing_code = stream_assistant_reply(
+            placeholder, messages=initial_messages
+        )
 
-    closing_code = find_closing_code(first_reply, config.CLOSING_MESSAGES)
     if closing_code:
         first_reply = config.CLOSING_MESSAGES[closing_code]
+        placeholder.empty()
         placeholder.markdown(first_reply)
         st.session_state.awaiting_email_confirmation = True
         st.session_state.interview_active = False
-    else:
-        placeholder.markdown(first_reply)
 
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
     persist_local_transcript()
@@ -779,13 +819,9 @@ if should_accept_user_input(
         with conversation_container:
             with st.chat_message("assistant", avatar=config.AVATAR_INTERVIEWER):
                 placeholder = st.empty()
-                assistant_reply = stream_assistant_reply(placeholder)
+                assistant_reply, closing_code = stream_assistant_reply(placeholder)
 
-                closing_code = find_closing_code(
-                    assistant_reply, config.CLOSING_MESSAGES
-                )
                 if not closing_code:
-                    placeholder.markdown(assistant_reply)
                     st.session_state.messages.append(
                         {"role": "assistant", "content": assistant_reply}
                     )
@@ -799,6 +835,7 @@ if should_accept_user_input(
                     st.session_state.awaiting_email_confirmation = True
                     st.session_state.interview_active = False
                     closing_message = config.CLOSING_MESSAGES[closing_code]
+                    placeholder.empty()
                     placeholder.markdown(closing_message)
                     st.session_state.messages.append(
                         {"role": "assistant", "content": closing_message}
