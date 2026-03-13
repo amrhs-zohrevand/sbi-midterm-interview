@@ -34,11 +34,9 @@ def persist_completion(
     *,
     persist_local_transcript,
     send_transcript_email,
-    save_interview_to_sheet,
-    update_progress_sheet,
+    persist_remote_completion,
     generate_summary,
     update_interview_summary,
-    update_interview_survey,
     now_fn=current_time,
     timestamp_fn=None,
 ):
@@ -63,8 +61,11 @@ def persist_completion(
     duration_minutes = f"{duration_minutes_value:.2f}"
     timestamp = timestamp_fn()
     transcript_text = serialize_transcript(context.messages)
+    survey_timestamp = ""
+    if has_inline_feedback(context.completion_responses):
+        survey_timestamp = timestamp
 
-    save_interview_to_sheet(
+    persist_remote_completion(
         context.interview_id,
         context.student_number,
         context.respondent_name,
@@ -73,28 +74,16 @@ def persist_completion(
         timestamp,
         transcript_text,
         duration_minutes,
+        helpfulness_rating=context.completion_responses.helpfulness_rating,
+        connection_rating=context.completion_responses.connection_rating,
+        understanding_rating=context.completion_responses.understanding_rating,
+        validation_rating=context.completion_responses.validation_rating,
+        feedback=context.completion_responses.feedback,
+        survey_timestamp=survey_timestamp,
     )
-    if context.student_number:
-        update_progress_sheet(
-            context.student_number,
-            context.respondent_name,
-            context.config_name,
-            timestamp,
-        )
 
     summary_text = generate_summary(transcript_text)
     update_interview_summary(context.interview_id, summary_text)
-
-    if has_inline_feedback(context.completion_responses):
-        update_interview_survey(
-            context.interview_id,
-            context.completion_responses.helpfulness_rating,
-            context.completion_responses.connection_rating,
-            context.completion_responses.understanding_rating,
-            context.completion_responses.validation_rating,
-            context.completion_responses.feedback,
-            timestamp,
-        )
 
     return CompletionResult(
         transcript_link=transcript_link,

@@ -89,3 +89,59 @@ def test_run_remote_sql_returns_none_for_non_fetch_queries(monkeypatch):
 
     assert result is None
     assert called["payload"]["params"] == ["summary", "id-1"]
+
+
+def test_run_remote_sql_batch_encodes_operations_and_decodes_results(monkeypatch):
+    captured = {}
+
+    def fake_run_remote_python(ssh, python_code):
+        captured["payload"] = _extract_payload(python_code)
+        return '[["summary text"], [[0, "survey_helpfulness", "TEXT", 0, null, 0]]]'
+
+    monkeypatch.setattr(remote_utils, "run_remote_python", fake_run_remote_python)
+
+    result = remote_utils.run_remote_sql_batch(
+        object(),
+        "/tmp/interviews.db",
+        [
+            {
+                "type": "execute",
+                "sql_query": "SELECT summary FROM interviews WHERE interview_id = ?",
+                "params": ["id-1"],
+                "fetch": "one",
+            },
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": {"survey_helpfulness": "TEXT"},
+            },
+            {
+                "type": "execute",
+                "sql_query": "PRAGMA table_info(interviews)",
+                "fetch": "all",
+            },
+        ],
+    )
+
+    assert captured["payload"] == {
+        "db_path": "/tmp/interviews.db",
+        "operations": [
+            {
+                "type": "execute",
+                "sql_query": "SELECT summary FROM interviews WHERE interview_id = ?",
+                "params": ["id-1"],
+                "fetch": "one",
+            },
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": {"survey_helpfulness": "TEXT"},
+            },
+            {
+                "type": "execute",
+                "sql_query": "PRAGMA table_info(interviews)",
+                "fetch": "all",
+            },
+        ],
+    }
+    assert result == [["summary text"], [[0, "survey_helpfulness", "TEXT", 0, None, 0]]]

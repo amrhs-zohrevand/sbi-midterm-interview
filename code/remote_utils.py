@@ -130,3 +130,59 @@ conn.close()
     if fetch:
         return json.loads(output) if output else None
     return None
+
+
+def run_remote_sql_batch(ssh, db_path: str, operations: list[dict]):
+    """Execute multiple SQLite operations in one remote Python process and transaction."""
+    payload = {
+        "db_path": db_path,
+        "operations": operations,
+    }
+    encoded_payload = base64.b64encode(json.dumps(payload).encode()).decode()
+    python_code = f"""
+import base64
+import json
+import re
+import sqlite3
+
+payload = json.loads(base64.b64decode({encoded_payload!r}).decode())
+conn = sqlite3.connect(payload["db_path"])
+cursor = conn.cursor()
+results = []
+
+def validate_identifier(identifier, kind):
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", identifier):
+        raise ValueError(f"Invalid {{kind}} identifier: {{identifier!r}}")
+    return identifier
+
+for operation in payload["operations"]:
+    op_type = operation["type"]
+
+    if op_type == "execute":
+        cursor.execute(operation["sql_query"], operation.get("params", []))
+        fetch = operation.get("fetch")
+        if fetch == "one":
+            results.append(cursor.fetchone())
+        elif fetch == "all":
+            results.append(cursor.fetchall())
+    elif op_type == "ensure_columns":
+        table_name = validate_identifier(operation["table"], "table")
+        cursor.execute(f"PRAGMA table_info({{table_name}})")
+        existing_column_names = {{row[1] for row in cursor.fetchall()}}
+        for column_name, column_type in operation["columns"].items():
+            validate_identifier(column_name, "column")
+            if column_name not in existing_column_names:
+                cursor.execute(
+                    f"ALTER TABLE {{table_name}} ADD COLUMN {{column_name}} {{column_type}}"
+                )
+    else:
+        raise ValueError(f"Unsupported batch operation type: {{op_type!r}}")
+
+conn.commit()
+conn.close()
+
+if results:
+    print(json.dumps(results))
+"""
+    output = run_remote_python(ssh, python_code.strip())
+    return json.loads(output) if output else []

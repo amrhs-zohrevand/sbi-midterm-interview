@@ -12,10 +12,8 @@ from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder
 
 from database import (
-    save_interview_to_sheet,
-    update_interview_survey,
+    persist_completion_remote,
     update_interview_summary,
-    update_progress_sheet,
 )
 from interview_completion import (
     INLINE_SURVEY_LEGEND,
@@ -57,7 +55,7 @@ from utils import (
 )
 
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
-TYPING_CHARACTERS_PER_SECOND = 18
+TYPING_CHARACTERS_PER_SECOND = 65
 
 SMOKE_TEST_MODE = smoke_test_mode_enabled()
 
@@ -434,13 +432,13 @@ def finalize_interview(send_email=False, email_input=None):
         completion_context,
         persist_local_transcript=persist_local_transcript,
         send_transcript_email=smoke_noop if SMOKE_TEST_MODE else send_transcript_email,
-        save_interview_to_sheet=smoke_noop if SMOKE_TEST_MODE else save_interview_to_sheet,
-        update_progress_sheet=smoke_noop if SMOKE_TEST_MODE else update_progress_sheet,
+        persist_remote_completion=smoke_noop
+        if SMOKE_TEST_MODE
+        else persist_completion_remote,
         generate_summary=generate_summary,
         update_interview_summary=smoke_noop
         if SMOKE_TEST_MODE
         else update_interview_summary,
-        update_interview_survey=smoke_noop if SMOKE_TEST_MODE else update_interview_survey,
     )
     st.session_state.transcript_link = completion_result.transcript_link
     st.session_state.transcript_file = completion_result.transcript_file

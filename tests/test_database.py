@@ -18,9 +18,21 @@ def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
     )
     monkeypatch.setattr(
         database,
-        "run_remote_sql",
-        lambda ssh, db_path, sql, params=None, fetch=None: calls.append(
-            ("sql", db_path, " ".join(sql.split()), params, fetch)
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.append(
+            (
+                "batch",
+                db_path,
+                [
+                    (
+                        operation["type"],
+                        " ".join(operation.get("sql_query", "").split()),
+                        operation.get("params"),
+                        operation.get("columns"),
+                    )
+                    for operation in operations
+                ],
+            )
         ),
     )
     cleanup = []
@@ -42,9 +54,10 @@ def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
     )
 
     assert calls[0] == ("mkdir", "/remote/data")
-    assert "CREATE TABLE IF NOT EXISTS interviews" in calls[1][2]
-    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?)" in calls[2][2]
-    assert calls[2][3] == [
+    assert calls[1][0] == "batch"
+    assert "CREATE TABLE IF NOT EXISTS interviews" in calls[1][2][0][1]
+    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?)" in calls[1][2][1][1]
+    assert calls[1][2][1][2] == [
         "interview-1",
         "student-1",
         "Miros O'Connor",
@@ -86,7 +99,8 @@ def test_get_transcript_by_student_and_type_returns_summary_text(monkeypatch):
 
 
 def test_update_progress_and_summary_use_parameterized_queries(monkeypatch):
-    calls = []
+    batch_calls = []
+    summary_calls = []
     fake_ssh = object()
 
     monkeypatch.setattr(
@@ -98,8 +112,18 @@ def test_update_progress_and_summary_use_parameterized_queries(monkeypatch):
     monkeypatch.setattr(database, "ensure_remote_directory", lambda *args: None)
     monkeypatch.setattr(
         database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: batch_calls.append(
+            [
+                (" ".join(operation.get("sql_query", "").split()), operation.get("params"))
+                for operation in operations
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        database,
         "run_remote_sql",
-        lambda ssh, db_path, sql, params=None, fetch=None: calls.append(
+        lambda ssh, db_path, sql, params=None, fetch=None: summary_calls.append(
             (" ".join(sql.split()), params)
         ),
     )
@@ -110,8 +134,12 @@ def test_update_progress_and_summary_use_parameterized_queries(monkeypatch):
     )
     database.update_interview_summary("interview-1", "summary text")
 
-    assert any("VALUES (?, ?, ?, ?)" in sql for sql, _ in calls)
-    assert any(params == ["summary text", "interview-1"] for _, params in calls)
+    assert any(
+        "VALUES (?, ?, ?, ?)" in sql for sql, _ in batch_calls[0]
+    )
+    assert any(
+        params == ["summary text", "interview-1"] for _, params in summary_calls
+    )
 
 
 def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypatch):
@@ -124,18 +152,11 @@ def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypa
         lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
     monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
-
-    def fake_run_remote_sql(ssh, db_path, sql, params=None, fetch=None):
-        normalized_sql = " ".join(sql.split())
-        calls.append((normalized_sql, params, fetch))
-        if "PRAGMA table_info(interviews)" in normalized_sql:
-            return [
-                [0, "interview_id", "TEXT", 0, None, 0],
-                [1, "summary", "TEXT", 0, None, 0],
-            ]
-        return None
-
-    monkeypatch.setattr(database, "run_remote_sql", fake_run_remote_sql)
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.extend(operations),
+    )
     monkeypatch.setattr(database, "close_ssh_connection", lambda *args: None)
 
     database.update_interview_survey(
@@ -148,36 +169,84 @@ def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypa
         "2026-03-12 10:00:00",
     )
 
-    assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_helpfulness TEXT" in sql
-        for sql, _, _ in calls
+    assert calls[0] == {
+        "type": "ensure_columns",
+        "table": "interviews",
+        "columns": database.SURVEY_COLUMNS,
+    }
+    assert calls[1]["params"] == [
+        "5",
+        "4",
+        "6",
+        "7",
+        "Much smoother at the end now.",
+        "2026-03-12 10:00:00",
+        "interview-1",
+    ]
+
+
+def test_persist_completion_remote_batches_interview_progress_and_survey(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
-    assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_connection TEXT" in sql
-        for sql, _, _ in calls
+    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "ensure_remote_directory",
+        lambda ssh, path: calls.append(("mkdir", path)),
     )
-    assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_understanding TEXT" in sql
-        for sql, _, _ in calls
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.append(("batch", db_path, operations)),
     )
-    assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_validation TEXT" in sql
-        for sql, _, _ in calls
+    monkeypatch.setattr(database, "close_ssh_connection", lambda *args: None)
+
+    database.persist_completion_remote(
+        "interview-1",
+        "student-1",
+        "Miros",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:00:00",
+        "assistant: Hello",
+        "12.50",
+        helpfulness_rating="5",
+        connection_rating="4",
+        understanding_rating="6",
+        validation_rating="7",
+        feedback="Great ending flow.",
+        survey_timestamp="2026-03-12 10:00:00",
     )
-    assert any(
-        "ALTER TABLE interviews ADD COLUMN survey_feedback TEXT" in sql
-        for sql, _, _ in calls
-    )
-    assert any(
-        params
-        == [
-            "5",
-            "4",
-            "6",
-            "7",
-            "Much smoother at the end now.",
-            "2026-03-12 10:00:00",
-            "interview-1",
-        ]
-        for _, params, _ in calls
-    )
+
+    assert calls[0] == ("mkdir", "/remote/data")
+    operations = calls[1][2]
+    assert len(operations) == 6
+    assert "CREATE TABLE IF NOT EXISTS interviews" in operations[0]["sql_query"]
+    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?)" in operations[1]["sql_query"]
+    assert "CREATE TABLE IF NOT EXISTS progress" in operations[2]["sql_query"]
+    assert operations[3]["params"] == [
+        "student-1",
+        "Miros",
+        "midterm_interview",
+        "2026-03-12 10:00:00",
+    ]
+    assert operations[4] == {
+        "type": "ensure_columns",
+        "table": "interviews",
+        "columns": database.SURVEY_COLUMNS,
+    }
+    assert operations[5]["params"] == [
+        "5",
+        "4",
+        "6",
+        "7",
+        "Great ending flow.",
+        "2026-03-12 10:00:00",
+        "interview-1",
+    ]

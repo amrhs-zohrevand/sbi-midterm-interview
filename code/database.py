@@ -2,9 +2,51 @@ from remote_utils import (
     close_ssh_connection,
     ensure_remote_directory,
     get_ssh_connection,
+    run_remote_sql_batch,
     run_remote_sql,
 )
 from secrets_utils import get_secret
+
+
+INTERVIEWS_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS interviews (
+    interview_id TEXT,
+    student_id TEXT,
+    name TEXT,
+    company TEXT,
+    interview_type TEXT,
+    timestamp TEXT,
+    transcript TEXT,
+    duration_minutes TEXT,
+    summary TEXT,
+    survey_usefulness TEXT,
+    survey_naturalness TEXT,
+    survey_helpfulness TEXT,
+    survey_connection TEXT,
+    survey_understanding TEXT,
+    survey_validation TEXT,
+    survey_feedback TEXT,
+    survey_timestamp TEXT
+)
+"""
+
+PROGRESS_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS progress (
+    student_id TEXT,
+    name TEXT,
+    interview_type TEXT,
+    completion_timestamp TEXT
+)
+"""
+
+SURVEY_COLUMNS = {
+    "survey_helpfulness": "TEXT",
+    "survey_connection": "TEXT",
+    "survey_understanding": "TEXT",
+    "survey_validation": "TEXT",
+    "survey_feedback": "TEXT",
+    "survey_timestamp": "TEXT",
+}
 
 
 def get_remote_database_location():
@@ -16,6 +58,168 @@ def get_remote_database_location():
     remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
     return remote_directory, db_path
+
+
+def _build_interview_insert_operation(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    timestamp,
+    transcript,
+    duration_minutes,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO interviews (
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            timestamp,
+            transcript,
+            duration_minutes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        "params": [
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            timestamp,
+            transcript,
+            duration_minutes,
+        ],
+    }
+
+
+def _build_progress_insert_operation(student_id, name, interview_type, timestamp):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO progress (
+            student_id,
+            name,
+            interview_type,
+            completion_timestamp
+        ) VALUES (?, ?, ?, ?)
+        """,
+        "params": [student_id, name, interview_type, timestamp],
+    }
+
+
+def _build_survey_update_operation(
+    interview_id,
+    helpfulness_rating,
+    connection_rating,
+    understanding_rating,
+    validation_rating,
+    feedback,
+    survey_timestamp,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        UPDATE interviews
+        SET survey_helpfulness = ?,
+            survey_connection = ?,
+            survey_understanding = ?,
+            survey_validation = ?,
+            survey_feedback = ?,
+            survey_timestamp = ?
+        WHERE interview_id = ?
+        """,
+        "params": [
+            helpfulness_rating,
+            connection_rating,
+            understanding_rating,
+            validation_rating,
+            feedback,
+            survey_timestamp,
+            interview_id,
+        ],
+    }
+
+
+def _run_batch_operations(*, operations, ensure_remote_dir=False):
+    remote_directory, db_path = get_remote_database_location()
+
+    ssh, tmp_key_path = get_ssh_connection()
+    try:
+        if ensure_remote_dir:
+            ensure_remote_directory(ssh, remote_directory)
+        return run_remote_sql_batch(ssh, db_path, operations)
+    finally:
+        close_ssh_connection(ssh, tmp_key_path)
+
+
+def persist_completion_remote(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    timestamp,
+    transcript,
+    duration_minutes,
+    *,
+    helpfulness_rating="",
+    connection_rating="",
+    understanding_rating="",
+    validation_rating="",
+    feedback="",
+    survey_timestamp="",
+):
+    """Persist completion-time interview data in one remote save operation."""
+    operations = [
+        {"type": "execute", "sql_query": INTERVIEWS_TABLE_QUERY},
+        _build_interview_insert_operation(
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            timestamp,
+            transcript,
+            duration_minutes,
+        ),
+    ]
+
+    if student_id:
+        operations.extend(
+            [
+                {"type": "execute", "sql_query": PROGRESS_TABLE_QUERY},
+                _build_progress_insert_operation(
+                    student_id, name, interview_type, timestamp
+                ),
+            ]
+        )
+
+    if survey_timestamp:
+        operations.extend(
+            [
+                {
+                    "type": "ensure_columns",
+                    "table": "interviews",
+                    "columns": SURVEY_COLUMNS,
+                },
+                _build_survey_update_operation(
+                    interview_id,
+                    helpfulness_rating,
+                    connection_rating,
+                    understanding_rating,
+                    validation_rating,
+                    feedback,
+                    survey_timestamp,
+                ),
+            ]
+        )
+
+    _run_batch_operations(operations=operations, ensure_remote_dir=True)
 
 
 def save_interview_to_sheet(
@@ -33,51 +237,10 @@ def save_interview_to_sheet(
 
     The database file (interviews.db) is located in the SSH directory.
     """
-    remote_directory, db_path = get_remote_database_location()
-
-    ssh, tmp_key_path = get_ssh_connection()
-    try:
-        ensure_remote_directory(ssh, remote_directory)
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS interviews (
-            interview_id TEXT,
-            student_id TEXT,
-            name TEXT,
-            company TEXT,
-            interview_type TEXT,
-            timestamp TEXT,
-            transcript TEXT,
-            duration_minutes TEXT,
-            summary TEXT,
-            survey_usefulness TEXT,
-            survey_naturalness TEXT,
-            survey_helpfulness TEXT,
-            survey_connection TEXT,
-            survey_understanding TEXT,
-            survey_validation TEXT,
-            survey_feedback TEXT,
-            survey_timestamp TEXT
-        )
-        """
-        run_remote_sql(ssh, db_path, create_table_query)
-
-        insert_query = """
-        INSERT INTO interviews (
-            interview_id,
-            student_id,
-            name,
-            company,
-            interview_type,
-            timestamp,
-            transcript,
-            duration_minutes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        run_remote_sql(
-            ssh,
-            db_path,
-            insert_query,
-            [
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": INTERVIEWS_TABLE_QUERY},
+            _build_interview_insert_operation(
                 interview_id,
                 student_id,
                 name,
@@ -86,10 +249,10 @@ def save_interview_to_sheet(
                 timestamp,
                 transcript,
                 duration_minutes,
-            ],
-        )
-    finally:
-        close_ssh_connection(ssh, tmp_key_path)
+            ),
+        ],
+        ensure_remote_dir=True,
+    )
 
 
 def update_progress_sheet(student_id, name, interview_type, timestamp):
@@ -98,37 +261,15 @@ def update_progress_sheet(student_id, name, interview_type, timestamp):
 
     The database file (interviews.db) is located in the SSH directory.
     """
-    remote_directory, db_path = get_remote_database_location()
-
-    ssh, tmp_key_path = get_ssh_connection()
-    try:
-        ensure_remote_directory(ssh, remote_directory)
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS progress (
-            student_id TEXT,
-            name TEXT,
-            interview_type TEXT,
-            completion_timestamp TEXT
-        )
-        """
-        run_remote_sql(ssh, db_path, create_table_query)
-
-        insert_query = """
-        INSERT INTO progress (
-            student_id,
-            name,
-            interview_type,
-            completion_timestamp
-        ) VALUES (?, ?, ?, ?)
-        """
-        run_remote_sql(
-            ssh,
-            db_path,
-            insert_query,
-            [student_id, name, interview_type, timestamp],
-        )
-    finally:
-        close_ssh_connection(ssh, tmp_key_path)
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": PROGRESS_TABLE_QUERY},
+            _build_progress_insert_operation(
+                student_id, name, interview_type, timestamp
+            ),
+        ],
+        ensure_remote_dir=True,
+    )
 
 
 def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None):
@@ -194,56 +335,21 @@ def update_interview_survey(
     survey_timestamp,
 ):
     """Update the stored inline survey responses for a completed interview."""
-    _, db_path = get_remote_database_location()
-
-    ssh, tmp_key_path = get_ssh_connection()
-    try:
-        existing_columns = run_remote_sql(
-            ssh,
-            db_path,
-            "PRAGMA table_info(interviews)",
-            fetch="all",
-        ) or []
-        existing_column_names = {row[1] for row in existing_columns}
-        required_columns = {
-            "survey_helpfulness": "TEXT",
-            "survey_connection": "TEXT",
-            "survey_understanding": "TEXT",
-            "survey_validation": "TEXT",
-            "survey_feedback": "TEXT",
-            "survey_timestamp": "TEXT",
-        }
-        for column_name, column_type in required_columns.items():
-            if column_name not in existing_column_names:
-                run_remote_sql(
-                    ssh,
-                    db_path,
-                    f"ALTER TABLE interviews ADD COLUMN {column_name} {column_type}",
-                )
-
-        update_query = """
-        UPDATE interviews
-        SET survey_helpfulness = ?,
-            survey_connection = ?,
-            survey_understanding = ?,
-            survey_validation = ?,
-            survey_feedback = ?,
-            survey_timestamp = ?
-        WHERE interview_id = ?
-        """
-        run_remote_sql(
-            ssh,
-            db_path,
-            update_query,
-            [
+    _run_batch_operations(
+        operations=[
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": SURVEY_COLUMNS,
+            },
+            _build_survey_update_operation(
+                interview_id,
                 helpfulness_rating,
                 connection_rating,
                 understanding_rating,
                 validation_rating,
                 feedback,
                 survey_timestamp,
-                interview_id,
-            ],
-        )
-    finally:
-        close_ssh_connection(ssh, tmp_key_path)
+            ),
+        ]
+    )
