@@ -83,3 +83,31 @@ test('end-of-interview flow works in the browser', async ({ page }) => {
     page.getByRole('link', { name: 'Open the full follow-up survey' })
   ).toBeVisible();
 });
+
+
+test('mixed-content close code stays in the interview until a later code-only close', async ({ page }) => {
+  await page.goto(
+    '/?name=Miros&recipient_email=miros@example.com&interview_config=industry_org_survey'
+  );
+
+  await expect(
+    page.getByText(
+      'Hello! This is a smoke test interview. Please tell me in one sentence how the experience went.'
+    )
+  ).toBeVisible();
+
+  const chatInput = page.getByTestId('stChatInputTextArea');
+  await chatInput.fill('Trigger mixed close');
+  await chatInput.press('Enter');
+
+  await expect(
+    page.getByText('Tell me more about the boundary you draw there.')
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Before You Go' })).toHaveCount(0);
+
+  await chatInput.fill('The boundary is mostly about confidentiality.');
+  await chatInput.press('Enter');
+
+  await expect(page.getByRole('heading', { name: 'Before You Go' })).toBeVisible();
+  await expectCompletionDefaults(page);
+});

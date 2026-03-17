@@ -6,6 +6,8 @@ SMOKE_TEST_MODEL = "smoke-test-model"
 INITIAL_SMOKE_REPLY = (
     "Hello! This is a smoke test interview. Please tell me in one sentence how the experience went."
 )
+MIXED_CLOSE_TRIGGER = "Trigger mixed close"
+MIXED_CLOSE_REPLY = "Tell me more about the boundary you draw there. x7y8"
 SMOKE_TEST_SUMMARY = "Smoke test summary generated locally."
 
 
@@ -24,6 +26,10 @@ def next_smoke_reply(messages) -> str:
     ]
     if not user_messages:
         return INITIAL_SMOKE_REPLY
+    if user_messages[0].get("content") == MIXED_CLOSE_TRIGGER:
+        if len(user_messages) == 1:
+            return MIXED_CLOSE_REPLY
+        return "x7y8"
     return "x7y8"
 
 

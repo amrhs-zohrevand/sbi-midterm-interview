@@ -25,12 +25,15 @@ from interview_completion import (
     survey_option_index,
 )
 from interview_logic import (
+    classify_assistant_reply,
     compose_system_prompt,
     extract_anthropic_text,
     extract_openai_stream_delta,
     filter_display_messages,
     find_closing_code,
+    missing_query_params,
     normalize_query_value,
+    resolve_query_params,
     should_accept_user_input,
     should_finalize_interview,
 )
@@ -56,6 +59,16 @@ from utils import (
 
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
 TYPING_CHARACTERS_PER_SECOND = 65
+REQUIRED_QUERY_PARAMS = ("name", "recipient_email")
+LAUNCH_QUERY_PARAM_KEYS = REQUIRED_QUERY_PARAMS + (
+    "company",
+    "student_number",
+    "interview_config",
+)
+QUERY_PARAM_CACHE_KEY = "launch_query_params"
+QUERY_PARAM_RETRY_COUNT_KEY = "launch_query_param_retry_count"
+QUERY_PARAM_RETRY_LIMIT = 3
+QUERY_PARAM_RETRY_DELAY_SECONDS = 1.0
 
 SMOKE_TEST_MODE = smoke_test_mode_enabled()
 
@@ -115,9 +128,12 @@ def _get_latest_assistant_message():
         if message.get("role") != "assistant":
             continue
         content = message.get("content", "").strip()
-        if not content or find_closing_code(content, config.CLOSING_MESSAGES):
+        if not content:
             continue
-        return idx, content
+        parsed_reply = classify_assistant_reply(content, config.CLOSING_MESSAGES)
+        if parsed_reply.kind == "code_only_close":
+            continue
+        return idx, parsed_reply.visible_text
     return None, ""
 
 
@@ -164,7 +180,38 @@ def _update_tts_audio():
 
 
 query_params = st.query_params
-raw_config_name = normalize_query_value(query_params.get("interview_config"), "Default")
+raw_launch_params = {
+    key: normalize_query_value(query_params.get(key)) for key in LAUNCH_QUERY_PARAM_KEYS
+}
+launch_params = resolve_query_params(
+    raw_launch_params,
+    st.session_state.get(QUERY_PARAM_CACHE_KEY, {}),
+    LAUNCH_QUERY_PARAM_KEYS,
+)
+if any(raw_launch_params.values()):
+    st.session_state[QUERY_PARAM_CACHE_KEY] = launch_params
+    st.session_state[QUERY_PARAM_RETRY_COUNT_KEY] = 0
+
+missing_required_launch_params = missing_query_params(
+    launch_params, REQUIRED_QUERY_PARAMS
+)
+if missing_required_launch_params:
+    retry_count = st.session_state.get(QUERY_PARAM_RETRY_COUNT_KEY, 0)
+    if retry_count < QUERY_PARAM_RETRY_LIMIT:
+        st.session_state[QUERY_PARAM_RETRY_COUNT_KEY] = retry_count + 1
+        st.info("Your interview link is loading while the app wakes up. Retrying automatically...")
+        time.sleep(QUERY_PARAM_RETRY_DELAY_SECONDS)
+        st.rerun()
+
+    st.warning(
+        "This interview link is missing the required launch details. "
+        "Please reopen the full link containing at least `name` and `recipient_email`."
+    )
+    st.stop()
+
+st.session_state[QUERY_PARAM_RETRY_COUNT_KEY] = 0
+
+raw_config_name = normalize_query_value(launch_params.get("interview_config"), "Default")
 if raw_config_name == "Default":
     import config
 
@@ -203,7 +250,7 @@ else:
 
 def _get_param(name: str, default: str = "") -> str:
     """Return a query parameter as a decoded string."""
-    return html.unescape(normalize_query_value(query_params.get(name), default))
+    return html.unescape(normalize_query_value(launch_params.get(name), default))
 
 
 if "session_id" not in st.session_state:
@@ -246,16 +293,6 @@ if "tts_autoplay_nonce" not in st.session_state:
     st.session_state.tts_autoplay_nonce = 0
 if "tts_played_nonce" not in st.session_state:
     st.session_state.tts_played_nonce = 0
-
-
-required_params = ["name", "recipient_email"]
-
-
-def validate_query_params(params):
-    missing = [
-        key for key in required_params if not normalize_query_value(params.get(key))
-    ]
-    return len(missing) == 0, missing
 
 
 def get_chat_messages():
@@ -328,29 +365,36 @@ def stream_assistant_reply(message_placeholder, messages=None) -> tuple[str, str
     state = {"raw_reply": "", "closing_code": None}
 
     def paced_stream():
-        displayed_length = 0
+        pending_text = ""
         holdback = max(max_closing_code_length - 1, 0)
 
         for delta in _iter_provider_reply_chunks(messages=messages):
             state["raw_reply"] += delta
-            closing_code = find_closing_code(state["raw_reply"], config.CLOSING_MESSAGES)
-            if closing_code:
-                state["closing_code"] = closing_code
-                visible_reply = state["raw_reply"].split(closing_code, 1)[0]
-                remaining_text = visible_reply[displayed_length:]
-                if remaining_text:
-                    yield from _iter_paced_text(remaining_text)
-                return
+            pending_text += delta
 
-            safe_length = max(len(state["raw_reply"]) - holdback, 0)
-            if safe_length > displayed_length:
-                next_chunk = state["raw_reply"][displayed_length:safe_length]
-                yield from _iter_paced_text(next_chunk)
-                displayed_length = safe_length
+            while True:
+                closing_code = find_closing_code(pending_text, config.CLOSING_MESSAGES)
+                if not closing_code:
+                    break
 
-        trailing_text = state["raw_reply"][displayed_length:]
-        if trailing_text:
-            yield from _iter_paced_text(trailing_text)
+                code_index = pending_text.find(closing_code)
+                visible_prefix = pending_text[:code_index]
+                if visible_prefix:
+                    yield from _iter_paced_text(visible_prefix)
+                pending_text = pending_text[code_index + len(closing_code):]
+
+            safe_length = max(len(pending_text) - holdback, 0)
+            if safe_length:
+                yield from _iter_paced_text(pending_text[:safe_length])
+                pending_text = pending_text[safe_length:]
+
+        parsed_reply = classify_assistant_reply(state["raw_reply"], config.CLOSING_MESSAGES)
+        if parsed_reply.kind == "code_only_close":
+            state["closing_code"] = parsed_reply.closing_code
+            return
+
+        if pending_text:
+            yield from _iter_paced_text(pending_text)
 
     with message_placeholder.container():
         visible_reply = st.write_stream(paced_stream())
@@ -448,11 +492,6 @@ def finalize_interview(send_email=False, email_input=None):
     st.session_state.show_evaluation_only = True
 
 
-is_valid, missing = validate_query_params(query_params)
-if not is_valid:
-    st.error(f"Missing parameters: {', '.join(missing)}")
-    st.stop()
-
 student_number = _get_param("student_number", "")
 respondent_name = _get_param("name")
 recipient_email = _get_param("recipient_email")
@@ -528,7 +567,7 @@ if st.session_state.show_evaluation_only:
 
 
 st.sidebar.title("Interview Details")
-for param in required_params:
+for param in REQUIRED_QUERY_PARAMS:
     label = param.replace("_", " ").capitalize()
     value = html.unescape(normalize_query_value(query_params.get(param)))
     st.sidebar.write(f"{label}: {value}")
