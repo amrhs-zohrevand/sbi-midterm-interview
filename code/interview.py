@@ -685,7 +685,10 @@ if st.session_state.awaiting_email_confirmation:
             quit_msg = "You have cancelled the interview."
             st.session_state.messages.append({"role": "assistant", "content": quit_msg})
         st.session_state.awaiting_email_confirmation = False
-        with st.spinner("Saving your interview..."):
+        with st.spinner(
+            "Saving may take a few minutes. Please keep this window open. "
+            "The follow-up questionnaire will appear next. Thank you for your help."
+        ):
             completion_responses = build_completion_responses(st.session_state)
             finalize_interview(
                 send_email=completion_responses.send_email,
