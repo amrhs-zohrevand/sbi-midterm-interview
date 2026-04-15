@@ -29,10 +29,12 @@ class ProviderRuntime:
 
 def normalize_provider(provider_name: str, model_name: str = "") -> str:
     """Normalize the configured provider name for downstream branching."""
-    provider = (provider_name or "openai").strip().lower()
-    if provider == "anthropic" or "claude" in model_name.lower():
+    provider = (provider_name or "").strip().lower()
+    if provider in {"openai", "deepinfra", "openrouter", "anthropic"}:
+        return provider
+    if "claude" in model_name.lower():
         return "anthropic"
-    return provider
+    return "openai"
 
 
 def _normalize_reasoning_effort(raw_effort: str) -> str:
@@ -105,7 +107,11 @@ def resolve_model_selection(provider: str, config_name: str, secrets, default_ma
 def create_provider_runtime(secrets, config_name: str, default_max_tokens: int) -> ProviderRuntime:
     """Create the active client/runtime tuple for the interview app."""
     configured_provider = str(secrets.get("API_PROVIDER", "openai"))
-    configured_model = str(secrets.get("MODEL", "gpt-3.5-turbo"))
+    configured_model = (
+        ""
+        if configured_provider.strip().lower() == "openrouter"
+        else str(secrets.get("MODEL", "gpt-5.4"))
+    )
     provider = normalize_provider(configured_provider, configured_model)
     model_selection = resolve_model_selection(
         provider, config_name, secrets, default_max_tokens

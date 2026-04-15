@@ -20,15 +20,21 @@ The platform is built with Streamlit and uses OpenAI-, DeepInfra-, or Anthropic-
 The platform is built using Streamlit and requires the following configuration settings:
 
 ### Required Environment Variables:
-- `API_PROVIDER`: One of `openai`, `deepinfra`, or `anthropic`.
-- `MODEL`: The chat model to use for interviews.
+- `API_PROVIDER`: One of `openai`, `deepinfra`, `openrouter`, or `anthropic`.
+- `MODEL`: The chat model to use when `API_PROVIDER` is `openai`, `deepinfra`, or `anthropic`.
 - `API_KEY`: OpenAI API key. Also used for optional voice transcription.
 - `ANTHROPIC_API_KEY`: Required when `API_PROVIDER="anthropic"`.
 - `DEEPINFRA_API_KEY`: Required when `API_PROVIDER="deepinfra"`.
+- `OPENROUTER_API_KEY`: Required when `API_PROVIDER="openrouter"`.
 - `ENV`: Environment setting (`test` or `production`).
 - `EMAIL_PASSWORD`: Optional Gmail app password for sending transcripts and verification codes.
 - `USE_LIACS_EMAIL`: Optional flag to send mail via the LIACS SMTP path instead of Gmail.
 - `LIACS_SSH_USERNAME` and `LIACS_SSH_KEY`: Required for remote SQLite sync and the LIACS SMTP path.
+
+### OpenRouter Routing
+- When `API_PROVIDER="openrouter"`, the interview chat flow ignores `MODEL`.
+- `OPENROUTER_DEFAULT_MODEL` is the baseline model for midterm, end reflection, and other non-industry interviews.
+- `OPENROUTER_INDUSTRY_MODEL` is used for `industry_org_survey`.
 
 ### Email Configuration
 - Uses Gmail's SMTP server (`smtp.gmail.com` on port `587`).

@@ -16,12 +16,21 @@ from interview_provider import (
 
 def test_normalize_provider_handles_claude_models():
     assert normalize_provider("anthropic", "claude-3-5-sonnet") == "anthropic"
-    assert normalize_provider("openrouter", "claude-3-5-sonnet") == "anthropic"
+    assert normalize_provider("", "claude-3-5-sonnet") == "anthropic"
     assert normalize_provider("openrouter", "openai/gpt-5.4") == "openrouter"
+    assert normalize_provider("openrouter", "claude-3-5-sonnet") == "openrouter"
 
 
 def test_resolve_model_selection_defaults_to_qwen_for_openrouter():
     selection = resolve_model_selection("openrouter", "midterm_interview", {}, 1024)
+
+    assert selection.model == OPENROUTER_DEFAULT_MODEL
+    assert selection.max_tokens == 1024
+    assert selection.reasoning == {"enabled": False}
+
+
+def test_resolve_model_selection_uses_qwen_for_end_reflection():
+    selection = resolve_model_selection("openrouter", "end_reflection_interview", {}, 1024)
 
     assert selection.model == OPENROUTER_DEFAULT_MODEL
     assert selection.max_tokens == 1024
@@ -106,5 +115,36 @@ def test_create_provider_runtime_builds_openrouter_client(monkeypatch):
                 "HTTP-Referer": "http://localhost:8501",
                 "X-Title": "Interview App",
             },
+        }
+    ]
+
+
+def test_create_provider_runtime_ignores_model_setting_for_openrouter(monkeypatch):
+    calls = []
+
+    def fake_openai(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(kind="openai", kwargs=kwargs)
+
+    monkeypatch.setattr(interview_provider, "OpenAI", fake_openai)
+
+    runtime = create_provider_runtime(
+        {
+            "API_PROVIDER": "openrouter",
+            "MODEL": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            "OPENROUTER_API_KEY": "test-key",
+        },
+        "industry_org_survey",
+        1024,
+    )
+
+    assert runtime.provider == "openrouter"
+    assert runtime.api == "openai"
+    assert runtime.model_selection.model == OPENROUTER_INDUSTRY_MODEL
+    assert calls == [
+        {
+            "api_key": "test-key",
+            "base_url": interview_provider.OPENROUTER_BASE_URL,
+            "default_headers": None,
         }
     ]
