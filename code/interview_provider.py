@@ -3,20 +3,23 @@ from dataclasses import dataclass
 from openai import OpenAI
 
 
+OPENAI_DEFAULT_MODEL = "gpt-5.4-nano"
+OPENAI_DEFAULT_REASONING_EFFORT = "medium"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_DEFAULT_MODEL = "qwen/qwen3.5-35b-a3b"
 OPENROUTER_INDUSTRY_MODEL = "openai/gpt-5.4"
 OPENROUTER_DEFAULT_REASONING_EFFORT = "minimal"
 OPENROUTER_MIN_REASONING_MAX_TOKENS = 1536
 OPENROUTER_INDUSTRY_CONFIGS = {"industry_org_survey"}
-OPENROUTER_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
 
 
 @dataclass(frozen=True)
 class ModelSelection:
     model: str
     max_tokens: int
-    reasoning: dict | None = None
+    reasoning_effort: str | None = None
+    extra_body_reasoning: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -36,9 +39,9 @@ def normalize_provider(provider_name: str, model_name: str = "") -> str:
 
 
 def _normalize_reasoning_effort(raw_effort: str) -> str:
-    effort = (raw_effort or OPENROUTER_DEFAULT_REASONING_EFFORT).strip().lower()
-    if effort not in OPENROUTER_REASONING_EFFORTS:
-        return OPENROUTER_DEFAULT_REASONING_EFFORT
+    effort = (raw_effort or OPENAI_DEFAULT_REASONING_EFFORT).strip().lower()
+    if effort not in REASONING_EFFORTS:
+        return OPENAI_DEFAULT_REASONING_EFFORT
     return effort
 
 
@@ -54,18 +57,81 @@ def build_openrouter_headers(secrets) -> dict[str, str]:
     return headers
 
 
-def apply_model_selection_to_openai_kwargs(kwargs: dict, model_selection: ModelSelection) -> dict:
+def apply_model_selection_to_openai_kwargs(
+    kwargs: dict,
+    provider: str,
+    model_selection: ModelSelection,
+) -> dict:
     """Apply model-selection overrides to an OpenAI-compatible request payload."""
     updated = dict(kwargs)
     updated["model"] = model_selection.model
-    updated["max_tokens"] = model_selection.max_tokens
-    if model_selection.reasoning:
-        updated["extra_body"] = {"reasoning": dict(model_selection.reasoning)}
+    updated.pop("max_tokens", None)
+    updated.pop("max_completion_tokens", None)
+    if provider == "openai":
+        updated["max_completion_tokens"] = model_selection.max_tokens
+    else:
+        updated["max_tokens"] = model_selection.max_tokens
+
+    if provider == "openai" and model_selection.reasoning_effort:
+        updated["reasoning_effort"] = model_selection.reasoning_effort
+    elif provider == "openrouter" and model_selection.extra_body_reasoning:
+        updated["extra_body"] = {"reasoning": dict(model_selection.extra_body_reasoning)}
     return updated
+
+
+def build_summary_request_kwargs(
+    provider: str,
+    model_selection: ModelSelection,
+    summary_prompt: str,
+    temperature: float | None = None,
+    max_tokens: int = 200,
+) -> dict:
+    """Build summary-generation kwargs for OpenAI-compatible providers."""
+    if provider == "deepinfra":
+        messages = [{"role": "user", "content": summary_prompt}]
+    else:
+        messages = [
+            {
+                "role": "system",
+                "content": "You create concise but detailed summaries of interview transcripts.",
+            },
+            {"role": "user", "content": summary_prompt},
+        ]
+
+    kwargs = {
+        "model": model_selection.model,
+        "messages": messages,
+        "max_completion_tokens" if provider == "openai" else "max_tokens": max_tokens,
+        "stream": False,
+    }
+    if not (provider == "openai" and model_selection.reasoning_effort):
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+    kwargs = apply_model_selection_to_openai_kwargs(kwargs, provider, model_selection)
+    if provider == "openai":
+        kwargs["max_completion_tokens"] = max_tokens
+        kwargs.pop("max_tokens", None)
+    else:
+        kwargs["max_tokens"] = max_tokens
+    return kwargs
 
 
 def resolve_model_selection(provider: str, config_name: str, secrets, default_max_tokens: int) -> ModelSelection:
     """Select the active model and request settings for the given provider/config."""
+    if provider == "openai":
+        return ModelSelection(
+            model=str(secrets.get("MODEL", OPENAI_DEFAULT_MODEL)),
+            max_tokens=default_max_tokens,
+            reasoning_effort=_normalize_reasoning_effort(
+                str(
+                    secrets.get(
+                        "OPENAI_REASONING_EFFORT",
+                        OPENAI_DEFAULT_REASONING_EFFORT,
+                    )
+                )
+            ),
+        )
+
     if provider != "openrouter":
         return ModelSelection(
             model=str(secrets.get("MODEL", "gpt-3.5-turbo")),
@@ -92,20 +158,20 @@ def resolve_model_selection(provider: str, config_name: str, secrets, default_ma
                 secrets.get("OPENROUTER_INDUSTRY_MODEL", OPENROUTER_INDUSTRY_MODEL)
             ),
             max_tokens=max(default_max_tokens, reasoning_max_tokens),
-            reasoning={"effort": reasoning_effort, "exclude": True},
+            extra_body_reasoning={"effort": reasoning_effort, "exclude": True},
         )
 
     return ModelSelection(
         model=str(secrets.get("OPENROUTER_DEFAULT_MODEL", OPENROUTER_DEFAULT_MODEL)),
         max_tokens=default_max_tokens,
-        reasoning={"enabled": False},
+        extra_body_reasoning={"enabled": False},
     )
 
 
 def create_provider_runtime(secrets, config_name: str, default_max_tokens: int) -> ProviderRuntime:
     """Create the active client/runtime tuple for the interview app."""
     configured_provider = str(secrets.get("API_PROVIDER", "openai"))
-    configured_model = str(secrets.get("MODEL", "gpt-3.5-turbo"))
+    configured_model = str(secrets.get("MODEL", OPENAI_DEFAULT_MODEL))
     provider = normalize_provider(configured_provider, configured_model)
     model_selection = resolve_model_selection(
         provider, config_name, secrets, default_max_tokens

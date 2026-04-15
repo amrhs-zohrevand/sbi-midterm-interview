@@ -40,6 +40,7 @@ from interview_logic import (
 from interview_persistence import CompletionContext, persist_completion
 from interview_provider import (
     apply_model_selection_to_openai_kwargs,
+    build_summary_request_kwargs,
     create_provider_runtime,
 )
 from interview_selection import get_context_transcript, load_interview_context_map
@@ -308,17 +309,27 @@ def get_chat_messages():
 
 def build_chat_kwargs(messages=None, stream=True):
     """Build provider-specific chat kwargs for the current conversation state."""
+    return _build_openai_compatible_kwargs(messages=messages, stream=stream)
+
+
+def _build_openai_compatible_kwargs(
+    messages=None,
+    stream=True,
+    max_tokens=None,
+    include_temperature=True,
+):
+    """Build provider-specific kwargs for OpenAI-compatible chat endpoints."""
     conversation = list(messages if messages is not None else get_chat_messages())
     kwargs = {
         "model": model,
-        "max_tokens": config.MAX_OUTPUT_TOKENS,
+        "max_tokens": max_tokens or config.MAX_OUTPUT_TOKENS,
         "messages": conversation,
         "stream": stream,
     }
-    if config.TEMPERATURE is not None:
+    if include_temperature and config.TEMPERATURE is not None:
         kwargs["temperature"] = config.TEMPERATURE
     if model_selection is not None and api == "openai":
-        kwargs = apply_model_selection_to_openai_kwargs(kwargs, model_selection)
+        kwargs = apply_model_selection_to_openai_kwargs(kwargs, provider, model_selection)
     if api == "anthropic":
         kwargs["system"] = st.session_state.system_prompt
         kwargs["messages"] = [
@@ -425,22 +436,13 @@ def generate_summary(transcript_text: str) -> str:
     )
 
     if api == "openai":
-        if provider == "deepinfra":
-            summary_messages = [{"role": "user", "content": summary_prompt}]
-        else:
-            summary_messages = [
-                {
-                    "role": "system",
-                    "content": "You create concise but detailed summaries of interview transcripts.",
-                },
-                {"role": "user", "content": summary_prompt},
-            ]
         response = client.chat.completions.create(
-            model=model,
-            messages=summary_messages,
-            max_tokens=200,
-            temperature=0.7,
-            stream=False,
+            **build_summary_request_kwargs(
+                provider=provider,
+                model_selection=model_selection,
+                summary_prompt=summary_prompt,
+                temperature=0.7,
+            )
         )
         return response.choices[0].message.content.strip()
 
