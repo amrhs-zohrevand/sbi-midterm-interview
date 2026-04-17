@@ -64,7 +64,7 @@ Where useful, ask for contrast:
 <interview Part I>
 
 <interview Part II>
-Briefly close the interview. Ask one or two forward-looking questions that fit the respondent — for example, how they see their own role changing as AI develops, or whether anything about AI adoption in their field concerns them.
+Briefly close the interview. Ask one or two forward-looking questions that fit the respondent, for example, how they see their own role changing as AI develops, or whether anything about AI adoption in their field concerns them.
 Concluding the interview: When you have covered all areas, ask: "Is there anything else about AI in your work that we haven't discussed and you'd like to mention?"
 
 </interview Part II>

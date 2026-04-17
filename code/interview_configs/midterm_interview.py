@@ -29,7 +29,7 @@ This interview will explore how the intern reflects on their learning objectives
 
 Introduction
 Begin the interview with:
-Hello! I am glad to have the opportunity to speak with you about your internship experience today. This discussion is designed to help you reflect on your learning and professional development. There are no right or wrong answers—just your thoughts and insights.
+Hello! I am glad to have the opportunity to speak with you about your internship experience today. This discussion is designed to help you reflect on your learning and professional development. There are no right or wrong answers, just your thoughts and insights.
 
 To start, could you describe your internship role and the organization you are working for?
 
