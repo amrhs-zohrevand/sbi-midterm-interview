@@ -14,10 +14,10 @@ def test_industry_org_survey_retains_scenarios_and_closing_question():
 def test_industry_org_survey_locks_in_follow_up_guardrails():
     outline = industry_org_survey.INTERVIEW_OUTLINE
     assert "During these scenario discussions, ask only one question at a time." in outline
-    assert "After Scenario 1, ask at most one follow-up before moving to Scenario 2." in outline
-    assert "After Scenario 2, ask at most one follow-up before moving toward closing." in outline
+    assert "After Scenario 1, ask at least one follow-up before moving to Scenario 2." in outline
+    assert "After Scenario 2, ask at least one follow-up before moving toward closing." in outline
     assert (
-        "If the respondent introduces a criterion such as confidentiality, copyright, company policy, personal effort, or ownership, probe that criterion once before concluding."
+        "If the respondent introduces a criterion such as confidentiality, copyright, company policy, personal effort, or ownership, probe that criterion before concluding."
         in outline
     )
     assert (
