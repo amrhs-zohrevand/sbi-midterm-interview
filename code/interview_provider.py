@@ -47,29 +47,18 @@ def _normalize_reasoning_effort(raw_effort: str) -> str:
     return effort
 
 
-def _secret_bool(secrets, key: str, default: bool = False) -> bool:
-    value = secrets.get(key, default)
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def reasoning_experiment_enabled(secrets) -> bool:
-    return _secret_bool(secrets, "EXPERIMENT_RANDOM_REASONING", False)
-
-
 def supports_reasoning_experiment(provider: str, config_name: str) -> bool:
     return provider == "openrouter" and config_name in OPENROUTER_INDUSTRY_CONFIGS
 
 
 def resolve_reasoning_experiment_level(
-    secrets,
+    enabled: bool,
     provider: str,
     config_name: str,
     *,
     choice_fn: Callable[[Sequence[str]], str],
 ) -> str | None:
-    if not reasoning_experiment_enabled(secrets):
+    if not enabled:
         return None
     if not supports_reasoning_experiment(provider, config_name):
         return None

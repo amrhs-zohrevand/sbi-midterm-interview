@@ -82,13 +82,13 @@ def test_apply_reasoning_level_can_force_medium_or_none():
 
 def test_resolve_reasoning_experiment_level_honors_boolean_switch():
     disabled = resolve_reasoning_experiment_level(
-        {"EXPERIMENT_RANDOM_REASONING": False},
+        False,
         "openrouter",
         "industry_org_survey",
         choice_fn=lambda levels: levels[0],
     )
     enabled = resolve_reasoning_experiment_level(
-        {"EXPERIMENT_RANDOM_REASONING": True},
+        True,
         "openrouter",
         "industry_org_survey",
         choice_fn=lambda levels: levels[0],

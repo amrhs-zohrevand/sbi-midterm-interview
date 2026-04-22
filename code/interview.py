@@ -43,7 +43,6 @@ from interview_provider import (
     apply_reasoning_level,
     apply_model_selection_to_openai_kwargs,
     create_provider_runtime,
-    reasoning_experiment_enabled,
     resolve_reasoning_experiment_level,
     supports_reasoning_experiment,
 )
@@ -302,16 +301,19 @@ if "tts_played_nonce" not in st.session_state:
 if model_selection is None:
     st.session_state.model_reasoning_level = "none"
 else:
-    experiment_active = reasoning_experiment_enabled(
-        st.secrets
-    ) and supports_reasoning_experiment(provider, config_name)
+    random_reasoning_experiment = bool(
+        getattr(config, "RANDOM_REASONING_EXPERIMENT", False)
+    )
+    experiment_active = random_reasoning_experiment and supports_reasoning_experiment(
+        provider, config_name
+    )
     if experiment_active:
         if (
             st.session_state.get("model_reasoning_session_id")
             != st.session_state.session_id
         ):
             st.session_state.model_reasoning_level = resolve_reasoning_experiment_level(
-                st.secrets,
+                random_reasoning_experiment,
                 provider,
                 config_name,
                 choice_fn=random.choice,
