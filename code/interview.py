@@ -2,6 +2,7 @@ import base64
 import html
 import importlib.util
 import os
+import random
 import re
 import tempfile
 import time
@@ -39,8 +40,12 @@ from interview_logic import (
 )
 from interview_persistence import CompletionContext, persist_completion
 from interview_provider import (
+    apply_reasoning_level,
     apply_model_selection_to_openai_kwargs,
     create_provider_runtime,
+    reasoning_experiment_enabled,
+    resolve_reasoning_experiment_level,
+    supports_reasoning_experiment,
 )
 from interview_selection import get_context_transcript, load_interview_context_map
 from interview_smoke import (
@@ -294,6 +299,32 @@ if "tts_autoplay_nonce" not in st.session_state:
 if "tts_played_nonce" not in st.session_state:
     st.session_state.tts_played_nonce = 0
 
+if model_selection is None:
+    st.session_state.model_reasoning_level = "none"
+else:
+    experiment_active = reasoning_experiment_enabled(
+        st.secrets
+    ) and supports_reasoning_experiment(provider, config_name)
+    if experiment_active:
+        if (
+            st.session_state.get("model_reasoning_session_id")
+            != st.session_state.session_id
+        ):
+            st.session_state.model_reasoning_level = resolve_reasoning_experiment_level(
+                st.secrets,
+                provider,
+                config_name,
+                choice_fn=random.choice,
+            )
+            st.session_state.model_reasoning_session_id = st.session_state.session_id
+        model_selection = apply_reasoning_level(
+            model_selection, st.session_state.model_reasoning_level
+        )
+    else:
+        st.session_state.model_reasoning_level = model_selection.reasoning_level
+
+model_reasoning_level = st.session_state.model_reasoning_level
+
 
 def get_chat_messages():
     """Return the current conversation in provider-compatible format."""
@@ -471,6 +502,8 @@ def finalize_interview(send_email=False, email_input=None):
         start_time=st.session_state.start_time,
         messages=list(st.session_state.messages),
         completion_responses=completion_responses,
+        model=model,
+        model_reasoning_level=model_reasoning_level,
     )
     completion_result = persist_completion(
         completion_context,

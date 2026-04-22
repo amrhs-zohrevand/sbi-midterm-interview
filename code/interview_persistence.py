@@ -16,6 +16,8 @@ class CompletionContext:
     start_time: float
     messages: list[dict]
     completion_responses: CompletionResponses
+    model: str = ""
+    model_reasoning_level: str = "none"
 
 
 @dataclass(frozen=True)
@@ -74,6 +76,8 @@ def persist_completion(
         timestamp,
         transcript_text,
         duration_minutes,
+        model=context.model,
+        model_reasoning_level=context.model_reasoning_level,
         helpfulness_rating=context.completion_responses.helpfulness_rating,
         connection_rating=context.completion_responses.connection_rating,
         understanding_rating=context.completion_responses.understanding_rating,

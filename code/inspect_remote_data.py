@@ -13,6 +13,8 @@ INTERVIEW_COLUMNS = [
     "interview_type",
     "timestamp",
     "duration_minutes",
+    "model",
+    "model_reasoning_level",
 ]
 
 PROGRESS_COLUMNS = [

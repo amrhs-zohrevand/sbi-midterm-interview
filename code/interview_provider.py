@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Callable, Sequence
 
 from openai import OpenAI
 
@@ -9,7 +10,8 @@ OPENROUTER_INDUSTRY_MODEL = "openai/gpt-5.4"
 OPENROUTER_DEFAULT_REASONING_EFFORT = "minimal"
 OPENROUTER_MIN_REASONING_MAX_TOKENS = 1536
 OPENROUTER_INDUSTRY_CONFIGS = {"industry_org_survey"}
-OPENROUTER_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+OPENROUTER_REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high"}
+REASONING_EXPERIMENT_LEVELS = ("medium", "none")
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,7 @@ class ModelSelection:
     model: str
     max_tokens: int
     reasoning: dict | None = None
+    reasoning_level: str = "none"
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,54 @@ def _normalize_reasoning_effort(raw_effort: str) -> str:
     if effort not in OPENROUTER_REASONING_EFFORTS:
         return OPENROUTER_DEFAULT_REASONING_EFFORT
     return effort
+
+
+def _secret_bool(secrets, key: str, default: bool = False) -> bool:
+    value = secrets.get(key, default)
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def reasoning_experiment_enabled(secrets) -> bool:
+    return _secret_bool(secrets, "EXPERIMENT_RANDOM_REASONING", False)
+
+
+def supports_reasoning_experiment(provider: str, config_name: str) -> bool:
+    return provider == "openrouter" and config_name in OPENROUTER_INDUSTRY_CONFIGS
+
+
+def resolve_reasoning_experiment_level(
+    secrets,
+    provider: str,
+    config_name: str,
+    *,
+    choice_fn: Callable[[Sequence[str]], str],
+) -> str | None:
+    if not reasoning_experiment_enabled(secrets):
+        return None
+    if not supports_reasoning_experiment(provider, config_name):
+        return None
+    return choice_fn(REASONING_EXPERIMENT_LEVELS)
+
+
+def reasoning_payload_for_level(reasoning_level: str) -> dict:
+    normalized_level = _normalize_reasoning_effort(reasoning_level)
+    if normalized_level == "none":
+        return {"enabled": False}
+    return {"effort": normalized_level, "exclude": True}
+
+
+def apply_reasoning_level(
+    model_selection: ModelSelection, reasoning_level: str
+) -> ModelSelection:
+    normalized_level = _normalize_reasoning_effort(reasoning_level)
+    return ModelSelection(
+        model=model_selection.model,
+        max_tokens=model_selection.max_tokens,
+        reasoning=reasoning_payload_for_level(normalized_level),
+        reasoning_level=normalized_level,
+    )
 
 
 def build_openrouter_headers(secrets) -> dict[str, str]:
@@ -72,6 +123,7 @@ def resolve_model_selection(provider: str, config_name: str, secrets, default_ma
         return ModelSelection(
             model=str(secrets.get("MODEL", "gpt-3.5-turbo")),
             max_tokens=default_max_tokens,
+            reasoning_level="none",
         )
 
     if config_name in OPENROUTER_INDUSTRY_CONFIGS:
@@ -94,13 +146,15 @@ def resolve_model_selection(provider: str, config_name: str, secrets, default_ma
                 secrets.get("OPENROUTER_INDUSTRY_MODEL", OPENROUTER_INDUSTRY_MODEL)
             ),
             max_tokens=max(default_max_tokens, reasoning_max_tokens),
-            reasoning={"effort": reasoning_effort, "exclude": True},
+            reasoning=reasoning_payload_for_level(reasoning_effort),
+            reasoning_level=reasoning_effort,
         )
 
     return ModelSelection(
         model=str(secrets.get("OPENROUTER_DEFAULT_MODEL", OPENROUTER_DEFAULT_MODEL)),
         max_tokens=default_max_tokens,
         reasoning={"enabled": False},
+        reasoning_level="none",
     )
 
 
