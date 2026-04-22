@@ -1,4 +1,38 @@
 import database
+from remote_utils import SshSettings
+
+
+def test_get_remote_database_location_uses_resolved_username(monkeypatch):
+    monkeypatch.setattr(database, "get_secret", lambda key, default=None: default)
+    monkeypatch.setattr(
+        database,
+        "resolve_ssh_settings",
+        lambda: SshSettings(
+            host="510530198.ssh.w1.strato.hosting",
+            username="stu61498987",
+            key="test-key",
+        ),
+    )
+
+    remote_directory, db_path = database.get_remote_database_location()
+
+    assert remote_directory == "/home/stu61498987/BS-Interviews/Database"
+    assert db_path == "/home/stu61498987/BS-Interviews/Database/interviews.db"
+
+
+def test_get_remote_database_location_allows_directory_override(monkeypatch):
+    monkeypatch.setattr(
+        database,
+        "get_secret",
+        lambda key, default=None: "/home/stu61498987/custom-db/"
+        if key == "REMOTE_DATABASE_DIRECTORY"
+        else default,
+    )
+
+    remote_directory, db_path = database.get_remote_database_location()
+
+    assert remote_directory == "/home/stu61498987/custom-db"
+    assert db_path == "/home/stu61498987/custom-db/interviews.db"
 
 
 def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):

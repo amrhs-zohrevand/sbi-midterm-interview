@@ -2,6 +2,7 @@ from remote_utils import (
     close_ssh_connection,
     ensure_remote_directory,
     get_ssh_connection,
+    resolve_ssh_settings,
     run_remote_sql_batch,
     run_remote_sql,
 )
@@ -51,11 +52,13 @@ SURVEY_COLUMNS = {
 
 def get_remote_database_location():
     """Return the remote directory and database path for interview data."""
-    ssh_username = get_secret("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
+    configured_directory = get_secret("REMOTE_DATABASE_DIRECTORY")
+    if configured_directory and str(configured_directory).strip():
+        remote_directory = str(configured_directory).strip().rstrip("/")
+    else:
+        ssh_username = resolve_ssh_settings().username
+        remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
 
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
     return remote_directory, db_path
 
