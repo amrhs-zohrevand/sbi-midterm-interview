@@ -6,6 +6,10 @@ from pathlib import Path
 import remote_utils
 
 
+def _fake_secrets(values):
+    return lambda key, default=None: values.get(key, default)
+
+
 def _extract_payload(python_code: str):
     for line in python_code.splitlines():
         if "base64.b64decode(" in line:
@@ -25,6 +29,47 @@ def test_format_private_key_replaces_escaped_newlines():
     formatted = remote_utils.format_private_key(raw_key)
     assert "\\n" not in formatted
     assert formatted.startswith("-----BEGIN OPENSSH PRIVATE KEY-----\n")
+
+
+def test_resolve_ssh_settings_prefers_remote_overrides(monkeypatch):
+    monkeypatch.setattr(
+        remote_utils,
+        "get_secret",
+        _fake_secrets(
+            {
+                "REMOTE_SSH_HOST": "test.example.com",
+                "REMOTE_SSH_USERNAME": "test-user",
+                "REMOTE_SSH_KEY": "test-key",
+                "LIACS_SSH_USERNAME": "liacs-user",
+                "LIACS_SSH_KEY": "liacs-key",
+            }
+        ),
+    )
+
+    settings = remote_utils.resolve_ssh_settings()
+
+    assert settings.host == "test.example.com"
+    assert settings.username == "test-user"
+    assert settings.key == "test-key"
+
+
+def test_resolve_ssh_settings_falls_back_to_liacs_secrets(monkeypatch):
+    monkeypatch.setattr(
+        remote_utils,
+        "get_secret",
+        _fake_secrets(
+            {
+                "LIACS_SSH_USERNAME": "liacs-user",
+                "LIACS_SSH_KEY": "liacs-key",
+            }
+        ),
+    )
+
+    settings = remote_utils.resolve_ssh_settings()
+
+    assert settings.host == remote_utils.DEFAULT_SSH_HOST
+    assert settings.username == "liacs-user"
+    assert settings.key == "liacs-key"
 
 
 def test_close_ssh_connection_closes_client_and_removes_temp_file(tmp_path):

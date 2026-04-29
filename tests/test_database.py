@@ -1,4 +1,38 @@
 import database
+from remote_utils import SshSettings
+
+
+def test_get_remote_database_location_uses_resolved_username(monkeypatch):
+    monkeypatch.setattr(database, "get_secret", lambda key, default=None: default)
+    monkeypatch.setattr(
+        database,
+        "resolve_ssh_settings",
+        lambda: SshSettings(
+            host="510530198.ssh.w1.strato.hosting",
+            username="stu61498987",
+            key="test-key",
+        ),
+    )
+
+    remote_directory, db_path = database.get_remote_database_location()
+
+    assert remote_directory == "/home/stu61498987/BS-Interviews/Database"
+    assert db_path == "/home/stu61498987/BS-Interviews/Database/interviews.db"
+
+
+def test_get_remote_database_location_allows_directory_override(monkeypatch):
+    monkeypatch.setattr(
+        database,
+        "get_secret",
+        lambda key, default=None: "/home/stu61498987/custom-db/"
+        if key == "REMOTE_DATABASE_DIRECTORY"
+        else default,
+    )
+
+    remote_directory, db_path = database.get_remote_database_location()
+
+    assert remote_directory == "/home/stu61498987/custom-db"
+    assert db_path == "/home/stu61498987/custom-db/interviews.db"
 
 
 def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
@@ -56,8 +90,14 @@ def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
     assert calls[0] == ("mkdir", "/remote/data")
     assert calls[1][0] == "batch"
     assert "CREATE TABLE IF NOT EXISTS interviews" in calls[1][2][0][1]
-    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?)" in calls[1][2][1][1]
-    assert calls[1][2][1][2] == [
+    assert calls[1][2][1] == (
+        "ensure_columns",
+        "",
+        None,
+        database.INTERVIEW_METADATA_COLUMNS,
+    )
+    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" in calls[1][2][2][1]
+    assert calls[1][2][2][2] == [
         "interview-1",
         "student-1",
         "Miros O'Connor",
@@ -66,6 +106,8 @@ def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
         "2026-03-12 10:00:00",
         "assistant: Hello",
         "12.50",
+        "",
+        "none",
     ]
     assert cleanup == [(fake_ssh, "/tmp/key")]
 
@@ -216,6 +258,8 @@ def test_persist_completion_remote_batches_interview_progress_and_survey(monkeyp
         "2026-03-12 10:00:00",
         "assistant: Hello",
         "12.50",
+        model="openai/gpt-5.4",
+        model_reasoning_level="medium",
         helpfulness_rating="5",
         connection_rating="4",
         understanding_rating="6",
@@ -226,22 +270,28 @@ def test_persist_completion_remote_batches_interview_progress_and_survey(monkeyp
 
     assert calls[0] == ("mkdir", "/remote/data")
     operations = calls[1][2]
-    assert len(operations) == 6
+    assert len(operations) == 7
     assert "CREATE TABLE IF NOT EXISTS interviews" in operations[0]["sql_query"]
-    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?)" in operations[1]["sql_query"]
-    assert "CREATE TABLE IF NOT EXISTS progress" in operations[2]["sql_query"]
-    assert operations[3]["params"] == [
+    assert operations[1] == {
+        "type": "ensure_columns",
+        "table": "interviews",
+        "columns": database.INTERVIEW_METADATA_COLUMNS,
+    }
+    assert "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" in operations[2]["sql_query"]
+    assert operations[2]["params"][-2:] == ["openai/gpt-5.4", "medium"]
+    assert "CREATE TABLE IF NOT EXISTS progress" in operations[3]["sql_query"]
+    assert operations[4]["params"] == [
         "student-1",
         "Miros",
         "midterm_interview",
         "2026-03-12 10:00:00",
     ]
-    assert operations[4] == {
+    assert operations[5] == {
         "type": "ensure_columns",
         "table": "interviews",
         "columns": database.SURVEY_COLUMNS,
     }
-    assert operations[5]["params"] == [
+    assert operations[6]["params"] == [
         "5",
         "4",
         "6",

@@ -2,6 +2,7 @@ from remote_utils import (
     close_ssh_connection,
     ensure_remote_directory,
     get_ssh_connection,
+    resolve_ssh_settings,
     run_remote_sql_batch,
     run_remote_sql,
 )
@@ -18,6 +19,8 @@ CREATE TABLE IF NOT EXISTS interviews (
     timestamp TEXT,
     transcript TEXT,
     duration_minutes TEXT,
+    model TEXT,
+    model_reasoning_level TEXT,
     summary TEXT,
     survey_usefulness TEXT,
     survey_naturalness TEXT,
@@ -61,14 +64,21 @@ SURVEY_COLUMNS = {
     "survey_timestamp": "TEXT",
 }
 
+INTERVIEW_METADATA_COLUMNS = {
+    "model": "TEXT",
+    "model_reasoning_level": "TEXT",
+}
+
 
 def get_remote_database_location():
     """Return the remote directory and database path for interview data."""
-    ssh_username = get_secret("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
+    configured_directory = get_secret("REMOTE_DATABASE_DIRECTORY")
+    if configured_directory and str(configured_directory).strip():
+        remote_directory = str(configured_directory).strip().rstrip("/")
+    else:
+        ssh_username = resolve_ssh_settings().username
+        remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
 
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
     db_path = f"{remote_directory}/interviews.db"
     return remote_directory, db_path
 
@@ -82,6 +92,8 @@ def _build_interview_insert_operation(
     timestamp,
     transcript,
     duration_minutes,
+    model="",
+    model_reasoning_level="none",
 ):
     return {
         "type": "execute",
@@ -94,8 +106,10 @@ def _build_interview_insert_operation(
             interview_type,
             timestamp,
             transcript,
-            duration_minutes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            duration_minutes,
+            model,
+            model_reasoning_level
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         "params": [
             interview_id,
@@ -106,6 +120,8 @@ def _build_interview_insert_operation(
             timestamp,
             transcript,
             duration_minutes,
+            model,
+            model_reasoning_level,
         ],
     }
 
@@ -225,6 +241,8 @@ def persist_completion_remote(
     transcript,
     duration_minutes,
     *,
+    model="",
+    model_reasoning_level="none",
     helpfulness_rating="",
     connection_rating="",
     understanding_rating="",
@@ -235,6 +253,11 @@ def persist_completion_remote(
     """Persist completion-time interview data in one remote save operation."""
     operations = [
         {"type": "execute", "sql_query": INTERVIEWS_TABLE_QUERY},
+        {
+            "type": "ensure_columns",
+            "table": "interviews",
+            "columns": INTERVIEW_METADATA_COLUMNS,
+        },
         _build_interview_insert_operation(
             interview_id,
             student_id,
@@ -244,6 +267,8 @@ def persist_completion_remote(
             timestamp,
             transcript,
             duration_minutes,
+            model,
+            model_reasoning_level,
         ),
     ]
 
@@ -318,6 +343,8 @@ def save_interview_to_sheet(
     timestamp,
     transcript,
     duration_minutes,
+    model="",
+    model_reasoning_level="none",
 ):
     """
     Insert the interview data into the remote SQLite database.
@@ -327,6 +354,11 @@ def save_interview_to_sheet(
     _run_batch_operations(
         operations=[
             {"type": "execute", "sql_query": INTERVIEWS_TABLE_QUERY},
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": INTERVIEW_METADATA_COLUMNS,
+            },
             _build_interview_insert_operation(
                 interview_id,
                 student_id,
@@ -336,6 +368,8 @@ def save_interview_to_sheet(
                 timestamp,
                 transcript,
                 duration_minutes,
+                model,
+                model_reasoning_level,
             ),
         ],
         ensure_remote_dir=True,

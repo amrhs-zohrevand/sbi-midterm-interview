@@ -6,10 +6,12 @@ from interview_provider import (
     OPENROUTER_INDUSTRY_MODEL,
     OPENROUTER_MIN_REASONING_MAX_TOKENS,
     ModelSelection,
+    apply_reasoning_level,
     apply_model_selection_to_openai_kwargs,
     build_openrouter_headers,
     create_provider_runtime,
     normalize_provider,
+    resolve_reasoning_experiment_level,
     resolve_model_selection,
 )
 
@@ -27,6 +29,7 @@ def test_resolve_model_selection_defaults_to_deepseek_for_openrouter():
     assert selection.model == OPENROUTER_DEFAULT_MODEL
     assert selection.max_tokens == 1024
     assert selection.reasoning == {"enabled": False}
+    assert selection.reasoning_level == "none"
 
 
 def test_resolve_model_selection_uses_deepseek_for_end_reflection():
@@ -35,6 +38,7 @@ def test_resolve_model_selection_uses_deepseek_for_end_reflection():
     assert selection.model == OPENROUTER_DEFAULT_MODEL
     assert selection.max_tokens == 1024
     assert selection.reasoning == {"enabled": False}
+    assert selection.reasoning_level == "none"
 
 
 def test_resolve_model_selection_uses_mimo_without_reasoning_for_industry():
@@ -47,7 +51,51 @@ def test_resolve_model_selection_uses_mimo_without_reasoning_for_industry():
 
     assert selection.model == OPENROUTER_INDUSTRY_MODEL
     assert selection.max_tokens == OPENROUTER_MIN_REASONING_MAX_TOKENS
-    assert selection.reasoning == {"effort": "none", "exclude": True}
+    assert selection.reasoning == {"enabled": False}
+    assert selection.reasoning_level == "none"
+
+
+def test_resolve_model_selection_allows_no_reasoning_for_industry():
+    selection = resolve_model_selection(
+        "openrouter",
+        "industry_org_survey",
+        {"OPENROUTER_INDUSTRY_REASONING_EFFORT": "none"},
+        1024,
+    )
+
+    assert selection.model == OPENROUTER_INDUSTRY_MODEL
+    assert selection.reasoning == {"enabled": False}
+    assert selection.reasoning_level == "none"
+
+
+def test_apply_reasoning_level_can_force_medium_or_none():
+    selection = ModelSelection(model=OPENROUTER_INDUSTRY_MODEL, max_tokens=1536)
+
+    medium_selection = apply_reasoning_level(selection, "medium")
+    none_selection = apply_reasoning_level(selection, "none")
+
+    assert medium_selection.reasoning == {"effort": "medium", "exclude": True}
+    assert medium_selection.reasoning_level == "medium"
+    assert none_selection.reasoning == {"enabled": False}
+    assert none_selection.reasoning_level == "none"
+
+
+def test_resolve_reasoning_experiment_level_honors_boolean_switch():
+    disabled = resolve_reasoning_experiment_level(
+        False,
+        "openrouter",
+        "industry_org_survey",
+        choice_fn=lambda levels: levels[0],
+    )
+    enabled = resolve_reasoning_experiment_level(
+        True,
+        "openrouter",
+        "industry_org_survey",
+        choice_fn=lambda levels: levels[0],
+    )
+
+    assert disabled is None
+    assert enabled == "medium"
 
 
 def test_build_openrouter_headers_only_includes_present_values():
@@ -69,7 +117,7 @@ def test_apply_model_selection_to_openai_kwargs_adds_reasoning_fields():
     selection = ModelSelection(
         model=OPENROUTER_INDUSTRY_MODEL,
         max_tokens=OPENROUTER_MIN_REASONING_MAX_TOKENS,
-        reasoning={"effort": "none", "exclude": True},
+        reasoning={"enabled": False},
     )
 
     kwargs = apply_model_selection_to_openai_kwargs(
@@ -80,7 +128,7 @@ def test_apply_model_selection_to_openai_kwargs_adds_reasoning_fields():
     assert kwargs["model"] == OPENROUTER_INDUSTRY_MODEL
     assert kwargs["max_tokens"] == OPENROUTER_MIN_REASONING_MAX_TOKENS
     assert kwargs["extra_body"] == {
-        "reasoning": {"effort": "none", "exclude": True}
+        "reasoning": {"enabled": False}
     }
 
 

@@ -3,14 +3,53 @@ import json
 import os
 import shlex
 import tempfile
+from dataclasses import dataclass
 
 import paramiko
 
 from secrets_utils import get_secret
 
 
-SSH_HOST = "ssh.liacs.nl"
+DEFAULT_SSH_HOST = "ssh.liacs.nl"
 SSH_TIMEOUT_SECONDS = 10
+
+
+@dataclass(frozen=True)
+class SshSettings:
+    host: str
+    username: str
+    key: str
+
+
+def _first_secret(*keys: str):
+    for key in keys:
+        value = get_secret(key)
+        if value and str(value).strip():
+            return value
+    return None
+
+
+def resolve_ssh_settings() -> SshSettings:
+    """Return effective SSH settings, with local REMOTE_* overrides first."""
+    host = (
+        str(get_secret("REMOTE_SSH_HOST", DEFAULT_SSH_HOST)).strip()
+        or DEFAULT_SSH_HOST
+    )
+    username = _first_secret("REMOTE_SSH_USERNAME", "LIACS_SSH_USERNAME")
+    if not username:
+        raise ValueError(
+            "REMOTE_SSH_USERNAME or LIACS_SSH_USERNAME is not defined in secrets. "
+            "Please set one in your secrets file."
+        )
+
+    key = _first_secret("REMOTE_SSH_KEY", "LIACS_SSH_KEY")
+    if not key:
+        raise ValueError(
+            "REMOTE_SSH_KEY or LIACS_SSH_KEY is not defined in secrets. "
+            "Please set one in your secrets file."
+        )
+
+    return SshSettings(host=host, username=str(username).strip(), key=str(key))
 
 
 def format_private_key(key_str: str) -> str:
@@ -28,20 +67,9 @@ def format_private_key(key_str: str) -> str:
 
 
 def get_ssh_connection():
-    """Establish an SSH connection using the LIACS SSH credentials."""
-    ssh_username = get_secret("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError(
-            "LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file."
-        )
-
-    key_str = get_secret("LIACS_SSH_KEY")
-    if not key_str:
-        raise ValueError(
-            "LIACS_SSH_KEY is not defined in secrets. Please set it in your secrets file."
-        )
-
-    normalized_key = format_private_key(key_str)
+    """Establish an SSH connection using the configured SSH credentials."""
+    settings = resolve_ssh_settings()
+    normalized_key = format_private_key(settings.key)
     with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
         tmp_key_file.write(normalized_key)
         tmp_key_path = tmp_key_file.name
@@ -58,8 +86,8 @@ def get_ssh_connection():
         ssh.load_system_host_keys()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(
-            SSH_HOST,
-            username=ssh_username,
+            settings.host,
+            username=settings.username,
             pkey=key,
             timeout=SSH_TIMEOUT_SECONDS,
             auth_timeout=SSH_TIMEOUT_SECONDS,

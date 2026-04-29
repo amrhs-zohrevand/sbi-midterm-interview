@@ -34,6 +34,8 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
             {"role": "assistant", "content": "Hello"},
             {"role": "user", "content": "Hi"},
         ],
+        model="openai/gpt-5.4",
+        model_reasoning_level="medium",
         completion_responses=CompletionResponses(
             email="person@example.com",
             send_email=True,
@@ -81,6 +83,8 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
         "validation_rating": "7",
         "feedback": "Great ending flow.",
         "survey_timestamp": "2026-03-12 10:00:00",
+        "model": "openai/gpt-5.4",
+        "model_reasoning_level": "medium",
     }
 
 
@@ -137,3 +141,5 @@ def test_persist_completion_skips_optional_steps_when_not_needed():
         "1.00",
     )
     assert persist_remote_call[2]["survey_timestamp"] == ""
+    assert persist_remote_call[2]["model"] == ""
+    assert persist_remote_call[2]["model_reasoning_level"] == "none"
