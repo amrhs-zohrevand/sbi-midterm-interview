@@ -22,6 +22,16 @@ PROGRESS_COLUMNS = [
     "completion_timestamp",
 ]
 
+CHECKPOINT_COLUMNS = [
+    "interview_id",
+    "student_id",
+    "name",
+    "company",
+    "interview_type",
+    "last_updated",
+    "duration_minutes",
+]
+
 
 def build_parser():
     parser = argparse.ArgumentParser(
@@ -29,7 +39,7 @@ def build_parser():
     )
     parser.add_argument(
         "--table",
-        choices=["interviews", "progress"],
+        choices=["interviews", "progress", "interview_checkpoints"],
         default="interviews",
         help="Which table to inspect.",
     )
@@ -83,8 +93,8 @@ def build_query(args):
     where_clauses = []
 
     if args.interview_id:
-        if args.table != "interviews":
-            raise ValueError("--session-id can only be used with the interviews table.")
+        if args.table == "progress":
+            raise ValueError("--session-id cannot be used with the progress table.")
         where_clauses.append("interview_id = ?")
         params.append(args.interview_id)
     if args.student_id:
@@ -109,9 +119,14 @@ def build_query(args):
         if args.show_transcript:
             columns.append("transcript")
         order_column = "timestamp"
-    else:
+    elif args.table == "progress":
         columns = list(PROGRESS_COLUMNS)
         order_column = "completion_timestamp"
+    else:
+        columns = list(CHECKPOINT_COLUMNS)
+        if args.show_transcript:
+            columns.append("transcript")
+        order_column = "last_updated"
 
     query = (
         f"SELECT {', '.join(columns)} FROM {args.table}{where_sql} "

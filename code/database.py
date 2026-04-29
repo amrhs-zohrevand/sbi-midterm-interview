@@ -39,6 +39,19 @@ CREATE TABLE IF NOT EXISTS progress (
 )
 """
 
+CHECKPOINTS_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS interview_checkpoints (
+    interview_id TEXT PRIMARY KEY,
+    student_id TEXT,
+    name TEXT,
+    company TEXT,
+    interview_type TEXT,
+    last_updated TEXT,
+    transcript TEXT,
+    duration_minutes TEXT
+)
+"""
+
 SURVEY_COLUMNS = {
     "survey_helpfulness": "TEXT",
     "survey_connection": "TEXT",
@@ -109,6 +122,51 @@ def _build_progress_insert_operation(student_id, name, interview_type, timestamp
         ) VALUES (?, ?, ?, ?)
         """,
         "params": [student_id, name, interview_type, timestamp],
+    }
+
+
+def _build_checkpoint_upsert_operation(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    last_updated,
+    transcript,
+    duration_minutes,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO interview_checkpoints (
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            last_updated,
+            transcript,
+            duration_minutes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(interview_id) DO UPDATE SET
+            student_id = excluded.student_id,
+            name = excluded.name,
+            company = excluded.company,
+            interview_type = excluded.interview_type,
+            last_updated = excluded.last_updated,
+            transcript = excluded.transcript,
+            duration_minutes = excluded.duration_minutes
+        """,
+        "params": [
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            last_updated,
+            transcript,
+            duration_minutes,
+        ],
     }
 
 
@@ -220,6 +278,35 @@ def persist_completion_remote(
         )
 
     _run_batch_operations(operations=operations, ensure_remote_dir=True)
+
+
+def persist_checkpoint_remote(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    last_updated,
+    transcript,
+    duration_minutes,
+):
+    """Upsert an in-progress transcript checkpoint in the remote SQLite database."""
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": CHECKPOINTS_TABLE_QUERY},
+            _build_checkpoint_upsert_operation(
+                interview_id,
+                student_id,
+                name,
+                company,
+                interview_type,
+                last_updated,
+                transcript,
+                duration_minutes,
+            ),
+        ],
+        ensure_remote_dir=True,
+    )
 
 
 def save_interview_to_sheet(

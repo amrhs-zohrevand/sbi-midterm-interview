@@ -10,6 +10,7 @@ from secrets_utils import get_secret
 
 
 SSH_HOST = "ssh.liacs.nl"
+SSH_TIMEOUT_SECONDS = 10
 
 
 def format_private_key(key_str: str) -> str:
@@ -56,7 +57,14 @@ def get_ssh_connection():
         ssh = paramiko.SSHClient()
         ssh.load_system_host_keys()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(SSH_HOST, username=ssh_username, pkey=key)
+        ssh.connect(
+            SSH_HOST,
+            username=ssh_username,
+            pkey=key,
+            timeout=SSH_TIMEOUT_SECONDS,
+            auth_timeout=SSH_TIMEOUT_SECONDS,
+            banner_timeout=SSH_TIMEOUT_SECONDS,
+        )
         return ssh, tmp_key_path
     except Exception:
         os.remove(tmp_key_path)

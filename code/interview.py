@@ -12,6 +12,7 @@ from openai import OpenAI
 from streamlit_mic_recorder import mic_recorder
 
 from database import (
+    persist_checkpoint_remote,
     persist_completion_remote,
     update_interview_summary,
 )
@@ -34,6 +35,7 @@ from interview_logic import (
     missing_query_params,
     normalize_query_value,
     resolve_query_params,
+    serialize_transcript,
     should_accept_user_input,
     should_finalize_interview,
 )
@@ -293,6 +295,8 @@ if "tts_autoplay_nonce" not in st.session_state:
     st.session_state.tts_autoplay_nonce = 0
 if "tts_played_nonce" not in st.session_state:
     st.session_state.tts_played_nonce = 0
+if "checkpoint_error" not in st.session_state:
+    st.session_state.checkpoint_error = ""
 
 
 def get_chat_messages():
@@ -410,6 +414,36 @@ def persist_local_transcript():
         transcripts_directory=config.TRANSCRIPTS_DIRECTORY,
         times_directory=config.TIMES_DIRECTORY,
     )
+
+
+def persist_interview_checkpoint():
+    """Persist the current transcript locally and checkpoint it remotely."""
+    transcript_link, transcript_file = persist_local_transcript()
+    if SMOKE_TEST_MODE:
+        return transcript_link, transcript_file
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    duration_minutes = f"{(time.time() - st.session_state.start_time) / 60:.2f}"
+    transcript_text = serialize_transcript(st.session_state.messages)
+    try:
+        persist_checkpoint_remote(
+            st.session_state.session_id,
+            student_number,
+            respondent_name,
+            company_name,
+            config_name,
+            timestamp,
+            transcript_text,
+            duration_minutes,
+        )
+        st.session_state.checkpoint_error = ""
+    except Exception as exc:
+        st.session_state.checkpoint_error = str(exc)
+        print(
+            f"Interview checkpoint save failed for {st.session_state.session_id}: {exc}"
+        )
+
+    return transcript_link, transcript_file
 
 
 def generate_summary(transcript_text: str) -> str:
@@ -726,7 +760,7 @@ if not st.session_state.messages:
         st.session_state.interview_active = False
 
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
-    persist_local_transcript()
+    persist_interview_checkpoint()
     if st.session_state.speech_output_enabled and _update_tts_audio():
         st.rerun()
 
@@ -847,6 +881,7 @@ if should_accept_user_input(
 
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
+        persist_interview_checkpoint()
 
         with conversation_container:
             with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
@@ -861,7 +896,7 @@ if should_accept_user_input(
                     st.session_state.messages.append(
                         {"role": "assistant", "content": assistant_reply}
                     )
-                    persist_local_transcript()
+                    persist_interview_checkpoint()
                     if (
                         st.session_state.speech_output_enabled
                         and _update_tts_audio()
@@ -876,7 +911,7 @@ if should_accept_user_input(
                     st.session_state.messages.append(
                         {"role": "assistant", "content": closing_message}
                     )
-                    persist_local_transcript()
+                    persist_interview_checkpoint()
                     if st.session_state.speech_output_enabled and _update_tts_audio():
                         st.rerun()
                     time.sleep(1)

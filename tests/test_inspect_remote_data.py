@@ -39,3 +39,25 @@ def test_build_query_rejects_session_id_for_progress_table():
 
     with pytest.raises(ValueError, match="--session-id"):
         build_query(args)
+
+
+def test_build_query_supports_checkpoint_session_filter():
+    args = SimpleNamespace(
+        table="interview_checkpoints",
+        limit=5,
+        student_id="student-1",
+        interview_type="midterm_interview",
+        interview_id="session-123",
+        count_only=False,
+        show_summary=False,
+        show_transcript=True,
+    )
+
+    query, params, columns = build_query(args)
+
+    assert "interview_id = ?" in query
+    assert "student_id = ?" in query
+    assert "interview_type = ?" in query
+    assert "ORDER BY last_updated DESC" in query
+    assert params == ["session-123", "student-1", "midterm_interview", 5]
+    assert columns[-1] == "transcript"

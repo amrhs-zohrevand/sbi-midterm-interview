@@ -55,9 +55,9 @@ After exploring the first scenario, Scenario 2:
 “Now consider a similar situation, but this time the work involved heavy involvement from you: you shaped the prompts carefully, combined AI output with your own expertise, and edited and refined it extensively. How would you think about taking that knowledge to a new role?”
 Follow up on both: explore what makes the difference.
 During these scenario discussions, ask only one question at a time.
-After Scenario 1, ask at least one follow-up before moving to Scenario 2.
-After Scenario 2, ask at least one follow-up before moving toward closing.
-If the respondent introduces a criterion such as confidentiality, copyright, company policy, personal effort, or ownership, probe that criterion before concluding.
+After Scenario 1, ask at most one follow-up before moving to Scenario 2.
+After Scenario 2, ask at most one follow-up before moving toward closing.
+If the respondent introduces a criterion such as confidentiality, copyright, company policy, personal effort, or ownership, probe that criterion once before concluding.
 Do not end the interview in the same turn in which the respondent introduces a new substantive distinction.
 Where useful, ask for contrast:
 “Can you think of a case where taking that knowledge would clearly feel acceptable, and a case where it would clearly not?”

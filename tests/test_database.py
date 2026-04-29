@@ -250,3 +250,56 @@ def test_persist_completion_remote_batches_interview_progress_and_survey(monkeyp
         "2026-03-12 10:00:00",
         "interview-1",
     ]
+
+
+def test_persist_checkpoint_remote_upserts_in_progress_transcript(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "ensure_remote_directory",
+        lambda ssh, path: calls.append(("mkdir", path)),
+    )
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.append(("batch", db_path, operations)),
+    )
+    monkeypatch.setattr(database, "close_ssh_connection", lambda *args: None)
+
+    database.persist_checkpoint_remote(
+        "interview-1",
+        "student-1",
+        "Miros",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:01:00",
+        "assistant: Hello\nuser: Hi\n",
+        "1.00",
+    )
+
+    assert calls[0] == ("mkdir", "/remote/data")
+    operations = calls[1][2]
+    assert len(operations) == 2
+    assert (
+        "CREATE TABLE IF NOT EXISTS interview_checkpoints"
+        in operations[0]["sql_query"]
+    )
+    assert "ON CONFLICT(interview_id) DO UPDATE SET" in operations[1]["sql_query"]
+    assert operations[1]["params"] == [
+        "interview-1",
+        "student-1",
+        "Miros",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:01:00",
+        "assistant: Hello\nuser: Hi\n",
+        "1.00",
+    ]

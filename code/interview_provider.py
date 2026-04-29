@@ -4,12 +4,12 @@ from openai import OpenAI
 
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-OPENROUTER_DEFAULT_MODEL = "qwen/qwen3.5-35b-a3b"
-OPENROUTER_INDUSTRY_MODEL = "openai/gpt-5.4"
-OPENROUTER_DEFAULT_REASONING_EFFORT = "minimal"
+OPENROUTER_DEFAULT_MODEL = "deepseek/deepseek-v3.2"
+OPENROUTER_INDUSTRY_MODEL = "xiaomi/mimo-v2-pro"
+OPENROUTER_DEFAULT_REASONING_EFFORT = "none"
 OPENROUTER_MIN_REASONING_MAX_TOKENS = 1536
 OPENROUTER_INDUSTRY_CONFIGS = {"industry_org_survey"}
-OPENROUTER_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+OPENROUTER_REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh"}
 
 
 @dataclass(frozen=True)

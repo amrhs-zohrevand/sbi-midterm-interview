@@ -151,6 +151,7 @@ This path is defined in [code/database.py](/Users/miros/Developer/sbi-midterm-in
 The main tables are:
 - `interviews`
 - `progress`
+- `interview_checkpoints` for in-progress autosaved transcripts
 
 ### Easiest way to inspect remote data
 Use the helper script at [code/inspect_remote_data.py](/Users/miros/Developer/sbi-midterm-interview/code/inspect_remote_data.py). It reuses the SSH credentials already stored in your Streamlit secrets.
@@ -161,8 +162,10 @@ Examples:
 cd /Users/miros/Developer/sbi-midterm-interview
 .venv/bin/python code/inspect_remote_data.py --table interviews --limit 20
 .venv/bin/python code/inspect_remote_data.py --table progress --limit 20
+.venv/bin/python code/inspect_remote_data.py --table interview_checkpoints --limit 20
 .venv/bin/python code/inspect_remote_data.py --table interviews --student-id s1234567 --limit 20
 .venv/bin/python code/inspect_remote_data.py --table interviews --student-id s1234567 --show-summary
+.venv/bin/python code/inspect_remote_data.py --table interview_checkpoints --student-id s1234567 --show-transcript
 ```
 
 ### Direct SSH access

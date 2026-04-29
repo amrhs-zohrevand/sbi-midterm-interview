@@ -21,7 +21,7 @@ def test_normalize_provider_handles_claude_models():
     assert normalize_provider("openrouter", "claude-3-5-sonnet") == "openrouter"
 
 
-def test_resolve_model_selection_defaults_to_qwen_for_openrouter():
+def test_resolve_model_selection_defaults_to_deepseek_for_openrouter():
     selection = resolve_model_selection("openrouter", "midterm_interview", {}, 1024)
 
     assert selection.model == OPENROUTER_DEFAULT_MODEL
@@ -29,7 +29,7 @@ def test_resolve_model_selection_defaults_to_qwen_for_openrouter():
     assert selection.reasoning == {"enabled": False}
 
 
-def test_resolve_model_selection_uses_qwen_for_end_reflection():
+def test_resolve_model_selection_uses_deepseek_for_end_reflection():
     selection = resolve_model_selection("openrouter", "end_reflection_interview", {}, 1024)
 
     assert selection.model == OPENROUTER_DEFAULT_MODEL
@@ -37,7 +37,7 @@ def test_resolve_model_selection_uses_qwen_for_end_reflection():
     assert selection.reasoning == {"enabled": False}
 
 
-def test_resolve_model_selection_uses_gpt54_reasoning_for_industry():
+def test_resolve_model_selection_uses_mimo_without_reasoning_for_industry():
     selection = resolve_model_selection(
         "openrouter",
         "industry_org_survey",
@@ -47,7 +47,7 @@ def test_resolve_model_selection_uses_gpt54_reasoning_for_industry():
 
     assert selection.model == OPENROUTER_INDUSTRY_MODEL
     assert selection.max_tokens == OPENROUTER_MIN_REASONING_MAX_TOKENS
-    assert selection.reasoning == {"effort": "minimal", "exclude": True}
+    assert selection.reasoning == {"effort": "none", "exclude": True}
 
 
 def test_build_openrouter_headers_only_includes_present_values():
@@ -69,7 +69,7 @@ def test_apply_model_selection_to_openai_kwargs_adds_reasoning_fields():
     selection = ModelSelection(
         model=OPENROUTER_INDUSTRY_MODEL,
         max_tokens=OPENROUTER_MIN_REASONING_MAX_TOKENS,
-        reasoning={"effort": "minimal", "exclude": True},
+        reasoning={"effort": "none", "exclude": True},
     )
 
     kwargs = apply_model_selection_to_openai_kwargs(
@@ -80,7 +80,7 @@ def test_apply_model_selection_to_openai_kwargs_adds_reasoning_fields():
     assert kwargs["model"] == OPENROUTER_INDUSTRY_MODEL
     assert kwargs["max_tokens"] == OPENROUTER_MIN_REASONING_MAX_TOKENS
     assert kwargs["extra_body"] == {
-        "reasoning": {"effort": "minimal", "exclude": True}
+        "reasoning": {"effort": "none", "exclude": True}
     }
 
 
