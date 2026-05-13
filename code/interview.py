@@ -9,7 +9,7 @@ import time
 import uuid
 
 import streamlit as st
-from openai import OpenAI
+from openai import NotFoundError, OpenAI
 from streamlit_mic_recorder import mic_recorder
 
 from database import (
@@ -376,7 +376,14 @@ def _iter_provider_reply_chunks(messages=None):
         return
 
     if api == "openai":
-        stream = client.chat.completions.create(**build_chat_kwargs(messages=messages))
+        try:
+            stream = client.chat.completions.create(**build_chat_kwargs(messages=messages))
+        except NotFoundError as e:
+            raise RuntimeError(
+                "Model not available on OpenRouter. Check privacy settings at "
+                "https://openrouter.ai/settings/privacy and verify the configured model ID.\n\n"
+                f"Original error: {e}"
+            ) from e
         for chunk in stream:
             delta = extract_openai_stream_delta(chunk)
             if delta:
@@ -468,14 +475,17 @@ def generate_summary(transcript_text: str) -> str:
                 },
                 {"role": "user", "content": summary_prompt},
             ]
-        response = client.chat.completions.create(
-            model=model,
-            messages=summary_messages,
-            max_tokens=200,
-            temperature=0.7,
-            stream=False,
-        )
-        return response.choices[0].message.content.strip()
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=summary_messages,
+                max_tokens=200,
+                temperature=0.7,
+                stream=False,
+            )
+        except NotFoundError:
+            return ""
+        return (response.choices[0].message.content or "").strip()
 
     response = client.messages.create(
         model=model,
