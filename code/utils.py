@@ -241,50 +241,6 @@ def _run_liacs_script(python_code: str, error_message: str) -> None:
         close_ssh_connection(ssh, tmp_key_path)
 
 
-def _send_gmail_external(to_addr, subject, body, transcript_file, file_name, *, bcc=False):
-    """Send a transcript to a single address via Gmail SMTP.
-
-    Used when LIACS SMTP is active but the recipient is an external address
-    that LIACS cannot deliver to (e.g. Gmail).  When *bcc* is True the
-    professor's address is blind-copied; pass True only when no LIACS send
-    is happening for this interview (industry/org survey path).
-    """
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
-    sender_email = "businessinternship.liacs@gmail.com"
-    sender_password = st.secrets["EMAIL_PASSWORD"]
-    bcc_addr = "a.h.zohrehvand@liacs.leidenuniv.nl"
-
-    msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = to_addr
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
-
-    with open(transcript_file, "rb") as transcript_handle:
-        content = transcript_handle.read()
-
-    part = MIMEBase("text", "plain")
-    part.set_payload(content)
-    encoders.encode_base64(part)
-    part.add_header("Content-Type", f'text/plain; name="{file_name}"')
-    part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
-    msg.attach(part)
-
-    recipients = [to_addr]
-    if bcc:
-        recipients.append(bcc_addr)
-    try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, recipients, msg.as_string())
-        st.success(f"Email sent to {to_addr}")
-    except Exception as exc:
-        st.error("Error sending email via Gmail SMTP.")
-        st.exception(exc)
-
-
 def send_transcript_email(
     student_number,
     recipient_email,
@@ -337,11 +293,7 @@ LIACS, Leiden University
         with open(transcript_file, "rb") as transcript_handle:
             attachment_data = base64.b64encode(transcript_handle.read()).decode()
 
-        if student_number:
-            # Send to university address via LIACS without CC.
-            # LIACS SMTP cannot deliver to external providers such as Gmail,
-            # so the CC is handled separately below via Gmail SMTP.
-            python_code = f"""\
+        python_code = f"""\
 import base64
 from email import encoders
 from email.mime.base import MIMEBase
@@ -353,6 +305,8 @@ msg = MIMEMultipart()
 msg["Subject"] = {subject!r}
 msg["From"] = {from_addr!r}
 msg["To"] = {to_addr!r}
+if {bool(cc_addr)!r}:
+    msg["Cc"] = {cc_addr!r}
 if {bool(bcc_addr)!r}:
     msg["Bcc"] = {bcc_addr!r}
 msg.attach(MIMEText({body!r}, "plain"))
@@ -369,13 +323,7 @@ with smtplib.SMTP("smtp.leidenuniv.nl") as server:
 
 print("Email sent. Please wait with closing this window as we are still processing data.")
 """
-            _run_liacs_script(python_code, "Failed to send email via LIACS SMTP.")
-            if cc_addr:
-                _send_gmail_external(cc_addr, subject, body, transcript_file, file_name)
-        else:
-            # Industry/org survey: recipient is external; LIACS skipped entirely.
-            # Pass bcc=True so the professor still receives a copy.
-            _send_gmail_external(to_addr, subject, body, transcript_file, file_name, bcc=True)
+        _run_liacs_script(python_code, "Failed to send email via LIACS SMTP.")
         return
 
     smtp_server = "smtp.gmail.com"
