@@ -125,7 +125,7 @@ def test_send_transcript_email_gmail_path_includes_bcc_and_avoids_empty_cc(
 def test_send_transcript_email_liacs_path_delegates_to_remote_runner(
     monkeypatch, tmp_path
 ):
-    fake_st = FakeStreamlit(secrets={"USE_LIACS_EMAIL": True})
+    fake_st = FakeStreamlit(secrets={"USE_LIACS_EMAIL": True, "EMAIL_PASSWORD": "pw"})
     monkeypatch.setattr(utils, "st", fake_st)
 
     calls = []
@@ -134,6 +134,15 @@ def test_send_transcript_email_liacs_path_delegates_to_remote_runner(
         "_run_liacs_script",
         lambda python_code, error_message: calls.append((python_code, error_message)),
     )
+
+    sent_clients = []
+
+    def fake_smtp_factory(host, port):
+        client = FakeSMTP(host, port)
+        sent_clients.append(client)
+        return client
+
+    monkeypatch.setattr(utils.smtplib, "SMTP", fake_smtp_factory)
 
     transcript_file = tmp_path / "transcript.txt"
     transcript_file.write_text("assistant: hello", encoding="utf-8")
@@ -149,6 +158,134 @@ def test_send_transcript_email_liacs_path_delegates_to_remote_runner(
     assert len(calls) == 1
     assert "smtp.leidenuniv.nl" in calls[0][0]
     assert calls[0][1] == "Failed to send email via LIACS SMTP."
+    # CC also sent via Gmail
+    assert len(sent_clients) == 1
+    assert sent_clients[0].sent[1] == ["person@example.com"]
+
+
+def test_send_transcript_email_gmail_path_student_emails_both_university_and_cc(
+    monkeypatch, tmp_path
+):
+    fake_st = FakeStreamlit(secrets={"USE_LIACS_EMAIL": False, "EMAIL_PASSWORD": "pw"})
+    monkeypatch.setattr(utils, "st", fake_st)
+
+    sent_clients = []
+
+    def fake_smtp_factory(host, port):
+        client = FakeSMTP(host, port)
+        sent_clients.append(client)
+        return client
+
+    monkeypatch.setattr(utils.smtplib, "SMTP", fake_smtp_factory)
+
+    transcript_file = tmp_path / "transcript.txt"
+    transcript_file.write_text("assistant: hello", encoding="utf-8")
+
+    utils.send_transcript_email(
+        student_number="s3075400",
+        recipient_email="student@gmail.com",
+        transcript_link="",
+        transcript_file=str(transcript_file),
+        name_from_form="Justin",
+    )
+
+    smtp_client = sent_clients[0]
+    assert smtp_client.host == "smtp.gmail.com"
+    assert smtp_client.sent[1] == [
+        "s3075400@vuw.leidenuniv.nl",
+        "student@gmail.com",
+        "a.h.zohrehvand@liacs.leidenuniv.nl",
+    ]
+
+
+def test_send_transcript_email_liacs_path_student_sends_gmail_for_external_cc(
+    monkeypatch, tmp_path
+):
+    fake_st = FakeStreamlit(secrets={"USE_LIACS_EMAIL": True, "EMAIL_PASSWORD": "pw"})
+    monkeypatch.setattr(utils, "st", fake_st)
+
+    liacs_calls = []
+    monkeypatch.setattr(
+        utils,
+        "_run_liacs_script",
+        lambda python_code, error_message: liacs_calls.append((python_code, error_message)),
+    )
+
+    sent_clients = []
+
+    def fake_smtp_factory(host, port):
+        client = FakeSMTP(host, port)
+        sent_clients.append(client)
+        return client
+
+    monkeypatch.setattr(utils.smtplib, "SMTP", fake_smtp_factory)
+
+    transcript_file = tmp_path / "transcript.txt"
+    transcript_file.write_text("assistant: hello", encoding="utf-8")
+
+    utils.send_transcript_email(
+        student_number="s3075400",
+        recipient_email="student@gmail.com",
+        transcript_link="",
+        transcript_file=str(transcript_file),
+        name_from_form="Justin",
+    )
+
+    # LIACS should fire for the university address without a Cc header
+    assert len(liacs_calls) == 1
+    assert "smtp.leidenuniv.nl" in liacs_calls[0][0]
+    assert "s3075400@vuw.leidenuniv.nl" in liacs_calls[0][0]
+    assert "Cc" not in liacs_calls[0][0]
+
+    # Gmail should also fire for the external CC address
+    assert len(sent_clients) == 1
+    assert sent_clients[0].host == "smtp.gmail.com"
+    assert sent_clients[0].sent[1] == ["student@gmail.com"]
+
+
+def test_send_transcript_email_liacs_path_industry_survey_uses_gmail_with_bcc(
+    monkeypatch, tmp_path
+):
+    fake_st = FakeStreamlit(secrets={"USE_LIACS_EMAIL": True, "EMAIL_PASSWORD": "pw"})
+    monkeypatch.setattr(utils, "st", fake_st)
+
+    liacs_calls = []
+    monkeypatch.setattr(
+        utils,
+        "_run_liacs_script",
+        lambda python_code, error_message: liacs_calls.append((python_code, error_message)),
+    )
+
+    sent_clients = []
+
+    def fake_smtp_factory(host, port):
+        client = FakeSMTP(host, port)
+        sent_clients.append(client)
+        return client
+
+    monkeypatch.setattr(utils.smtplib, "SMTP", fake_smtp_factory)
+
+    transcript_file = tmp_path / "transcript.txt"
+    transcript_file.write_text("assistant: hello", encoding="utf-8")
+
+    utils.send_transcript_email(
+        student_number="",
+        recipient_email="respondent@gmail.com",
+        transcript_link="",
+        transcript_file=str(transcript_file),
+        name_from_form="Industry Person",
+    )
+
+    # LIACS should NOT be used — recipient is external
+    assert len(liacs_calls) == 0
+
+    # Gmail should fire with BCC so the professor still receives a copy
+    assert len(sent_clients) == 1
+    assert sent_clients[0].host == "smtp.gmail.com"
+    assert sent_clients[0].sent[1] == [
+        "respondent@gmail.com",
+        "a.h.zohrehvand@liacs.leidenuniv.nl",
+    ]
 
 
 def test_send_verification_code_gmail_path_sends_to_expected_address(
