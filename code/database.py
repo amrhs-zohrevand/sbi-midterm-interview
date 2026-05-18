@@ -1,265 +1,389 @@
-import os
-import time
-import sqlite3
-import streamlit as st
-import paramiko
-import tempfile
+from remote_utils import (
+    close_ssh_connection,
+    ensure_remote_directory,
+    get_ssh_connection,
+    resolve_ssh_settings,
+    run_remote_sql_batch,
+    run_remote_sql,
+)
+from secrets_utils import get_secret
 
 
-def format_private_key(key_str):
-    """
-    Normalize the private key string as done in the email sending code.
-    """
-    if "\n" in key_str:
-        key_str = key_str.replace("\n", "\n")
-    if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
-        header = "-----BEGIN OPENSSH PRIVATE KEY-----"
-        footer = "-----END OPENSSH PRIVATE KEY-----"
-        key_body = key_str[len(header):-len(footer)].strip()
-        lines = [key_body[i:i + 70] for i in range(0, len(key_body), 70)]
-        key_str = header + "\n" + "\n".join(lines) + "\n" + footer
-    return key_str
-
-
-def get_ssh_connection():
-    """
-    Establish an SSH connection using the LIACS SSH credentials.
-    Returns the SSH client and the temporary key file path.
-    """
-    ssh_host = "ssh.liacs.nl"
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets. Please set it in your secrets file.")
-
-    key_str = st.secrets.get("LIACS_SSH_KEY")
-    if not key_str:
-        raise ValueError("LIACS_SSH_KEY is not defined in secrets. Please set it in your secrets file.")
-    key_str = format_private_key(key_str)
-
-    with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
-        tmp_key_file.write(key_str)
-        tmp_key_path = tmp_key_file.name
-
-    try:
-        try:
-            key = paramiko.Ed25519Key.from_private_key_file(tmp_key_path)
-        except paramiko.SSHException:
-            key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ssh_host, username=ssh_username, pkey=key)
-        return ssh, tmp_key_path
-    except Exception as e:
-        os.remove(tmp_key_path)
-        raise e
-
-
-def ensure_remote_directory(ssh, remote_directory):
-    """
-    Ensures the remote directory exists by executing a mkdir command.
-    """
-    mkdir_cmd = f"mkdir -p {remote_directory}"
-    stdin, stdout, stderr = ssh.exec_command(mkdir_cmd)
-    err = stderr.read().decode().strip()
-    if err:
-        raise PermissionError(f"Failed to create remote directory {remote_directory}: {err}")
-
-
-def run_remote_sql(ssh, db_path, sql_query):
-    """
-    Executes *sql_query* on the remote SQLite database at *db_path*.
-
-    Strategy:
-    1. First try the fast path using the `sqlite3` command‑line binary.
-    2. If that binary is unavailable (e.g. recently removed from the server),
-       transparently fall back to a Python one‑liner executed remotely. Most
-       servers have Python even when the CLI tool is absent.
-    3. In both cases any stderr output is considered an error and surfaced to
-       the caller so that higher‑level functions (e.g. `save_interview_to_sheet`)
-       can fail fast.
-    """
-    # ------------------------------------------------------------------
-    # Fast path – sqlite3 CLI
-    # ------------------------------------------------------------------
-    safe_query_cli = sql_query.replace('"', '\\"')  # escape for CLI quoting
-    cli_cmd = f"sqlite3 {db_path} \"{safe_query_cli}\""
-    stdin, stdout, stderr = ssh.exec_command(cli_cmd)
-    err = stderr.read().decode().strip()
-
-    # If the binary is missing, stderr usually contains "command not found".
-    if err and "command not found" in err.lower():
-        # ------------------------------------------------------------------
-        # Fallback path – Python stdlib on the remote host
-        # ------------------------------------------------------------------
-        # Triple‑quote the SQL and escape existing triple single‑quotes.
-        safe_query_py = sql_query.replace("'''", "''")
-        python_script = f"""
-import sqlite3, textwrap
-
-DB_PATH = r'''{db_path}'''
-SQL = textwrap.dedent(r'''{safe_query_py}''')
-
-conn = sqlite3.connect(DB_PATH)
-conn.executescript(SQL)
-conn.commit()
-conn.close()
+INTERVIEWS_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS interviews (
+    interview_id TEXT,
+    student_id TEXT,
+    name TEXT,
+    company TEXT,
+    interview_type TEXT,
+    timestamp TEXT,
+    transcript TEXT,
+    duration_minutes TEXT,
+    model TEXT,
+    model_reasoning_level TEXT,
+    summary TEXT,
+    survey_usefulness TEXT,
+    survey_naturalness TEXT,
+    survey_helpfulness TEXT,
+    survey_connection TEXT,
+    survey_understanding TEXT,
+    survey_validation TEXT,
+    survey_feedback TEXT,
+    survey_timestamp TEXT
+)
 """
-        # Heredoc prevents quoting issues.
-        python_cmd = f"python3 - <<'PY'\n{python_script}\nPY"
-        stdin2, stdout2, stderr2 = ssh.exec_command(python_cmd)
-        err2 = stderr2.read().decode().strip()
-        if err2:
-            raise Exception(f"SQLite error (python fallback): {err2}")
-    elif err:
-        # sqlite3 CLI was available but returned an error – propagate.
-        raise Exception(f"SQLite error: {err}")
+
+PROGRESS_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS progress (
+    student_id TEXT,
+    name TEXT,
+    interview_type TEXT,
+    completion_timestamp TEXT
+)
+"""
+
+SURVEY_COLUMNS = {
+    "survey_helpfulness": "TEXT",
+    "survey_connection": "TEXT",
+    "survey_understanding": "TEXT",
+    "survey_validation": "TEXT",
+    "survey_feedback": "TEXT",
+    "survey_timestamp": "TEXT",
+}
+
+INTERVIEW_METADATA_COLUMNS = {
+    "model": "TEXT",
+    "model_reasoning_level": "TEXT",
+}
 
 
-def save_interview_to_sheet(interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes):
-    """
-    Inserts the interview data into the remote SQLite database.
-    The database file (interviews.db) is located in the SSH directory.
-    """
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
+def get_remote_database_location():
+    """Return the remote directory and database path for interview data."""
+    configured_directory = get_secret("REMOTE_DATABASE_DIRECTORY")
+    if configured_directory and str(configured_directory).strip():
+        remote_directory = str(configured_directory).strip().rstrip("/")
+    else:
+        ssh_username = resolve_ssh_settings().username
+        remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
+
     db_path = f"{remote_directory}/interviews.db"
+    return remote_directory, db_path
+
+
+def _build_interview_insert_operation(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    timestamp,
+    transcript,
+    duration_minutes,
+    model="",
+    model_reasoning_level="none",
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO interviews (
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            timestamp,
+            transcript,
+            duration_minutes,
+            model,
+            model_reasoning_level
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        "params": [
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            timestamp,
+            transcript,
+            duration_minutes,
+            model,
+            model_reasoning_level,
+        ],
+    }
+
+
+def _build_progress_insert_operation(student_id, name, interview_type, timestamp):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO progress (
+            student_id,
+            name,
+            interview_type,
+            completion_timestamp
+        ) VALUES (?, ?, ?, ?)
+        """,
+        "params": [student_id, name, interview_type, timestamp],
+    }
+
+
+def _build_survey_update_operation(
+    interview_id,
+    helpfulness_rating,
+    connection_rating,
+    understanding_rating,
+    validation_rating,
+    feedback,
+    survey_timestamp,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        UPDATE interviews
+        SET survey_helpfulness = ?,
+            survey_connection = ?,
+            survey_understanding = ?,
+            survey_validation = ?,
+            survey_feedback = ?,
+            survey_timestamp = ?
+        WHERE interview_id = ?
+        """,
+        "params": [
+            helpfulness_rating,
+            connection_rating,
+            understanding_rating,
+            validation_rating,
+            feedback,
+            survey_timestamp,
+            interview_id,
+        ],
+    }
+
+
+def _run_batch_operations(*, operations, ensure_remote_dir=False):
+    remote_directory, db_path = get_remote_database_location()
 
     ssh, tmp_key_path = get_ssh_connection()
     try:
-        # Ensure the remote directory exists
-        ensure_remote_directory(ssh, remote_directory)
-
-        # Create the interviews table if it doesn't exist
-        create_table_query = (
-            "CREATE TABLE IF NOT EXISTS interviews ("
-            "interview_id TEXT, "
-            "student_id TEXT, "
-            "name TEXT, "
-            "company TEXT, "
-            "interview_type TEXT, "
-            "timestamp TEXT, "
-            "transcript TEXT, "
-            "duration_minutes TEXT, "
-            "summary TEXT);"
-        )
-        run_remote_sql(ssh, db_path, create_table_query)
-
-        # Escape single quotes in transcript to avoid SQL issues
-        transcript_escaped = transcript.replace("'", "''")
-        insert_query = (
-            "INSERT INTO interviews (interview_id, student_id, name, company, interview_type, timestamp, transcript, duration_minutes) "
-            f"VALUES ('{interview_id}', '{student_id}', '{name}', '{company}', '{interview_type}', '{timestamp}', '{transcript_escaped}', '{duration_minutes}');"
-        )
-        run_remote_sql(ssh, db_path, insert_query)
+        if ensure_remote_dir:
+            ensure_remote_directory(ssh, remote_directory)
+        return run_remote_sql_batch(ssh, db_path, operations)
     finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+        close_ssh_connection(ssh, tmp_key_path)
+
+
+def persist_completion_remote(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    timestamp,
+    transcript,
+    duration_minutes,
+    *,
+    model="",
+    model_reasoning_level="none",
+    helpfulness_rating="",
+    connection_rating="",
+    understanding_rating="",
+    validation_rating="",
+    feedback="",
+    survey_timestamp="",
+):
+    """Persist completion-time interview data in one remote save operation."""
+    operations = [
+        {"type": "execute", "sql_query": INTERVIEWS_TABLE_QUERY},
+        {
+            "type": "ensure_columns",
+            "table": "interviews",
+            "columns": INTERVIEW_METADATA_COLUMNS,
+        },
+        _build_interview_insert_operation(
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            timestamp,
+            transcript,
+            duration_minutes,
+            model,
+            model_reasoning_level,
+        ),
+    ]
+
+    if student_id:
+        operations.extend(
+            [
+                {"type": "execute", "sql_query": PROGRESS_TABLE_QUERY},
+                _build_progress_insert_operation(
+                    student_id, name, interview_type, timestamp
+                ),
+            ]
+        )
+
+    if survey_timestamp:
+        operations.extend(
+            [
+                {
+                    "type": "ensure_columns",
+                    "table": "interviews",
+                    "columns": SURVEY_COLUMNS,
+                },
+                _build_survey_update_operation(
+                    interview_id,
+                    helpfulness_rating,
+                    connection_rating,
+                    understanding_rating,
+                    validation_rating,
+                    feedback,
+                    survey_timestamp,
+                ),
+            ]
+        )
+
+    _run_batch_operations(operations=operations, ensure_remote_dir=True)
+
+
+def save_interview_to_sheet(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    timestamp,
+    transcript,
+    duration_minutes,
+    model="",
+    model_reasoning_level="none",
+):
+    """
+    Insert the interview data into the remote SQLite database.
+
+    The database file (interviews.db) is located in the SSH directory.
+    """
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": INTERVIEWS_TABLE_QUERY},
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": INTERVIEW_METADATA_COLUMNS,
+            },
+            _build_interview_insert_operation(
+                interview_id,
+                student_id,
+                name,
+                company,
+                interview_type,
+                timestamp,
+                transcript,
+                duration_minutes,
+                model,
+                model_reasoning_level,
+            ),
+        ],
+        ensure_remote_dir=True,
+    )
 
 
 def update_progress_sheet(student_id, name, interview_type, timestamp):
     """
-    Inserts a progress update into the remote SQLite database.
+    Insert a progress update into the remote SQLite database.
+
     The database file (interviews.db) is located in the SSH directory.
     """
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
-    db_path = f"{remote_directory}/interviews.db"
-
-    ssh, tmp_key_path = get_ssh_connection()
-    try:
-        ensure_remote_directory(ssh, remote_directory)
-
-        # Create the progress table if it doesn't exist
-        create_table_query = (
-            "CREATE TABLE IF NOT EXISTS progress ("
-            "student_id TEXT, "
-            "name TEXT, "
-            "interview_type TEXT, "
-            "completion_timestamp TEXT);"
-        )
-        run_remote_sql(ssh, db_path, create_table_query)
-
-        insert_query = (
-            "INSERT INTO progress (student_id, name, interview_type, completion_timestamp) "
-            f"VALUES ('{student_id}', '{name}', '{interview_type}', '{timestamp}');"
-        )
-        run_remote_sql(ssh, db_path, insert_query)
-    finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": PROGRESS_TABLE_QUERY},
+            _build_progress_insert_operation(
+                student_id, name, interview_type, timestamp
+            ),
+        ],
+        ensure_remote_dir=True,
+    )
 
 
 def get_transcript_by_student_and_type(student_id, interview_type, ssh_conn=None):
     """
-    Retrieves the most recent transcript for a given student and interview type from the remote SQLite database.
-    Accepts an optional ssh_conn parameter. If not provided, a new connection is established.
-    Returns the transcript text, or an empty string if not found.
-    """
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
-    db_path = f"{remote_directory}/interviews.db"
+    Retrieve the most recent summary for a student and interview type.
 
-    # Use the provided SSH connection if available, otherwise establish a new one.
+    Accepts an optional SSH connection. Returns an empty string if not found.
+    """
+    _, db_path = get_remote_database_location()
+
     remove_after = False
     if ssh_conn is None:
         ssh, tmp_key_path = get_ssh_connection()
         remove_after = True
     else:
         ssh = ssh_conn
+        tmp_key_path = None
 
     try:
-        query = (
-            f"SELECT summary FROM interviews "
-            f"WHERE student_id='{student_id}' AND interview_type='{interview_type}' "
-            f"ORDER BY timestamp DESC LIMIT 1;"
+        query = """
+        SELECT summary
+        FROM interviews
+        WHERE student_id = ? AND interview_type = ?
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+        row = run_remote_sql(
+            ssh,
+            db_path,
+            query,
+            [student_id, interview_type],
+            fetch="one",
         )
-        run_remote_sql(ssh, db_path, query)
-        # We have to capture the result manually because run_remote_sql doesn't return stdout.
-        # Let's execute a select through the Python fallback directly to fetch the summary.
-        python_fetch = f"""
-import sqlite3, json
-conn = sqlite3.connect(r'{db_path}')
-cur = conn.cursor()
-cur.execute(\"{query}\")
-row = cur.fetchone()
-print(json.dumps(row[0] if row else ''))
-conn.close()
-"""
-        python_cmd = f"python3 - <<'PY'\n{python_fetch}\nPY"
-        stdin, stdout, stderr = ssh.exec_command(python_cmd)
-        result = stdout.read().decode().strip().strip('"')  # simple JSON string value
-        error = stderr.read().decode().strip()
-        if error:
-            raise Exception(f"SQLite error while fetching transcript: {error}")
-        return result
+        return row[0] if row and row[0] else ""
     finally:
         if remove_after:
-            ssh.close()
+            close_ssh_connection(ssh, tmp_key_path)
 
 
 def update_interview_summary(interview_id, summary):
-    """
-    Updates the interview record identified by interview_id with the given summary.
-    """
-    ssh_username = st.secrets.get("LIACS_SSH_USERNAME")
-    if not ssh_username:
-        raise ValueError("LIACS_SSH_USERNAME is not defined in secrets.")
-    remote_directory = f"/home/{ssh_username}/BS-Interviews/Database"
-    db_path = f"{remote_directory}/interviews.db"
+    """Update the stored summary for a completed interview."""
+    _, db_path = get_remote_database_location()
 
     ssh, tmp_key_path = get_ssh_connection()
     try:
-        summary_escaped = summary.replace("'", "''")
-        update_query = (
-            f"UPDATE interviews SET summary = '{summary_escaped}' WHERE interview_id = '{interview_id}';"
-        )
-        run_remote_sql(ssh, db_path, update_query)
+        update_query = """
+        UPDATE interviews
+        SET summary = ?
+        WHERE interview_id = ?
+        """
+        run_remote_sql(ssh, db_path, update_query, [summary, interview_id])
     finally:
-        ssh.close()
-        os.remove(tmp_key_path)
+        close_ssh_connection(ssh, tmp_key_path)
+
+
+def update_interview_survey(
+    interview_id,
+    helpfulness_rating,
+    connection_rating,
+    understanding_rating,
+    validation_rating,
+    feedback,
+    survey_timestamp,
+):
+    """Update the stored inline survey responses for a completed interview."""
+    _run_batch_operations(
+        operations=[
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": SURVEY_COLUMNS,
+            },
+            _build_survey_update_operation(
+                interview_id,
+                helpfulness_rating,
+                connection_rating,
+                understanding_rating,
+                validation_rating,
+                feedback,
+                survey_timestamp,
+            ),
+        ]
+    )
