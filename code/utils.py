@@ -3,9 +3,6 @@ import hmac
 import time
 import os
 import json
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import base64
 import paramiko
 import io
@@ -73,13 +70,8 @@ def send_transcript_email(
     recipient_email,
     transcript_link,
     transcript_file,
-    name_from_form=None  # NEW parameter to pass the interviewee's name
+    name_from_form=None
 ):
-    """
-    Sends the interview transcript via either Gmail or LIACS SMTP depending on config.
-    """
-    use_liacs = st.secrets.get("USE_LIACS_EMAIL", False)
-
     from_addr = "bs-internships@liacs.leidenuniv.nl"
     
     # Example: sending to both the student's institutional address & the "recipient_email"
@@ -120,10 +112,9 @@ LIACS, Leiden University
     if not file_name:
         file_name = fallback_name
 
-    if use_liacs:
-        with open(transcript_file, "rb") as f:
-            attachment_data = base64.b64encode(f.read()).decode()
-        python_code = f"""\
+    with open(transcript_file, "rb") as f:
+        attachment_data = base64.b64encode(f.read()).decode()
+    python_code = f"""\
 import base64
 import smtplib
 from email.mime.text import MIMEText
@@ -136,7 +127,7 @@ msg = MIMEMultipart()
 msg['Subject'] = {repr(subject)}
 msg['From'] = {repr(from_addr)}
 msg['To'] = {repr(to_addr)}
-msg['Cc'] = {repr(cc_addr)}
+{f"msg['Cc'] = {repr(cc_addr)}" if cc_addr else ""}
 msg['Bcc'] = {repr(bcc_addr)}
 
 body = {repr(body)}
@@ -155,72 +146,42 @@ with smtplib.SMTP('smtp.leidenuniv.nl') as server:
 
 print("✅ Email sent. Please wait with closing this window as we are still processing data.")
 """
-        python_code = python_code.strip()
-        encoded_code = base64.b64encode(python_code.encode()).decode()
+    python_code = python_code.strip()
+    encoded_code = base64.b64encode(python_code.encode()).decode()
+    try:
+        ssh_host = "ssh.liacs.nl"
+        ssh_username = st.secrets["LIACS_SSH_USERNAME"]
+        key_str = st.secrets["LIACS_SSH_KEY"]
+        if "\\n" in key_str:
+            key_str = key_str.replace("\\n", "\n")
+        if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
+            header = "-----BEGIN OPENSSH PRIVATE KEY-----"
+            footer = "-----END OPENSSH PRIVATE KEY-----"
+            key_body = key_str[len(header):-len(footer)].strip()
+            lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
+            key_str = header + "\n" + "\n".join(lines) + "\n" + footer
+        with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
+            tmp_key_file.write(key_str)
+            tmp_key_path = tmp_key_file.name
         try:
-            ssh_host = "ssh.liacs.nl"
-            ssh_username = st.secrets["LIACS_SSH_USERNAME"]
-            key_str = st.secrets["LIACS_SSH_KEY"]
-            if "\\n" in key_str:
-                key_str = key_str.replace("\\n", "\n")
-            if key_str.startswith("-----BEGIN OPENSSH PRIVATE KEY-----") and "-----END OPENSSH PRIVATE KEY-----" in key_str:
-                header = "-----BEGIN OPENSSH PRIVATE KEY-----"
-                footer = "-----END OPENSSH PRIVATE KEY-----"
-                key_body = key_str[len(header):-len(footer)].strip()
-                lines = [key_body[i:i+70] for i in range(0, len(key_body), 70)]
-                key_str = header + "\n" + "\n".join(lines) + "\n" + footer
-            with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
-                tmp_key_file.write(key_str)
-                tmp_key_path = tmp_key_file.name
-            try:
-                from paramiko import Ed25519Key
-                key = Ed25519Key.from_private_key_file(tmp_key_path)
-            except paramiko.SSHException:
-                from paramiko import RSAKey
-                key = RSAKey.from_private_key_file(tmp_key_path)
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ssh_host, username=ssh_username, pkey=key)
-            remote_cmd = f'printf "%s" "{encoded_code}" | base64 -d | python3'
-            stdin, stdout, stderr = ssh.exec_command(remote_cmd)
-            output = stdout.read().decode()
-            error = stderr.read().decode()
-            if error:
-                st.error(f"⚠️ Remote error:\n{error}")
-            else:
-                st.success(output.strip())
-            ssh.close()
-            os.remove(tmp_key_path)
-        except Exception as e:
-            st.error("❌ Failed to send email via LIACS SMTP.")
-            st.exception(e)
-    else:
-        smtp_server = "smtp.gmail.com"
-        smtp_port = 587
-        sender_email = "businessinternship.liacs@gmail.com"
-        sender_password = st.secrets["EMAIL_PASSWORD"]
-        msg = MIMEMultipart()
-        msg["From"] = sender_email
-        msg["To"] = to_addr
-        msg["Cc"] = cc_addr
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
-        with open(transcript_file, "rb") as f:
-            content = f.read()
-        part = MIMEBase("text", "plain")
-        part.set_payload(content)
-        encoders.encode_base64(part)
-        part.add_header("Content-Type", f'text/plain; name="{file_name}"')
-        part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
-        msg.attach(part)
-        try:
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()
-            server.login(sender_email, sender_password)
-            recipients = [to_addr, cc_addr]
-            server.sendmail(sender_email, recipients, msg.as_string())
-            server.quit()
-            st.success(f"📬 Email sent to {recipients}")
-        except Exception as e:
-            st.error("Error sending email via Gmail SMTP.")
-            st.exception(e)
+            from paramiko import Ed25519Key
+            key = Ed25519Key.from_private_key_file(tmp_key_path)
+        except paramiko.SSHException:
+            from paramiko import RSAKey
+            key = RSAKey.from_private_key_file(tmp_key_path)
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ssh_host, username=ssh_username, pkey=key)
+        remote_cmd = f'printf "%s" "{encoded_code}" | base64 -d | python3'
+        stdin, stdout, stderr = ssh.exec_command(remote_cmd)
+        output = stdout.read().decode()
+        error = stderr.read().decode()
+        if error:
+            st.error(f"⚠️ Remote error:\n{error}")
+        else:
+            st.success(output.strip())
+        ssh.close()
+        os.remove(tmp_key_path)
+    except Exception as e:
+        st.error("❌ Failed to send email via LIACS SMTP.")
+        st.exception(e)
