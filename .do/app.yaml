@@ -1,0 +1,57 @@
+# DigitalOcean App Platform spec for the Streamlit interview app.
+#
+# This file documents the deploy configuration so it is version-controlled
+# rather than only living in the dashboard. It is NOT applied automatically to
+# an already-created app. To apply it to the existing app:
+#
+#     doctl apps update <APP_ID> --spec .do/app.yaml
+#
+# or, for a brand new app:
+#
+#     doctl apps create --spec .do/app.yaml
+#
+# Secret VALUES are intentionally omitted -- set them in the dashboard
+# (Settings -> component -> Environment Variables, type "Encrypted") or via
+# `doctl`. The run command invokes prepare_do_secrets.py to turn those env
+# vars into the secrets.toml that the app reads.
+name: stingray-app
+region: ams
+services:
+  - name: sbi-midterm-interview
+    github:
+      repo: amrhs-zohrevand/sbi-midterm-interview
+      branch: main
+      deploy_on_push: true
+    source_dir: /code
+    environment_slug: python
+    instance_count: 1
+    # 512 MB (apps-s-1vcpu-0.5gb) tends to OOM with streamlit + openai +
+    # anthropic + paramiko loaded. 1 GB is the safer floor.
+    instance_size_slug: apps-s-1vcpu-1gb
+    http_port: 8080
+    run_command: >-
+      python prepare_do_secrets.py &&
+      streamlit run interview.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.enableCORS false
+      --server.enableXsrfProtection false
+      --server.headless true
+    routes:
+      - path: /
+    envs:
+      # Non-secret default; safe to keep in source.
+      - key: ENV
+        scope: RUN_TIME
+        value: production
+      # ---------------------------------------------------------------
+      # The following are SECRETS. Add them in the DigitalOcean dashboard
+      # (do not commit values). Listed here only as a checklist:
+      #
+      #   API_PROVIDER, MODEL
+      #   API_KEY            (and/or ANTHROPIC_API_KEY / OPENROUTER_API_KEY /
+      #                       DEEPINFRA_API_KEY depending on API_PROVIDER)
+      #   TTS_MODEL, TTS_VOICE
+      #   USE_LIACS_EMAIL, EMAIL_PASSWORD
+      #   LIACS_SSH_USERNAME, LIACS_SSH_KEY   (LIACS_SSH_KEY is multi-line)
+      # ---------------------------------------------------------------
