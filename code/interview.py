@@ -31,6 +31,7 @@ from interview_logic import (
     missing_query_params,
     normalize_query_value,
     resolve_query_params,
+    serialize_transcript,
     should_accept_user_input,
     should_finalize_interview,
 )
