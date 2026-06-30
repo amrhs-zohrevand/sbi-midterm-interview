@@ -759,10 +759,9 @@ if st.session_state.awaiting_email_confirmation:
             "Confirm or update your email address:",
             value=st.session_state.completion_email or recipient_email,
         )
-        st.warning(
-            "Emails to Gmail addresses (@gmail.com) are currently **not delivered**. "
-            "Please use a Leiden University address (@umail.leidenuniv.nl) or another provider.",
-            icon="⚠️",
+        st.info(
+            "Gmail recipients are sent through the Gmail backup delivery account.",
+            icon="ℹ️",
         )
         completion_send_email = st.checkbox(
             "Email me a transcript of this interview",

@@ -16,6 +16,7 @@ class FakeStreamlit:
         self.secrets = secrets or {}
         self.success_messages = []
         self.error_messages = []
+        self.info_messages = []
         self.warning_messages = []
         self.exceptions = []
 
@@ -24,6 +25,9 @@ class FakeStreamlit:
 
     def error(self, message):
         self.error_messages.append(message)
+
+    def info(self, message):
+        self.info_messages.append(message)
 
     def warning(self, message):
         self.warning_messages.append(message)
@@ -190,6 +194,53 @@ def test_send_transcript_email_liacs_path_delegates_to_remote_runner(
     assert calls[0][2] is False
     assert result.sent is True
     assert result.provider == "liacs"
+
+
+def test_send_transcript_email_uses_gmail_for_gmail_recipient_when_liacs_enabled(
+    monkeypatch, tmp_path
+):
+    fake_st = FakeStreamlit(
+        secrets={"USE_LIACS_EMAIL": True, "EMAIL_PASSWORD": "pw"}
+    )
+    monkeypatch.setattr(utils, "st", fake_st)
+    monkeypatch.setattr(
+        utils,
+        "_run_liacs_script",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("LIACS should be skipped for Gmail recipients")
+        ),
+    )
+
+    sent_clients = []
+
+    def fake_smtp_factory(host, port):
+        client = FakeSMTP(host, port)
+        sent_clients.append(client)
+        return client
+
+    monkeypatch.setattr(utils.smtplib, "SMTP", fake_smtp_factory)
+
+    transcript_file = tmp_path / "transcript.txt"
+    transcript_file.write_text("assistant: hello", encoding="utf-8")
+
+    result = utils.send_transcript_email(
+        student_number="",
+        recipient_email="person@gmail.com",
+        transcript_link="",
+        transcript_file=str(transcript_file),
+        name_from_form="Miros",
+    )
+
+    assert sent_clients[0].host == "smtp.gmail.com"
+    assert sent_clients[0].sent[1] == [
+        "person@gmail.com",
+        "a.h.zohrehvand@liacs.leidenuniv.nl",
+    ]
+    assert result.sent is True
+    assert result.provider == "gmail_recipient"
+    assert fake_st.info_messages == [
+        "Sending Gmail recipient through Gmail backup delivery."
+    ]
 
 
 def test_send_transcript_email_falls_back_to_gmail_when_liacs_fails(

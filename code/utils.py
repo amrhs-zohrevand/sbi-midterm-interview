@@ -370,6 +370,9 @@ def send_transcript_email(
         addr.lower() for addr in _unique_nonempty_addresses(to_addr, cc_addr)
     }:
         bcc_addr = ""
+    has_gmail_recipient = any(
+        address.lower().endswith("@gmail.com") for address in recipients
+    )
     subject = "Your Interview Transcript from Leiden University"
     greeting_name = (
         name_from_form.strip()
@@ -389,6 +392,19 @@ LIACS, Leiden University
 """
 
     file_name = os.path.basename(transcript_file) or "transcript.txt"
+
+    if use_liacs and has_gmail_recipient:
+        st.info("Sending Gmail recipient through Gmail backup delivery.")
+        return _send_transcript_email_gmail(
+            to_addr=to_addr,
+            cc_addr=cc_addr,
+            recipients=recipients,
+            subject=subject,
+            body=body,
+            transcript_file=transcript_file,
+            file_name=file_name,
+            provider="gmail_recipient",
+        )
 
     if use_liacs:
         fallback_to_gmail = _secret_bool("EMAIL_FALLBACK_TO_GMAIL", True)
