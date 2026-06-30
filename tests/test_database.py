@@ -44,7 +44,11 @@ def test_save_interview_to_sheet_uses_parameterized_insert(monkeypatch):
         "get_remote_database_location",
         lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
-    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
     monkeypatch.setattr(
         database,
         "ensure_remote_directory",
@@ -119,7 +123,11 @@ def test_get_transcript_by_student_and_type_returns_summary_text(monkeypatch):
         "get_remote_database_location",
         lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
-    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
     monkeypatch.setattr(
         database,
         "run_remote_sql",
@@ -150,7 +158,11 @@ def test_update_progress_and_summary_use_parameterized_queries(monkeypatch):
         "get_remote_database_location",
         lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
-    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
     monkeypatch.setattr(database, "ensure_remote_directory", lambda *args: None)
     monkeypatch.setattr(
         database,
@@ -193,7 +205,11 @@ def test_update_interview_survey_adds_missing_columns_and_saves_answers(monkeypa
         "get_remote_database_location",
         lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
-    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
     monkeypatch.setattr(
         database,
         "run_remote_sql_batch",
@@ -236,7 +252,11 @@ def test_persist_completion_remote_batches_interview_progress_and_survey(monkeyp
         "get_remote_database_location",
         lambda: ("/remote/data", "/remote/data/interviews.db"),
     )
-    monkeypatch.setattr(database, "get_ssh_connection", lambda: (fake_ssh, "/tmp/key"))
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
     monkeypatch.setattr(
         database,
         "ensure_remote_directory",
@@ -298,5 +318,127 @@ def test_persist_completion_remote_batches_interview_progress_and_survey(monkeyp
         "7",
         "Great ending flow.",
         "2026-03-12 10:00:00",
+        "interview-1",
+    ]
+
+
+def test_persist_checkpoint_remote_upserts_in_progress_transcript(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
+    monkeypatch.setattr(
+        database,
+        "ensure_remote_directory",
+        lambda ssh, path: calls.append(("mkdir", path)),
+    )
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.append(("batch", db_path, operations)),
+    )
+    monkeypatch.setattr(database, "close_ssh_connection", lambda *args: None)
+
+    database.persist_checkpoint_remote(
+        "interview-1",
+        "student-1",
+        "Miros",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:01:00",
+        "assistant: Hello\nuser: Hi\n",
+        "1.00",
+    )
+
+    assert calls[0] == ("mkdir", "/remote/data")
+    operations = calls[1][2]
+    assert len(operations) == 2
+    assert (
+        "CREATE TABLE IF NOT EXISTS interview_checkpoints"
+        in operations[0]["sql_query"]
+    )
+    assert "ON CONFLICT(interview_id) DO UPDATE SET" in operations[1]["sql_query"]
+    assert operations[1]["params"] == [
+        "interview-1",
+        "student-1",
+        "Miros",
+        "ACME",
+        "midterm_interview",
+        "2026-03-12 10:01:00",
+        "assistant: Hello\nuser: Hi\n",
+        "1.00",
+    ]
+
+
+def test_record_email_delivery_remote_updates_audit_and_interview_status(monkeypatch):
+    calls = []
+    fake_ssh = object()
+
+    monkeypatch.setattr(
+        database,
+        "get_remote_database_location",
+        lambda: ("/remote/data", "/remote/data/interviews.db"),
+    )
+    monkeypatch.setattr(
+        database,
+        "get_ssh_connection",
+        lambda timeout_seconds=None, retries=None: (fake_ssh, "/tmp/key"),
+    )
+    monkeypatch.setattr(
+        database,
+        "ensure_remote_directory",
+        lambda ssh, path: calls.append(("mkdir", path)),
+    )
+    monkeypatch.setattr(
+        database,
+        "run_remote_sql_batch",
+        lambda ssh, db_path, operations: calls.append(("batch", db_path, operations)),
+    )
+    monkeypatch.setattr(database, "close_ssh_connection", lambda *args: None)
+
+    database.record_email_delivery_remote(
+        "interview-1",
+        "person@example.com",
+        ["person@example.com", "audit@example.com"],
+        "liacs",
+        "failed",
+        "2026-03-12 10:00:00",
+        "ssh timed out",
+    )
+
+    assert calls[0] == ("mkdir", "/remote/data")
+    operations = calls[1][2]
+    assert len(operations) == 4
+    assert "CREATE TABLE IF NOT EXISTS email_deliveries" in operations[0]["sql_query"]
+    assert operations[1] == {
+        "type": "ensure_columns",
+        "table": "interviews",
+        "columns": database.EMAIL_STATUS_COLUMNS,
+    }
+    assert operations[2]["params"] == [
+        "interview-1",
+        "2026-03-12 10:00:00",
+        "person@example.com",
+        "[\"person@example.com\", \"audit@example.com\"]",
+        "liacs",
+        "failed",
+        "ssh timed out",
+    ]
+    assert operations[3]["params"] == [
+        "person@example.com",
+        "[\"person@example.com\", \"audit@example.com\"]",
+        "liacs",
+        "failed",
+        "2026-03-12 10:00:00",
+        "ssh timed out",
         "interview-1",
     ]

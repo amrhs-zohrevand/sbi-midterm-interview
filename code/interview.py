@@ -13,7 +13,9 @@ from openai import NotFoundError, OpenAI
 from streamlit_mic_recorder import mic_recorder
 
 from database import (
+    persist_checkpoint_remote,
     persist_completion_remote,
+    record_email_delivery_remote,
     update_interview_summary,
 )
 from interview_completion import (
@@ -297,6 +299,8 @@ if "tts_autoplay_nonce" not in st.session_state:
     st.session_state.tts_autoplay_nonce = 0
 if "tts_played_nonce" not in st.session_state:
     st.session_state.tts_played_nonce = 0
+if "checkpoint_error" not in st.session_state:
+    st.session_state.checkpoint_error = ""
 
 if model_selection is None:
     st.session_state.model_reasoning_level = "none"
@@ -452,6 +456,36 @@ def persist_local_transcript():
     )
 
 
+def persist_interview_checkpoint():
+    """Persist the current transcript locally and checkpoint it remotely."""
+    transcript_link, transcript_file = persist_local_transcript()
+    if SMOKE_TEST_MODE:
+        return transcript_link, transcript_file
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    duration_minutes = f"{(time.time() - st.session_state.start_time) / 60:.2f}"
+    transcript_text = serialize_transcript(st.session_state.messages)
+    try:
+        persist_checkpoint_remote(
+            st.session_state.session_id,
+            student_number,
+            respondent_name,
+            company_name,
+            config_name,
+            timestamp,
+            transcript_text,
+            duration_minutes,
+        )
+        st.session_state.checkpoint_error = ""
+    except Exception as exc:
+        st.session_state.checkpoint_error = str(exc)
+        print(
+            f"Interview checkpoint save failed for {st.session_state.session_id}: {exc}"
+        )
+
+    return transcript_link, transcript_file
+
+
 def generate_summary(transcript_text: str) -> str:
     """Generate a concise summary of the completed interview."""
     if not transcript_text.strip():
@@ -528,10 +562,18 @@ def finalize_interview(send_email=False, email_input=None):
         update_interview_summary=smoke_noop
         if SMOKE_TEST_MODE
         else update_interview_summary,
+        record_email_delivery=smoke_noop
+        if SMOKE_TEST_MODE
+        else record_email_delivery_remote,
     )
     st.session_state.transcript_link = completion_result.transcript_link
     st.session_state.transcript_file = completion_result.transcript_file
+    st.session_state.transcript_text = completion_result.transcript_text
     st.session_state.email_sent = completion_result.email_sent
+    st.session_state.completion_remote_saved = completion_result.remote_saved
+    st.session_state.completion_remote_error = completion_result.remote_error
+    st.session_state.completion_email_error = completion_result.email_error
+    st.session_state.completion_email_recipients = completion_result.email_recipients
 
     st.session_state.completion_saved = True
     st.session_state.show_evaluation_only = True
@@ -587,7 +629,32 @@ if needs_context and not st.session_state.student_verified:
 
 if st.session_state.show_evaluation_only:
     survey_saved = has_inline_feedback(build_completion_responses(st.session_state))
-    st.success("Your interview has been saved.")
+    if st.session_state.get("completion_remote_saved", True):
+        st.success("Your interview has been saved.")
+    else:
+        st.error(
+            "We could not sync your interview to the central database. "
+            "Please keep this page open and download your transcript."
+        )
+        remote_error = st.session_state.get("completion_remote_error", "")
+        if remote_error:
+            st.caption(f"Technical detail: {remote_error}")
+    if st.session_state.get("transcript_text"):
+        st.download_button(
+            "Download transcript",
+            data=st.session_state.transcript_text,
+            file_name=f"{st.session_state.session_id}_transcript.txt",
+            mime="text/plain",
+        )
+    if (
+        st.session_state.get("completion_remote_saved", True)
+        and st.session_state.get("completion_send_email", True)
+        and not st.session_state.get("email_sent", False)
+    ):
+        st.warning(
+            "Your transcript was saved, but the email delivery step failed. "
+            "You can use the download button above."
+        )
     if SMOKE_TEST_MODE:
         st.caption("Smoke test mode is enabled: no external model, email, or remote database calls were made.")
     if survey_saved:
@@ -776,7 +843,7 @@ if not st.session_state.messages:
         st.session_state.interview_active = False
 
     st.session_state.messages.append({"role": "assistant", "content": first_reply})
-    persist_local_transcript()
+    persist_interview_checkpoint()
     if st.session_state.speech_output_enabled and _update_tts_audio():
         st.rerun()
 
@@ -897,6 +964,7 @@ if should_accept_user_input(
 
     if message_respondent:
         st.session_state.messages.append({"role": "user", "content": message_respondent})
+        persist_interview_checkpoint()
 
         with conversation_container:
             with st.chat_message("user", avatar=config.AVATAR_RESPONDENT):
@@ -911,7 +979,7 @@ if should_accept_user_input(
                     st.session_state.messages.append(
                         {"role": "assistant", "content": assistant_reply}
                     )
-                    persist_local_transcript()
+                    persist_interview_checkpoint()
                     if (
                         st.session_state.speech_output_enabled
                         and _update_tts_audio()
@@ -926,7 +994,7 @@ if should_accept_user_input(
                     st.session_state.messages.append(
                         {"role": "assistant", "content": closing_message}
                     )
-                    persist_local_transcript()
+                    persist_interview_checkpoint()
                     if st.session_state.speech_output_enabled and _update_tts_audio():
                         st.rerun()
                     time.sleep(1)

@@ -64,6 +64,9 @@ def test_persist_completion_runs_full_pipeline_and_returns_result():
     assert result.duration_minutes == "2.00"
     assert result.summary_text == "summary text"
     assert result.email_sent is True
+    assert result.remote_saved is True
+    assert result.remote_error == ""
+    assert result.email_error == ""
     assert any(call[0] == "send_email" for call in calls)
     persist_remote_call = next(call for call in calls if call[0] == "persist_remote")
     assert persist_remote_call[1] == (
@@ -128,6 +131,7 @@ def test_persist_completion_skips_optional_steps_when_not_needed():
     )
 
     assert result.email_sent is False
+    assert result.remote_saved is True
     assert all(call[0] != "send_email" for call in calls)
     persist_remote_call = next(call for call in calls if call[0] == "persist_remote")
     assert persist_remote_call[1] == (
@@ -143,3 +147,47 @@ def test_persist_completion_skips_optional_steps_when_not_needed():
     assert persist_remote_call[2]["survey_timestamp"] == ""
     assert persist_remote_call[2]["model"] == ""
     assert persist_remote_call[2]["model_reasoning_level"] == "none"
+
+
+def test_persist_completion_returns_downloadable_result_when_remote_save_fails():
+    context = CompletionContext(
+        interview_id="session-3",
+        student_number="",
+        respondent_name="Miros",
+        company_name="",
+        config_name="midterm_interview",
+        recipient_email="person@example.com",
+        start_time=60.0,
+        messages=[
+            {"role": "assistant", "content": "Hello"},
+            {"role": "user", "content": "Hi"},
+        ],
+        completion_responses=CompletionResponses(
+            email="person@example.com",
+            send_email=True,
+            helpfulness_rating="",
+            connection_rating="",
+            understanding_rating="",
+            validation_rating="",
+            feedback="",
+        ),
+    )
+
+    def persist_remote_completion(*args, **kwargs):
+        raise TimeoutError("ssh timed out")
+
+    result = persist_completion(
+        context,
+        persist_local_transcript=lambda: ("", "/tmp/transcript.txt"),
+        send_transcript_email=lambda **kwargs: None,
+        persist_remote_completion=persist_remote_completion,
+        generate_summary=lambda transcript_text: "summary text",
+        update_interview_summary=lambda *args: None,
+        now_fn=lambda: 120.0,
+        timestamp_fn=lambda: "2026-03-12 10:00:00",
+    )
+
+    assert result.remote_saved is False
+    assert result.remote_error == "ssh timed out"
+    assert result.transcript_text == "assistant: Hello\nuser: Hi\n"
+    assert result.summary_text == ""

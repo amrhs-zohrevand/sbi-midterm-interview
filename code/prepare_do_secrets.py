@@ -50,7 +50,7 @@ STRING_KEYS = [
 
 # Keys whose values must be rendered as TOML booleans, not strings. A quoted
 # string like "false" would be truthy in Python, so these must be real booleans.
-BOOLEAN_KEYS = ["USE_LIACS_EMAIL"]
+BOOLEAN_KEYS = ["USE_LIACS_EMAIL", "EMAIL_FALLBACK_TO_GMAIL"]
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 

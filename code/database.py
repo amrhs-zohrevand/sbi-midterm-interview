@@ -1,3 +1,5 @@
+import json
+
 from remote_utils import (
     close_ssh_connection,
     ensure_remote_directory,
@@ -42,6 +44,31 @@ CREATE TABLE IF NOT EXISTS progress (
 )
 """
 
+CHECKPOINTS_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS interview_checkpoints (
+    interview_id TEXT PRIMARY KEY,
+    student_id TEXT,
+    name TEXT,
+    company TEXT,
+    interview_type TEXT,
+    last_updated TEXT,
+    transcript TEXT,
+    duration_minutes TEXT
+)
+"""
+
+EMAIL_DELIVERIES_TABLE_QUERY = """
+CREATE TABLE IF NOT EXISTS email_deliveries (
+    interview_id TEXT,
+    attempted_at TEXT,
+    recipient_email TEXT,
+    recipients TEXT,
+    provider TEXT,
+    status TEXT,
+    error TEXT
+)
+"""
+
 SURVEY_COLUMNS = {
     "survey_helpfulness": "TEXT",
     "survey_connection": "TEXT",
@@ -54,6 +81,15 @@ SURVEY_COLUMNS = {
 INTERVIEW_METADATA_COLUMNS = {
     "model": "TEXT",
     "model_reasoning_level": "TEXT",
+}
+
+EMAIL_STATUS_COLUMNS = {
+    "email_recipient": "TEXT",
+    "email_recipients": "TEXT",
+    "email_provider": "TEXT",
+    "email_status": "TEXT",
+    "email_attempted_at": "TEXT",
+    "email_error": "TEXT",
 }
 
 
@@ -128,6 +164,51 @@ def _build_progress_insert_operation(student_id, name, interview_type, timestamp
     }
 
 
+def _build_checkpoint_upsert_operation(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    last_updated,
+    transcript,
+    duration_minutes,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO interview_checkpoints (
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            last_updated,
+            transcript,
+            duration_minutes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(interview_id) DO UPDATE SET
+            student_id = excluded.student_id,
+            name = excluded.name,
+            company = excluded.company,
+            interview_type = excluded.interview_type,
+            last_updated = excluded.last_updated,
+            transcript = excluded.transcript,
+            duration_minutes = excluded.duration_minutes
+        """,
+        "params": [
+            interview_id,
+            student_id,
+            name,
+            company,
+            interview_type,
+            last_updated,
+            transcript,
+            duration_minutes,
+        ],
+    }
+
+
 def _build_survey_update_operation(
     interview_id,
     helpfulness_rating,
@@ -161,10 +242,86 @@ def _build_survey_update_operation(
     }
 
 
-def _run_batch_operations(*, operations, ensure_remote_dir=False):
+def _build_email_delivery_insert_operation(
+    interview_id,
+    attempted_at,
+    recipient_email,
+    recipients,
+    provider,
+    status,
+    error,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        INSERT INTO email_deliveries (
+            interview_id,
+            attempted_at,
+            recipient_email,
+            recipients,
+            provider,
+            status,
+            error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        "params": [
+            interview_id,
+            attempted_at,
+            recipient_email,
+            json.dumps(recipients),
+            provider,
+            status,
+            error,
+        ],
+    }
+
+
+def _build_interview_email_status_update_operation(
+    interview_id,
+    attempted_at,
+    recipient_email,
+    recipients,
+    provider,
+    status,
+    error,
+):
+    return {
+        "type": "execute",
+        "sql_query": """
+        UPDATE interviews
+        SET email_recipient = ?,
+            email_recipients = ?,
+            email_provider = ?,
+            email_status = ?,
+            email_attempted_at = ?,
+            email_error = ?
+        WHERE interview_id = ?
+        """,
+        "params": [
+            recipient_email,
+            json.dumps(recipients),
+            provider,
+            status,
+            attempted_at,
+            error,
+            interview_id,
+        ],
+    }
+
+
+def _run_batch_operations(
+    *,
+    operations,
+    ensure_remote_dir=False,
+    ssh_timeout=None,
+    ssh_retries=None,
+):
     remote_directory, db_path = get_remote_database_location()
 
-    ssh, tmp_key_path = get_ssh_connection()
+    ssh, tmp_key_path = get_ssh_connection(
+        timeout_seconds=ssh_timeout,
+        retries=ssh_retries,
+    )
     try:
         if ensure_remote_dir:
             ensure_remote_directory(ssh, remote_directory)
@@ -244,7 +401,86 @@ def persist_completion_remote(
             ]
         )
 
-    _run_batch_operations(operations=operations, ensure_remote_dir=True)
+    _run_batch_operations(
+        operations=operations,
+        ensure_remote_dir=True,
+        ssh_timeout=20,
+        ssh_retries=3,
+    )
+
+
+def persist_checkpoint_remote(
+    interview_id,
+    student_id,
+    name,
+    company,
+    interview_type,
+    last_updated,
+    transcript,
+    duration_minutes,
+):
+    """Upsert an in-progress transcript checkpoint in the remote SQLite database."""
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": CHECKPOINTS_TABLE_QUERY},
+            _build_checkpoint_upsert_operation(
+                interview_id,
+                student_id,
+                name,
+                company,
+                interview_type,
+                last_updated,
+                transcript,
+                duration_minutes,
+            ),
+        ],
+        ensure_remote_dir=True,
+        ssh_timeout=5,
+        ssh_retries=1,
+    )
+
+
+def record_email_delivery_remote(
+    interview_id,
+    recipient_email,
+    recipients,
+    provider,
+    status,
+    attempted_at,
+    error="",
+):
+    """Record transcript email delivery status without changing transcript data."""
+    _run_batch_operations(
+        operations=[
+            {"type": "execute", "sql_query": EMAIL_DELIVERIES_TABLE_QUERY},
+            {
+                "type": "ensure_columns",
+                "table": "interviews",
+                "columns": EMAIL_STATUS_COLUMNS,
+            },
+            _build_email_delivery_insert_operation(
+                interview_id,
+                attempted_at,
+                recipient_email,
+                recipients,
+                provider,
+                status,
+                error,
+            ),
+            _build_interview_email_status_update_operation(
+                interview_id,
+                attempted_at,
+                recipient_email,
+                recipients,
+                provider,
+                status,
+                error,
+            ),
+        ],
+        ensure_remote_dir=True,
+        ssh_timeout=10,
+        ssh_retries=2,
+    )
 
 
 def save_interview_to_sheet(

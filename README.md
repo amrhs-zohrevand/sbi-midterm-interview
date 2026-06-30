@@ -29,6 +29,7 @@ The platform is built using Streamlit and requires the following configuration s
 - `ENV`: Environment setting (`test` or `production`).
 - `EMAIL_PASSWORD`: Optional Gmail app password for sending transcripts and verification codes.
 - `USE_LIACS_EMAIL`: Optional flag to send mail via the LIACS SMTP path instead of Gmail.
+- `EMAIL_FALLBACK_TO_GMAIL`: Optional flag, enabled by default, to retry transcript and verification email through Gmail if the LIACS SMTP/SSH path fails.
 - `LIACS_SSH_USERNAME` and `LIACS_SSH_KEY`: Required for remote SQLite sync and the LIACS SMTP path.
 
 ### OpenRouter Routing

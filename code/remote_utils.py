@@ -3,6 +3,7 @@ import json
 import os
 import shlex
 import tempfile
+import time
 from dataclasses import dataclass
 
 import paramiko
@@ -11,6 +12,8 @@ from secrets_utils import get_secret
 
 
 DEFAULT_SSH_HOST = "ssh.liacs.nl"
+SSH_TIMEOUT_SECONDS = 15
+SSH_CONNECT_RETRIES = 2
 
 
 @dataclass(frozen=True)
@@ -65,10 +68,26 @@ def format_private_key(key_str: str) -> str:
     return normalized
 
 
-def get_ssh_connection():
+def _positive_int(value, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def get_ssh_connection(timeout_seconds: int | None = None, retries: int | None = None):
     """Establish an SSH connection using the configured SSH credentials."""
     settings = resolve_ssh_settings()
     normalized_key = format_private_key(settings.key)
+    resolved_timeout = _positive_int(
+        timeout_seconds if timeout_seconds is not None else get_secret("SSH_TIMEOUT_SECONDS"),
+        SSH_TIMEOUT_SECONDS,
+    )
+    resolved_retries = _positive_int(
+        retries if retries is not None else get_secret("SSH_CONNECT_RETRIES"),
+        SSH_CONNECT_RETRIES,
+    )
     with tempfile.NamedTemporaryFile(delete=False, mode="w") as tmp_key_file:
         tmp_key_file.write(normalized_key)
         tmp_key_path = tmp_key_file.name
@@ -81,11 +100,31 @@ def get_ssh_connection():
         except paramiko.SSHException:
             key = paramiko.RSAKey.from_private_key_file(tmp_key_path)
 
-        ssh = paramiko.SSHClient()
-        ssh.load_system_host_keys()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(settings.host, username=settings.username, pkey=key)
-        return ssh, tmp_key_path
+        last_exc = None
+        for attempt in range(resolved_retries):
+            ssh = paramiko.SSHClient()
+            ssh.load_system_host_keys()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            try:
+                ssh.connect(
+                    settings.host,
+                    username=settings.username,
+                    pkey=key,
+                    timeout=resolved_timeout,
+                    auth_timeout=resolved_timeout,
+                    banner_timeout=resolved_timeout,
+                )
+                return ssh, tmp_key_path
+            except Exception as exc:
+                last_exc = exc
+                try:
+                    ssh.close()
+                except Exception:
+                    pass
+                if attempt < resolved_retries - 1:
+                    time.sleep(min(2 ** attempt, 5))
+
+        raise last_exc
     except Exception:
         os.remove(tmp_key_path)
         raise

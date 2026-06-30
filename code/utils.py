@@ -5,6 +5,7 @@ import smtplib
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -13,6 +14,36 @@ from email.mime.text import MIMEText
 import streamlit as st
 
 from remote_utils import close_ssh_connection, get_ssh_connection, run_remote_python
+
+
+@dataclass(frozen=True)
+class EmailDeliveryResult:
+    sent: bool
+    recipients: list[str]
+    provider: str
+    error: str = ""
+
+
+def _secret_bool(key: str, default: bool = False) -> bool:
+    value = st.secrets.get(key, default)
+    if isinstance(value, str):
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    return bool(value)
+
+
+def _unique_nonempty_addresses(*addresses: str) -> list[str]:
+    seen = set()
+    result = []
+    for address in addresses:
+        normalized = (address or "").strip()
+        if not normalized:
+            continue
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(normalized)
+    return result
 
 
 def check_if_interview_completed(directory, username):
@@ -225,20 +256,84 @@ def synthesize_speech_deepinfra(
     return extracted
 
 
-def _run_liacs_script(python_code: str, error_message: str) -> None:
+def _run_liacs_script(
+    python_code: str,
+    error_message: str,
+    show_error: bool = True,
+) -> tuple[bool, str]:
     """Execute a small Python script on the LIACS host."""
     ssh = None
     tmp_key_path = None
     try:
-        ssh, tmp_key_path = get_ssh_connection()
+        ssh, tmp_key_path = get_ssh_connection(timeout_seconds=20, retries=3)
         output = run_remote_python(ssh, python_code.strip())
         if output:
             st.success(output)
+        return True, output or ""
     except Exception as exc:
-        st.error(error_message)
-        st.exception(exc)
+        if show_error:
+            st.error(error_message)
+            st.exception(exc)
+        return False, str(exc)
     finally:
         close_ssh_connection(ssh, tmp_key_path)
+
+
+def _send_transcript_email_gmail(
+    *,
+    to_addr: str,
+    cc_addr: str,
+    recipients: list[str],
+    subject: str,
+    body: str,
+    transcript_file: str,
+    file_name: str,
+    provider: str = "gmail",
+    prior_error: str = "",
+) -> EmailDeliveryResult:
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    sender_email = "businessinternship.liacs@gmail.com"
+    sender_password = st.secrets.get("EMAIL_PASSWORD", "")
+    if not sender_password:
+        error = "EMAIL_PASSWORD is not configured for Gmail SMTP."
+        st.error(error)
+        if prior_error:
+            error = f"{prior_error}; {error}"
+        return EmailDeliveryResult(False, recipients, provider, error)
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = to_addr
+    if cc_addr:
+        msg["Cc"] = cc_addr
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    with open(transcript_file, "rb") as transcript_handle:
+        content = transcript_handle.read()
+
+    part = MIMEBase("text", "plain")
+    part.set_payload(content)
+    encoders.encode_base64(part)
+    part.add_header("Content-Type", f'text/plain; name="{file_name}"')
+    part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
+    msg.attach(part)
+
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipients, msg.as_string())
+        st.success(f"Email sent to {recipients}")
+        return EmailDeliveryResult(True, recipients, provider, prior_error)
+    except Exception as exc:
+        st.error("Error sending email via Gmail SMTP.")
+        st.exception(exc)
+        error = str(exc)
+        if prior_error:
+            error = f"{prior_error}; Gmail fallback failed: {error}"
+        return EmailDeliveryResult(False, recipients, provider, error)
 
 
 def send_transcript_email(
@@ -269,6 +364,11 @@ def send_transcript_email(
         cc_addr = ""
 
     bcc_addr = "a.h.zohrehvand@liacs.leidenuniv.nl"
+    recipients = _unique_nonempty_addresses(to_addr, cc_addr, bcc_addr)
+    if bcc_addr.lower() in {
+        addr.lower() for addr in _unique_nonempty_addresses(to_addr, cc_addr)
+    }:
+        bcc_addr = ""
     subject = "Your Interview Transcript from Leiden University"
     greeting_name = (
         name_from_form.strip()
@@ -290,6 +390,7 @@ LIACS, Leiden University
     file_name = os.path.basename(transcript_file) or "transcript.txt"
 
     if use_liacs:
+        fallback_to_gmail = _secret_bool("EMAIL_FALLBACK_TO_GMAIL", True)
         with open(transcript_file, "rb") as transcript_handle:
             attachment_data = base64.b64encode(transcript_handle.read()).decode()
 
@@ -323,42 +424,81 @@ with smtplib.SMTP("smtp.leidenuniv.nl") as server:
 
 print("Email sent. Please wait with closing this window as we are still processing data.")
 """
-        _run_liacs_script(python_code, "Failed to send email via LIACS SMTP.")
-        return
+        result = _run_liacs_script(
+            python_code,
+            "Failed to send email via LIACS SMTP.",
+            show_error=not fallback_to_gmail,
+        )
+        if result is None:
+            return EmailDeliveryResult(True, recipients, "liacs")
+        sent, error = result
+        if sent:
+            return EmailDeliveryResult(True, recipients, "liacs")
+        if fallback_to_gmail:
+            st.warning("LIACS email failed. Trying Gmail backup delivery.")
+            return _send_transcript_email_gmail(
+                to_addr=to_addr,
+                cc_addr=cc_addr,
+                recipients=recipients,
+                subject=subject,
+                body=body,
+                transcript_file=transcript_file,
+                file_name=file_name,
+                provider="gmail_fallback",
+                prior_error=f"LIACS SMTP failed: {error}",
+            )
+        return EmailDeliveryResult(False, recipients, "liacs", error)
 
+    return _send_transcript_email_gmail(
+        to_addr=to_addr,
+        cc_addr=cc_addr,
+        recipients=recipients,
+        subject=subject,
+        body=body,
+        transcript_file=transcript_file,
+        file_name=file_name,
+    )
+
+
+def _send_verification_code_gmail(
+    to_addr: str,
+    subject: str,
+    body: str,
+    provider: str = "gmail",
+    prior_error: str = "",
+) -> EmailDeliveryResult:
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
     sender_email = "businessinternship.liacs@gmail.com"
-    sender_password = st.secrets["EMAIL_PASSWORD"]
+    sender_password = st.secrets.get("EMAIL_PASSWORD", "")
+    recipients = [to_addr]
+    if not sender_password:
+        error = "EMAIL_PASSWORD is not configured for Gmail SMTP."
+        st.error(error)
+        if prior_error:
+            error = f"{prior_error}; {error}"
+        return EmailDeliveryResult(False, recipients, provider, error)
 
     msg = MIMEMultipart()
     msg["From"] = sender_email
     msg["To"] = to_addr
-    if cc_addr:
-        msg["Cc"] = cc_addr
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain"))
 
-    with open(transcript_file, "rb") as transcript_handle:
-        content = transcript_handle.read()
-
-    part = MIMEBase("text", "plain")
-    part.set_payload(content)
-    encoders.encode_base64(part)
-    part.add_header("Content-Type", f'text/plain; name="{file_name}"')
-    part.add_header("Content-Disposition", f'attachment; filename="{file_name}"')
-    msg.attach(part)
-
-    recipients = [addr for addr in [to_addr, cc_addr, bcc_addr] if addr]
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, recipients, msg.as_string())
-        st.success(f"Email sent to {recipients}")
+        st.success(f"Verification email sent to {to_addr}")
+        return EmailDeliveryResult(True, recipients, provider, prior_error)
     except Exception as exc:
-        st.error("Error sending email via Gmail SMTP.")
+        st.error("Error sending verification email via Gmail SMTP.")
         st.exception(exc)
+        error = str(exc)
+        if prior_error:
+            error = f"{prior_error}; Gmail fallback failed: {error}"
+        return EmailDeliveryResult(False, recipients, provider, error)
 
 
 def send_verification_code(student_number, code):
@@ -374,6 +514,7 @@ def send_verification_code(student_number, code):
     )
 
     if use_liacs:
+        fallback_to_gmail = _secret_bool("EMAIL_FALLBACK_TO_GMAIL", True)
         python_code = f"""\
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -390,26 +531,25 @@ with smtplib.SMTP("smtp.leidenuniv.nl") as server:
 
 print("Verification email sent.")
 """
-        _run_liacs_script(python_code, "Failed to send verification email via LIACS SMTP.")
-        return
+        result = _run_liacs_script(
+            python_code,
+            "Failed to send verification email via LIACS SMTP.",
+            show_error=not fallback_to_gmail,
+        )
+        if result is None:
+            return EmailDeliveryResult(True, [to_addr], "liacs")
+        sent, error = result
+        if sent:
+            return EmailDeliveryResult(True, [to_addr], "liacs")
+        if fallback_to_gmail:
+            st.warning("LIACS verification email failed. Trying Gmail backup delivery.")
+            return _send_verification_code_gmail(
+                to_addr,
+                subject,
+                body,
+                provider="gmail_fallback",
+                prior_error=f"LIACS SMTP failed: {error}",
+            )
+        return EmailDeliveryResult(False, [to_addr], "liacs", error)
 
-    smtp_server = "smtp.gmail.com"
-    smtp_port = 587
-    sender_email = "businessinternship.liacs@gmail.com"
-    sender_password = st.secrets["EMAIL_PASSWORD"]
-
-    msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = to_addr
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
-
-    try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, [to_addr], msg.as_string())
-        st.success(f"Verification email sent to {to_addr}")
-    except Exception as exc:
-        st.error("Error sending verification email via Gmail SMTP.")
-        st.exception(exc)
+    return _send_verification_code_gmail(to_addr, subject, body)
