@@ -51,13 +51,6 @@ from interview_smoke import (
     smoke_noop,
     smoke_test_mode_enabled,
 )
-from utils import (
-    save_interview_data,
-    send_transcript_email,
-    send_verification_code,
-    synthesize_speech_deepinfra,
-)
-
 INITIAL_USER_PROMPT = "Please begin the interview following the provided instructions."
 TYPING_CHARACTERS_PER_SECOND = 65
 REQUIRED_QUERY_PARAMS = ("name", "recipient_email")
@@ -96,6 +89,28 @@ def record_email_delivery_remote(*args, **kwargs):
     from database import record_email_delivery_remote as impl
 
     return impl(*args, **kwargs)
+
+
+def _load_utils():
+    import utils
+
+    return importlib.reload(utils)
+
+
+def save_interview_data(*args, **kwargs):
+    return _load_utils().save_interview_data(*args, **kwargs)
+
+
+def send_transcript_email(*args, **kwargs):
+    return _load_utils().send_transcript_email(*args, **kwargs)
+
+
+def send_verification_code(*args, **kwargs):
+    return _load_utils().send_verification_code(*args, **kwargs)
+
+
+def synthesize_speech_deepinfra(*args, **kwargs):
+    return _load_utils().synthesize_speech_deepinfra(*args, **kwargs)
 
 
 def get_audio_client():
