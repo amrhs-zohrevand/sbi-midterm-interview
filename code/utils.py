@@ -13,8 +13,6 @@ from email.mime.text import MIMEText
 
 import streamlit as st
 
-from remote_utils import close_ssh_connection, get_ssh_connection, run_remote_python
-
 
 @dataclass(frozen=True)
 class EmailDeliveryResult:
@@ -265,6 +263,8 @@ def _run_liacs_script(
     ssh = None
     tmp_key_path = None
     try:
+        from remote_utils import close_ssh_connection, get_ssh_connection, run_remote_python
+
         ssh, tmp_key_path = get_ssh_connection(timeout_seconds=20, retries=3)
         output = run_remote_python(ssh, python_code.strip())
         if output:
@@ -276,7 +276,8 @@ def _run_liacs_script(
             st.exception(exc)
         return False, str(exc)
     finally:
-        close_ssh_connection(ssh, tmp_key_path)
+        if "close_ssh_connection" in locals():
+            close_ssh_connection(ssh, tmp_key_path)
 
 
 def _send_transcript_email_gmail(

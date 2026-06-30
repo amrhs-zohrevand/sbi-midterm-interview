@@ -1,7 +1,6 @@
 import csv
 from pathlib import Path
 import streamlit as st
-from database import get_transcript_by_student_and_type
 
 MATRIX_FILE = Path(__file__).parent / "interview_matrix.csv"
 
@@ -58,6 +57,15 @@ def get_context_transcript(student_id: str, current_interview_type: str) -> str:
     
     if interview_key in context_map:
         context_type = context_map[interview_key]
-        transcript = get_transcript_by_student_and_type(student_id, context_type)
-        return transcript
+        try:
+            from database import get_transcript_by_student_and_type
+
+            return get_transcript_by_student_and_type(student_id, context_type)
+        except Exception as exc:
+            st.warning(
+                "Previous interview context could not be loaded. "
+                "The interview will continue without it."
+            )
+            print(f"Context transcript load failed for {student_id}: {exc}")
+            return ""
     return ""

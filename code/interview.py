@@ -12,12 +12,6 @@ import streamlit as st
 from openai import NotFoundError, OpenAI
 from streamlit_mic_recorder import mic_recorder
 
-from database import (
-    persist_checkpoint_remote,
-    persist_completion_remote,
-    record_email_delivery_remote,
-    update_interview_summary,
-)
 from interview_completion import (
     INLINE_SURVEY_LEGEND,
     INLINE_SURVEY_OPTIONS,
@@ -77,6 +71,30 @@ QUERY_PARAM_RETRY_LIMIT = 3
 QUERY_PARAM_RETRY_DELAY_SECONDS = 1.0
 
 SMOKE_TEST_MODE = smoke_test_mode_enabled()
+
+
+def persist_checkpoint_remote(*args, **kwargs):
+    from database import persist_checkpoint_remote as impl
+
+    return impl(*args, **kwargs)
+
+
+def persist_completion_remote(*args, **kwargs):
+    from database import persist_completion_remote as impl
+
+    return impl(*args, **kwargs)
+
+
+def update_interview_summary(*args, **kwargs):
+    from database import update_interview_summary as impl
+
+    return impl(*args, **kwargs)
+
+
+def record_email_delivery_remote(*args, **kwargs):
+    from database import record_email_delivery_remote as impl
+
+    return impl(*args, **kwargs)
 
 
 def get_audio_client():
